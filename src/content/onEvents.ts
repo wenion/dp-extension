@@ -1,0 +1,970 @@
+import { getFormVisibleContainerId } from "./util";
+import { getXPath } from './xpath';
+
+import type { UserEventTrace } from "@/shared/types";
+
+export const userEventSender = (trace: UserEventTrace) => {
+  chrome.runtime.sendMessage({
+    type: "UserEvent",
+    payload: trace
+  });
+}
+
+export const onPointerDown = (
+  event: PointerEvent,
+  func?: (trace: UserEventTrace) => void
+) : void => {
+  const target = event.target;
+  const data = {} as UserEventTrace;
+  data.source = "UserEvent";
+  data.eventType = event.type;
+  data.timestamp = Date.now();
+
+  if (!target || !(target instanceof Element)) return;
+
+  if (target instanceof HTMLInputElement) {
+    data.tag = target.tagName;
+    data.elementType = target.type;
+    data.name = target.name;
+    data.placeholder = target.placeholder;
+    data.textContent = target.textContent || "";
+    data.clientX = event.clientX;
+    data.clientY = event.clientY;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+
+    let originValue: string | number | boolean = target.value;
+    if (data.elementType === "checkbox" || data.elementType === "radio") {
+      data.originValue = target.checked.toString();
+      data.valueName = "checked";
+    } else if (data.elementType === "file") {
+      data.originValue = (target.files?.length || 0).toString();
+      data.valueName = "files";
+    } else if (data.elementType === "range" || data.elementType === "number") {
+      data.originValue = target.valueAsNumber.toString();
+      data.valueName = "valueAsNumber";
+    } else {
+      data.originValue = target.value;
+      data.valueName = "value";
+    }
+    // else if (subType === "button" || subType === "submit" || subType === "reset") {
+    //   originValue = target.value;
+
+    // } else if (subType === "date" || subType === "time" || subType === "datetime-local" || subType === "month" || subType === "week") {
+    //   originValue = target.value;
+
+    // }
+    data.valueType = typeof originValue;
+    if (target.labels?.length) {
+      data.label = Array.from(target.labels).map(l => l.textContent).join(" | ");
+    }
+  }
+  else if (target instanceof HTMLTextAreaElement) {
+    data.tag = target.tagName;
+    data.elementType = target.type;
+    data.name = target.name;
+    data.placeholder = target.placeholder;
+    data.textContent = target.textContent || "";
+    data.clientX = event.clientX;
+    data.clientY = event.clientY;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+
+    data.originValue = target.value;
+    data.valueName = "value";
+    data.valueType = "string";
+
+    if (target.labels?.length) {
+      data.label = Array.from(target.labels).map(l => l.textContent).join(" | ");
+    }
+  }
+  else if (target instanceof HTMLSelectElement) {
+    data.tag = target.tagName;
+    data.elementType = target.type;
+    data.name = target.name;
+    data.textContent = target.textContent || "";
+    data.clientX = event.clientX;
+    data.clientY = event.clientY;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+
+    data.originValue = target.value;;
+    data.valueName = "value";
+    data.valueType = typeof data.originValue;
+
+    data.valueIndex = target.selectedIndex;
+    data.valueLabel = target.selectedOptions[0]?.label || "";
+
+    if (target.labels?.length) {
+      data.label = Array.from(target.labels).map(l => l.textContent).join(" | ");
+    }
+  }
+  else if (target instanceof HTMLButtonElement) {
+    data.tag = target.tagName;
+    data.elementType = target.type;
+    data.name = target.name;
+    data.textContent = target.textContent || "";
+    data.clientX = event.clientX;
+    data.clientY = event.clientY;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+
+    data.originValue = target.value;
+    data.valueName = "value";
+    data.valueType = typeof data.originValue;
+
+    if (target.labels?.length) {
+      data.label = Array.from(target.labels).map(l => l.textContent).join(" | ");
+    }
+  }
+  else if (target instanceof HTMLAnchorElement) {
+    data.tag = target.tagName;
+    data.elementType = target.type;
+    data.name = "";
+    data.textContent = target.textContent || "";
+    data.clientX = event.clientX;
+    data.clientY = event.clientY;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+
+    data.originValue = target.href;
+    data.valueName = "href";
+    data.valueType = typeof data.originValue;
+
+    data.label = target.innerText || "";
+  }
+  else if (target instanceof HTMLDivElement) {
+    data.tag = target.tagName;
+
+    data.name = (target as any).name || "";
+    data.textContent = target.textContent || "";
+    data.clientX = event.clientX;
+    data.clientY = event.clientY;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+    data.originValue = "";
+    data.valueName = "";
+    data.valueType = "";
+    data.label = target.innerText || "";
+  }
+  else if (target instanceof Element) {
+    data.tag = target.tagName;
+
+    data.name = (target as any).name || "";
+    data.textContent = target.textContent || "";
+    data.clientX = event.clientX;
+    data.clientY = event.clientY;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+    data.originValue = "";
+    data.valueName = "";
+    data.valueType = "";
+    data.label = "";
+  }
+  else {
+    return;
+  }
+  func && func(data);
+};
+
+export const onChange = (
+  event: Event,
+  func?: (trace: UserEventTrace) => void
+) : void => {
+  const target = event.target;
+  const data = {} as UserEventTrace;
+  data.eventType = event.type;
+  data.source = "UserEvent";
+  data.timestamp = Date.now();
+
+  if (!target || !(target instanceof HTMLElement)) return;
+
+  data.containerId = getFormVisibleContainerId(target);
+
+  if (target instanceof HTMLInputElement) {
+    data.tag = target.tagName;
+    data.elementType = target.type;
+    data.name = target.name;
+    data.placeholder = target.placeholder;
+    data.textContent = target.textContent || "";
+    data.clientX = 0;
+    data.clientY = 0;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+
+    if (data.elementType === "checkbox" || data.elementType === "radio") {
+      data.originValue = target.checked.toString();
+      data.valueName = "checked";
+    } else if (data.elementType === "file") {
+      data.originValue = (target.files?.length || 0).toString();
+      data.valueName = "files";
+    } else if (data.elementType === "range" || data.elementType === "number") {
+      data.originValue = target.valueAsNumber.toString();
+      data.valueName = "valueAsNumber";
+    } else {
+      data.originValue = target.value;
+      data.valueName = "value";
+    }
+
+    data.valueType = typeof data.originValue;
+    if (target.labels?.length) {
+      data.label = Array.from(target.labels).map(l => l.textContent).join(" | ");
+    }
+  }
+  else if (target instanceof HTMLTextAreaElement) {
+    data.tag = target.tagName;
+    data.elementType = target.type;
+    data.name = target.name;
+    data.placeholder = target.placeholder;
+    data.textContent = target.textContent || "";
+    data.clientX = NaN;
+    data.clientY = NaN;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+
+    data.originValue = target.value;
+    data.valueName = "value";
+    data.valueType = "string";
+
+    if (target.labels?.length) {
+      data.label = Array.from(target.labels).map(l => l.textContent).join(" | ");
+    }
+  }
+  else if (target instanceof HTMLSelectElement) {
+    data.tag = target.tagName;
+    data.elementType = target.type;
+    data.name = target.name;
+    data.textContent = target.textContent || "";
+
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+
+    data.valueName = "value";
+    data.originValue = target.value;
+    data.valueType = typeof data.originValue;
+
+    data.valueIndex = target.selectedIndex;
+    data.valueLabel = target.selectedOptions[0]?.label || "";
+
+    if (target.labels?.length) {
+      data.label = Array.from(target.labels).map(l => l.textContent).join(" | ");
+    }
+  }
+  else if (target instanceof Element) {
+    data.tag = target.tagName;
+    data.name = (target as any).name || "";
+    data.textContent = target.textContent || "";
+    data.clientX = NaN;
+    data.clientY = NaN;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+    data.originValue = "";
+    data.valueName = "";
+    data.valueType = "";
+    data.valueIndex = NaN;
+    data.valueLabel = "";
+    data.direction = "";
+    data.label = target.innerText || "";
+  }
+
+  func && func(data);
+}
+
+export const onSelect = (
+  event: Event,
+  func?: (trace: UserEventTrace) => void
+) : void => {
+  const target = event.target;
+  if (!target || !(target instanceof Element)) return;
+  const data = {} as UserEventTrace;
+  data.source = "UserEvent";
+  data.eventType = event.type;
+  data.timestamp = Date.now();
+
+  if (target instanceof HTMLInputElement ) {
+    if (target.selectionStart === null || target.selectionEnd === null) return;
+
+    data.tag = target.tagName;
+    data.elementType = target.type;
+    data.name = target.name;
+    data.placeholder = target.placeholder;
+    data.textContent = target.textContent || "";
+    data.clientX = target.selectionStart;
+    data.clientY = target.selectionEnd;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+
+    data.originValue = target.value.substring(target.selectionStart, target.selectionEnd);
+    data.valueName = "value";
+    data.valueType = "string";
+    data.direction = target.selectionDirection || "";
+
+    if (target.labels?.length) {
+      data.label = Array.from(target.labels).map(l => l.textContent).join(" | ");
+    }
+  }
+  else if (target instanceof HTMLTextAreaElement) {
+    if (target.selectionStart === null || target.selectionEnd === null) return;
+
+    data.tag = target.tagName;
+    data.elementType = target.type;
+    data.name = target.name;
+    data.placeholder = target.placeholder;
+    data.textContent = target.textContent || "";
+    data.clientX = target.selectionStart;
+    data.clientY = target.selectionEnd;
+    data.width = window.innerWidth;
+    data.height = window.innerHeight;
+    data.xpath = getXPath(target);
+
+    data.originValue = target.value.substring(target.selectionStart, target.selectionEnd);
+    data.valueName = "value";
+    data.valueType = "string";
+    data.direction = target.selectionDirection || "";
+
+    if (target.labels?.length) {
+      data.label = Array.from(target.labels).map(l => l.textContent).join(" | ");
+    }
+  }
+  else {
+    return;
+  }
+  func && func(data);
+};
+
+export const onMouseUp = (
+  event: MouseEvent,
+  func?: (trace: UserEventTrace) => void
+) : void => {
+  const target = event.target;
+  if (!target || !(target instanceof Element)) return;
+
+  const selection = document.getSelection();
+  if (!selection) return;
+
+  const data = {} as UserEventTrace;
+  data.source = "UserEvent";
+  data.eventType = event.type;
+  if ("type" in target && typeof (target as any).type === "string") {
+    data.elementType = (target as any).type;
+  }
+  data.tag = target.tagName;
+  data.name = (target as any).name || "";
+  data.textContent = target.textContent || "";
+  data.clientX = event.clientX;
+  data.clientY = event.clientY;
+  data.width = window.innerWidth;
+  data.height = window.innerHeight;
+  data.xpath = getXPath(target);
+  data.timestamp = Date.now();
+
+  data.originValue = selection.toString();
+  data.valueName = "";
+  data.valueType = "string";
+  data.label = "";
+  data.direction = selection.direction || "";
+
+  func && func(data);
+};
+
+type CaretInfo = {
+  absolutePosition: number;
+  line: number;     // 0-based
+  column: number;   // 0-based
+};
+
+function getCaretInfo(target: HTMLElement, key?: string): CaretInfo | null {
+
+  // ============================
+  // 1 TEXTAREA / INPUT
+  // ============================
+  if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+
+    const value = target.value;
+    const start = target.selectionStart ?? 0;
+
+    const before = value.slice(0, start);
+    const lines = before.split("\n");
+
+    return {
+      absolutePosition: start,
+      line: lines.length - 1,
+      column: lines[lines.length - 1].length
+    };
+  }
+
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+  const range = selection.getRangeAt(0);
+
+  // ============================
+  // 2 CodeMirror (Overleaf)
+  // ============================
+  if (target.classList.contains("cm-content")) {
+
+    const container = range.startContainer;
+
+    const lineEl =
+      container.nodeType === Node.TEXT_NODE
+        ? container.parentElement?.closest(".cm-line")
+        : (container as HTMLElement).closest(".cm-line");
+
+    if (!lineEl) return null;
+
+    const lines = Array.from(target.querySelectorAll(".cm-line"));
+    const lineIndex = lines.indexOf(lineEl);
+
+    let absolutePosition = 0;
+
+    for (let i = 0; i < lineIndex; i++) {
+      absolutePosition += (lines[i].textContent ?? "").length + 1;
+    }
+
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(lineEl);
+    preRange.setEnd(range.startContainer, range.startOffset);
+
+    const column = preRange.toString().length;
+
+    return {
+      absolutePosition: absolutePosition + column,
+      line: lineIndex,
+      column
+    };
+  }
+
+  // ============================
+  // 3 ProseMirror (ChatGPT / Notion)
+  // ============================
+  if (target.querySelector("p")) {
+
+    const container = range.startContainer;
+
+    const paragraphs = Array.from(target.querySelectorAll("p"));
+
+    const currentParagraph =
+      container.nodeType === Node.TEXT_NODE
+        ? container.parentElement?.closest("p")
+        : (container as HTMLElement).closest("p");
+
+    if (!currentParagraph) return null;
+
+    let paragraphIndex = paragraphs.indexOf(currentParagraph); // paragraphIndex is 0-based index
+
+    if (key === "Enter") {
+      // DOM structure changes
+      paragraphIndex = paragraphIndex - 1;
+    }
+
+    let absolutePosition = 0;
+
+    for (let i = 0; i < paragraphIndex; i++) {
+      absolutePosition += (paragraphs[i].textContent ?? "").length;
+      if ((paragraphs[i + 1].textContent ?? "").length > 0) {
+        // next paragraph has text, so add 1 for the newline
+        absolutePosition += 1;
+      }
+      else if ((paragraphs[i + 1].textContent ?? "").length === 0 && key !== "Enter") {
+        // next paragraph is empty, but user didn't just press Enter, so add 1 for the newline
+        absolutePosition += 1;
+      }
+      else if ((paragraphs[i + 1].textContent ?? "").length === 0 && paragraphs[i + 2]?.textContent !== undefined) {
+        // next paragraph is empty, but there is a next next paragraph, so add 1 for the newline
+        absolutePosition += 1;
+      }
+    }
+
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(currentParagraph);
+    preRange.setEnd(range.startContainer, range.startOffset);
+
+    absolutePosition += preRange.toString().length;
+
+    // 3 Convert to line + column
+    const line = paragraphIndex;
+    const column = preRange.toString().length;
+
+    return {
+      absolutePosition,
+      line,
+      column
+    };
+  }
+
+  // ============================
+  // 4 Google Docs
+  // ============================
+  if (target.querySelector(".kix-lineview")) {
+
+    const container = range.startContainer;
+
+    const lines = Array.from(document.querySelectorAll(".kix-lineview"));
+
+    const currentLine =
+      container.nodeType === Node.TEXT_NODE
+        ? container.parentElement?.closest(".kix-lineview")
+        : (container as HTMLElement).closest(".kix-lineview");
+
+    if (!currentLine) return null;
+
+    const lineIndex = lines.indexOf(currentLine);
+
+    let absolutePosition = 0;
+
+    for (let i = 0; i < lineIndex; i++) {
+      absolutePosition += (lines[i].textContent ?? "").length + 1;
+    }
+
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(currentLine);
+    preRange.setEnd(range.startContainer, range.startOffset);
+
+    const column = preRange.toString().length;
+
+    return {
+      absolutePosition: absolutePosition + column,
+      line: lineIndex,
+      column
+    };
+  }
+
+  // ============================
+  // 5 Generic contenteditable fallback
+  // ============================
+
+  const preRange = range.cloneRange();
+  preRange.selectNodeContents(target);
+  preRange.setEnd(range.startContainer, range.startOffset);
+
+  const text = preRange.toString();
+  const lines = text.split("\n");
+
+  return {
+    absolutePosition: text.length,
+    line: lines.length - 1,
+    column: lines[lines.length - 1].length
+  };
+}
+
+export const onKeyDown = (
+  event: KeyboardEvent,
+  func?: (trace: UserEventTrace) => void
+) : void => {
+  const target = event.target;
+
+  if (!target) return;
+
+  const isNativeInput =
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement;
+
+  const isInContentEditable =
+    (target as HTMLElement).isContentEditable;
+
+  if (!isNativeInput && !isInContentEditable) return;
+
+  const isUndo =
+    (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z";
+
+  const isRedo =
+    (event.ctrlKey || event.metaKey) &&
+    (
+      (event.shiftKey && event.key.toLowerCase() === "z") || // Mac / some apps
+      event.key.toLowerCase() === "y" // Windows redo
+    );
+
+  const MODIFIER_KEYS = new Set([
+    "Shift",
+    "Control",
+    "Alt",
+    "Meta",
+    "CapsLock"
+  ]);
+
+  const isModifierOnly = MODIFIER_KEYS.has(event.key);
+
+  // ignore modifier-only presses (Shift, Ctrl, etc.)
+  if (isModifierOnly) return;
+
+  // ignore most shortcuts EXCEPT undo/redo
+  if (
+    (event.ctrlKey || event.metaKey || event.altKey) &&
+    !isUndo &&
+    !isRedo
+  ) {
+    return;
+  }
+
+  const data = {} as UserEventTrace;
+  data.eventType = event.type;
+  data.source = "UserEvent";
+
+  data.tag = (target as Element).tagName;
+  data.name = (target as any).name;
+  data.textContent = (target as Element).textContent;
+  data.clientX = NaN;
+  data.clientY = NaN;
+  data.width = window.innerWidth;
+  data.height = window.innerHeight;
+  data.xpath = target instanceof Element ? getXPath(target) : "";
+
+  data.code = event.code;
+  data.key = event.key;
+  if (isUndo || isRedo) {
+    data.key = isUndo ? "Undo" : "Redo";
+    data.code = data.key;
+  }
+  data.timestamp = Date.now();
+
+  data.author = "human";
+
+  // TODO escape characters eventValue should be null for non-character keys
+  data.eventValue = data.key;
+  data.eventState = data.textContent;
+
+  if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+    data.eventState = target.value;
+    data.startPosition = target.selectionStart ?? undefined;
+  }
+  else if (target instanceof HTMLElement && target.isContentEditable) {
+    let eventState = "";
+    if (target) {
+      const paragraphs = target.querySelectorAll("p, .cm-line, .kix-lineview");
+
+      paragraphs.forEach((p, index) => {
+        const text = p.textContent ?? "";
+        eventState += text;
+
+        if (index !== paragraphs.length - 1) {
+          eventState += "\n";
+        }
+      });
+    }
+
+    data.eventState = eventState;
+    const caretInfo = getCaretInfo(target as HTMLElement, event.key);
+    data.startPosition = caretInfo?.absolutePosition;
+  }
+
+  func?.(data);
+}
+
+export const onInput = (
+  event: Event,
+  func?: (trace: UserEventTrace) => void
+) : void => {
+  if (!(event instanceof InputEvent)) return;
+
+  const target = event.target;
+  const data = {} as UserEventTrace;
+  data.source = "UserEvent";
+  data.eventType = event.type;
+  data.timestamp = Date.now();
+  data.author = "human";
+
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    data.startPosition = target.selectionStart ?? undefined;
+    data.textContent = target.textContent;
+    data.eventValue = event.data ?? undefined;
+    data.eventState = target.value;
+    data.xpath = getXPath(target as Element);
+    data.tag = target.tagName;
+  }
+  else if (target instanceof HTMLElement && target.isContentEditable) {
+    let eventState = "";
+    const paragraphs = target.querySelectorAll("p, .cm-line, .kix-lineview");
+    paragraphs.forEach((p, index) => {
+      const text = p.textContent ?? "";
+      eventState += text;
+      // if (index === paragraphs.length - 2 && event.data === "\n") {
+      // } else if (index !== paragraphs.length - 1) {
+      //   eventState += "\n";
+      // }
+      if (index !== paragraphs.length - 1) {
+        eventState += "\n";
+      }
+    });
+    data.eventState = eventState;
+    data.eventValue = event.data ?? undefined;
+    data.xpath = getXPath(target as Element);
+    data.tag = target.tagName;
+  }
+  else {
+    data.eventValue = event.data ?? undefined;
+    data.xpath = getXPath(target as Element);
+    data.tag = (target as Element).tagName;
+  }
+
+  // if keydown is Backspace, eventValue is null, eventState is the updated text content
+  // if eventState is already empty, there will be no input event fired
+
+  func?.(data);
+}
+
+export const onScroll = (
+  event: Event,
+  func?: (trace: UserEventTrace) => void
+) : void => {
+  const data = {} as UserEventTrace;
+  data.eventType = event.type;
+  data.source = "UserEvent";
+  
+  data.clientX = window.scrollX;
+  data.clientY = window.scrollY;
+  data.width = window.innerWidth;
+  data.height = window.innerHeight;
+
+  data.timestamp = Date.now();
+  func && func(data);
+};
+
+export const onWheel = (
+  event: WheelEvent,
+  func?: (trace: UserEventTrace) => void
+) : void => {
+  const data = {} as UserEventTrace;
+  data.eventType = event.type;
+  data.source = "UserEvent";
+  
+  data.clientX = window.scrollX;
+  data.clientY = window.scrollY;
+  data.width = window.innerWidth;
+  data.height = window.innerHeight;
+
+  data.timestamp = Date.now();
+  func && func(data);
+};
+
+export const onCut = (
+  event: ClipboardEvent,
+  func?: (trace: UserEventTrace) => void
+): void => {
+  const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
+
+  const target = event.target as HTMLElement | null;
+
+  const data = {} as UserEventTrace;
+  data.source = "UserEvent";
+  data.eventType = event.type;
+  data.timestamp = Date.now();
+  data.author = "human";
+
+  // Case 1: input / textarea
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement
+  ) {
+    data.originValue = target.value; // the original text content before cutting
+
+    const start = target.selectionStart ?? 0;
+    const end = target.selectionEnd ?? 0;
+    let text = target.value.slice(start, end);
+    if (text.length !== 0) {
+      data.eventValue = text;
+      data.startPosition = start;
+      data.endPosition = end;
+    }
+    data.eventState = target.value.slice(0, start) + target.value.slice(end); // the text content after cutting
+  }
+  // Case 2: contenteditable or normal DOM selection
+  else if (target instanceof HTMLElement) {
+    let eventState = "";
+    const editable = target.closest('[contenteditable="true"]');
+    if (editable) {
+      const paragraphs = editable.querySelectorAll("p, .cm-line, .kix-lineview");
+
+      paragraphs.forEach((p, index) => {
+        const text = p.textContent ?? "";
+        eventState += text;
+
+        if (index !== paragraphs.length - 1) {
+          eventState += "\n";
+        }
+      });
+      data.eventState = eventState; // the text content after cutting
+    }
+  }
+
+  if (!data.eventValue || data.eventValue.length === 0 && clipboardText) {
+    data.eventValue = clipboardText;
+  }
+
+  func?.(data);
+};
+
+export const onCopy = (
+  event: ClipboardEvent,
+  func?: (trace: UserEventTrace) => void
+) : void => {
+  const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
+
+  const data = {} as UserEventTrace;
+  data.source = "UserEvent";
+  data.eventType = event.type;
+  data.textContent = clipboardText;
+  data.timestamp = Date.now();
+
+  const selection = document.getSelection();
+  const selectedText = selection ? selection.toString() : "";
+
+  const target = event.target as HTMLElement | null;
+  if (target) {
+    data.tag = target.tagName;
+    data.name = (target as HTMLInputElement).name ?? "";
+    data.placeholder = (target as HTMLInputElement).placeholder ?? "";
+  }
+
+  if (selectedText !== clipboardText && clipboardText.length < selectedText.length) {
+    data.textContent = selectedText;
+    data.eventState = selectedText;
+  }
+
+  func?.(data);
+};
+
+export const onPaste = (
+  event: ClipboardEvent,
+  func?: (trace: UserEventTrace) => void
+) : void => {
+  const clipboardText =
+    event.clipboardData?.getData("text/plain") ?? "";
+
+  const data = {} as UserEventTrace;
+  data.source = "UserEvent";
+  data.eventType = event.type;
+  data.eventValue = clipboardText;
+  data.textContent = clipboardText;
+  data.timestamp = Date.now();
+  data.author = "human";
+
+  const target = event.target as HTMLElement | null;
+  if (target) {
+    data.tag = target.tagName;
+
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+      data.name = (target as HTMLInputElement).name ?? "";
+      data.placeholder = (target as HTMLInputElement).placeholder ?? "";
+      data.startPosition = target.selectionStart ?? undefined;
+      data.originValue = target.value;
+      data.valueType = typeof target.value;
+      data.eventState = target.value;
+    }
+    else {
+      let eventState = "";
+      const editable = target.closest('[contenteditable="true"]');
+      if (editable) {
+        const paragraphs = editable.querySelectorAll("p, .cm-line, .kix-lineview");
+
+        paragraphs.forEach((p, index) => {
+          const text = p.textContent ?? "";
+          eventState += text;
+
+          if (index !== paragraphs.length - 1) {
+            eventState += "\n";
+          }
+        });
+        data.eventState = eventState;
+      }
+    }
+  }
+
+  func?.(data);
+};
+
+const onMutation = (
+  node: HTMLElement,
+  builder: (node: HTMLElement) => UserEventTrace,
+  func?: (trace: UserEventTrace) => void
+) => {
+  const data = builder(node);
+  func?.(data);
+};
+
+export const onChatgptMutation = (
+  node: HTMLElement,
+  sender: (trace: UserEventTrace) => void
+) => {
+  const builder = (node: HTMLElement) => {
+    const data = {} as UserEventTrace;
+    data.eventType = "mutation";
+    data.url = window.location.href;
+    data.tag = node.tagName;
+    data.author = node.getAttribute("data-turn") === "user" ? "human" : "AI";
+    data.message = node.innerText;
+    data.sessionId = node.getAttribute("data-testid") || "";
+    data.timestamp = Date.now();
+    data.name = node.getAttribute("data-turn-id") || "";
+    data.source = "Mutation";
+    return data;
+  };
+  onMutation(node, builder, sender);
+};
+
+export const onGeminiMutation = (
+  node: HTMLElement,
+  sender: (trace: UserEventTrace) => void
+) => {
+  const builder = (node: HTMLElement) => {
+    const data = {} as UserEventTrace;
+    data.eventType = "mutation";
+    data.url = window.location.href;
+    data.tag = node.tagName;
+    data.message = node.innerText; // don't need to concatenate
+    data.timestamp = Date.now();
+    data.source = "Mutation";
+
+    if (data.tag === "USER-QUERY") {
+      data.author = "human";
+      const parent = node.closest('div[class*="conversation-container"]'); //The first <div> element whose class attribute contains the substring "conversation-container"
+      data.sessionId = parent ? parent.getAttribute("id") || data.timestamp.toString() :
+        data.timestamp.toString();
+
+      const child = node.querySelector('[class*="query-content"]');
+      data.name = child ? child.getAttribute("id") || "" : "";
+
+    } else if (data.tag === "MODEL-RESPONSE") {
+      data.author = "AI";
+      const parent = node.closest('div[class*="conversation-container"]'); //The first <div> element whose class attribute contains the substring "conversation-container"
+      data.sessionId = parent ? parent.getAttribute("id") || data.timestamp.toString() :
+        data.timestamp.toString();
+
+      const child = node.querySelector('message-content');
+      data.name = child ? child.getAttribute("id") || "" : "";
+    }
+    return data;
+  };
+  onMutation(node, builder, sender);
+};
+
+export const onClaudeMutation = (
+  node: HTMLElement,
+  sender: (trace: UserEventTrace) => void
+) => {
+  const builder = (node: HTMLElement) => {
+    const data = {} as UserEventTrace;
+    data.eventType = "mutation";
+    data.url = window.location.href;
+    data.tag = node.tagName;
+    data.message = node.innerText;
+    data.timestamp = Date.now();
+    data.source = "Mutation";
+
+    node.matches('[data-testid="user-message"]') ? data.author = "human" :
+      node.closest('.font-claude-response') ? data.author = "AI" : data.author = "unknown";
+
+    return data;
+  };
+  onMutation(node, builder, sender);
+};
