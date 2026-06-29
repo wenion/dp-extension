@@ -1,5 +1,3 @@
-import { now } from "@/content/util";
-
 import { addMutationEventListener, removeMutationEventListener } from "./mutationObserver";
 import {
   addGoogleDocsEventListener,
@@ -59,12 +57,12 @@ const onMessage = (
     //   contentPanelElement.removeEventListener("pointerdown", pointerDownHandler);
     //   contentPanelElement = null;
     // }
-    sendResponse({ ok: true, from: "content-script", at: now() });
+    sendResponse({ ok: true, from: "content-script", at: new Date().toISOString() });
     chrome.runtime.onMessage.removeListener(onMessage);
   }
   else if (msg.type === "PING") {
     // reply to Popup to confirm the content script is alive
-    sendResponse({ ok: true, from: "content-script", at: now() });
+    sendResponse({ ok: true, from: "content-script", at: new Date().toISOString() });
   }
   else if (msg.type === "GOOGLE_DOCS_CONTENT_LOADED") {
     // showToast(

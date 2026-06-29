@@ -24,10 +24,18 @@
       "https://www.googleapis.com/auth/documents.readonly"
     ]
   },
+   "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "web_accessible_resources": [
     {
       "resources": ["injected.js"],
       "matches": {{{web_accessible_matches}}}
+    },
+    {
+      "resources": ["content-script.css"],
+      "matches": ["<all_urls>"]
     }
   ],
   "icons": {
