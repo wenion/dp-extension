@@ -1,5 +1,7 @@
 import { Button } from "@heroui/button";
 import { Card, CardBody } from "@heroui/card";
+import { addToast } from "@heroui/toast";
+
 import { Eye, EyeSlash, EyeClosed } from '@gravity-ui/icons';
 
 type TabRecordCardProps = {
@@ -60,6 +62,26 @@ export function TabRecordCard({
           onPress: onRequestPermission,
         };
 
+  const openTab = async(tabId: number) => {
+    try {
+      const tab = await chrome.tabs.get(tabId);
+
+      await chrome.windows.update(tab.windowId, {
+        focused: true,
+      });
+
+      await chrome.tabs.update(tabId, {
+        active: true,
+      });
+    } catch {
+      addToast({
+        title: "Unable to open tab",
+        description: "This tab no longer exists.",
+        color: "danger",
+      });
+    }
+  }
+
   return (
     <Card shadow="sm" className="border border-default-200">
       <CardBody className="flex flex-row items-center gap-4 p-4">
@@ -79,8 +101,13 @@ export function TabRecordCard({
         </div>
 
         {/* Title */}
-        <div className="min-w-0 flex-1 items-center justify-center">
-          <p className="truncate text-base font-semibold">{title}</p>
+        <div className="min-w-0 flex-1">
+          <p
+            className="truncate text-base font-semibold text-primary cursor-pointer hover:underline"
+            onClick={() => openTab(tabId)}
+          >
+            {title}
+          </p>
           <p className="truncate text-sm text-default-500">{domain}</p>
         </div>
 

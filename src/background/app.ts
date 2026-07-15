@@ -50,7 +50,7 @@ export async function bootstrap() {
     new ContentScriptService(storage, contentScriptClient, storageService );
 
   const sessionPersistenceService = new SessionPersistenceService(api, storage);
-  const uploadService = new UploadService(api, storage, contentScriptService, traceService, traceProcessor);
+  const uploadService = new UploadService(api, traceService, traceProcessor);
   const pageService = new PageService(storage, contentScriptClient);
   const sessionService =
     new SessionService(
@@ -63,7 +63,6 @@ export async function bootstrap() {
   const actionService =
     new ActionService(
       storage,
-      contentScriptClient,
       contentScriptService,
       pageService,
       sessionService,
