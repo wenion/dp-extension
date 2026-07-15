@@ -1,43 +1,6 @@
 export const now = () => new Date().toISOString();
 
-export const getPageType = (url: string) => {
-  if (!url) return "other";
-
-  const host = new URL(url).host;
-
-  // ---- AI Tools ----
-  const aiDomains = [
-    "chatgpt.com",
-    "openai.com",
-    "claude.ai",
-    "gemini.google.com",
-    "perplexity.ai",
-    "notebooklm.google.com",
-    "wordtune.com",
-    "quillbot.com",
-    "grammarly.com",
-  ];
-
-  if (aiDomains.some(d => host.endsWith(d))) {
-    return "AI";
-  }
-
-  // ---- Editors ----
-  const editorDomains = [
-    "docs.google.com",
-    "office.com",             // Word Online (https://word.office.com)
-    "notion.so",
-  ];
-
-  if (editorDomains.some(d => host.endsWith(d))) {
-    return "editor";
-  }
-
-  // ---- Everything else ----
-  return "other";
-}
-
-export const getFormVisibleContainerId = (target: HTMLElement) => {
+export const getVisibleFormFieldIndex = (target: HTMLElement) => {
   const form = target.closest("form");
   if (form) {
     let formFields = Array.from(

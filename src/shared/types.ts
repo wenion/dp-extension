@@ -1,6 +1,4 @@
-export type TraceSource = "UserEvent" | "Mutation" | "API";
-
-export type Profile ={
+export type Profile = {
   id: string;
   email: string;
   full_name: string;
@@ -9,12 +7,12 @@ export type Profile ={
 };
 
 // User Event Trace type
-export type UserEventTrace = {
+export type UserEvent = {
   eventType?: string; // API url
   tag?: string; // API Method
   elementType?: string; // API Subtype
 
-  url?: string;
+  // url?: string;
   name?: string;
   placeholder?: string;
   textContent?: string;
@@ -39,7 +37,7 @@ export type UserEventTrace = {
   direction?: string;
 
   label?: string;
-  timestamp?: number;
+  timestamp: number;
 
   code?: string; // for keyboard event
   key?: string; // for keyboard event
@@ -51,11 +49,24 @@ export type UserEventTrace = {
   startPosition?: number;
   endPosition?: number;
 
-  sessionId?: string;
+  // sessionId?: string;
   author?: string;
   containerId?: number;
-  source: TraceSource;
+  // source: TraceSource;
 };
+
+export type TraceContext = {
+  sessionId: string;
+  sessionStart: number;
+  sessionEnd?: number;
+
+  tabId: number;
+  windowId?: number;
+
+  url: string;
+};
+
+export type Trace = UserEvent & TraceContext;
 
 // Database Trace record type
 export type TraceRecord = {
@@ -191,3 +202,83 @@ export type GoogleDocsMeta = {
   timestamp: number;
   category?: string;
 };
+
+export type UploadStatus =
+  | "waiting"
+  | "uploading"
+  | "uploaded"
+  | "failed";
+
+export interface Session {
+  clientId: string;
+  ref?: number;
+  name?: string;
+
+  startedAt: number;
+  endedAt?: number;
+  eventCount: number;
+
+  captureState:
+    | "recording"
+    | "paused";
+
+  uploadStatus: UploadStatus;
+
+  urls?: string[];
+};
+
+export type RecordingStatus =
+  | "recording"
+  | "excluded"
+  | "not_in_scope";
+
+export interface TabState {
+  tabId: number;
+  windowId?: number;
+  googleDocId?: string;
+  url: string;
+  title?: string;
+  origin: string;
+  recordingStatus: RecordingStatus;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export interface AppState {
+  mounted: boolean;
+  pageState: PageState;
+  activeSession?: Session;
+  tabs: readonly TabState[];
+  sessions: readonly Session[];
+  tabId: number;
+  // windowId: number;
+  // url: string;
+};
+
+export type PageState =
+  | "idle"
+  | "collapsed"
+  | "expanded"
+  | "confirm"
+  | "uploading"
+  | "uploaded"
+  | "uploadFailed"
+  | "alert";
+
+export type PageTrigger = 
+  | "START_SESSION"
+  | "END_SESSION"
+  | "EXPAND"
+  | "COLLAPSE"
+  | "PAUSE"
+  | "RESUME"
+  | "STOP"
+  | "BACK"
+  | "UPLOAD" // END_SESSION
+  | "UPLOADED"
+  | "UPLOADFAILED"
+  | "EXIT"
+  | "FINISH"
+  | "INCLUDE_PAGE"
+  | "EXCLUDE_PAGE";
+  

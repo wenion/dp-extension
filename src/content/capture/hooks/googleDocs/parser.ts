@@ -1,8 +1,9 @@
-import type { XHRHookConfig } from "./xhrHookMessageProtocol";
 import {
   MESSAGE_SOURCE,
   XHR_COMMAND,
-} from "./xhrHookMessageProtocol";
+} from "./controllerType";
+
+import type { XHRHookConfig } from "./controllerType";
 
 export const attachXHR = (config?: XHRHookConfig) => {
   window.postMessage(

@@ -1,9 +1,15 @@
+import {ToastProvider} from "@heroui/toast";
+
 import { ContextProvider } from "./context";
+
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ContextProvider>
-      {children}
-    </ContextProvider>
+    <>
+      <ToastProvider />
+      <ContextProvider>
+        {children}
+      </ContextProvider>
+    </>
   );
 }

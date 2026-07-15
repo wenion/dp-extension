@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 
-import { addGrantedOrigin, removeGrantedOrigin } from "@/shared/grantedOrigins";
+// import { addGrantedOrigin, removeGrantedOrigin } from "@/shared/grantedOrigins";
 import {
   getActiveIcon,
   getDefaultIcon,
@@ -160,13 +160,13 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
           target: { tabId: tab.id! },
           files: ["content-script.js"],
         });
-        addGrantedOrigin(tab.url!);
+        // addGrantedOrigin(tab.url!);
       } else {
         try {
           await chrome.tabs.sendMessage(tab.id!, {
             type: "REMOVE_CONTENT_SCRIPT",
           });
-          removeGrantedOrigin(tab.url!);
+          // removeGrantedOrigin(tab.url!);
         } catch (e) {
           // eslint-disable-next-line no-console
           console.error("Error sending REMOVE_CONTENT_SCRIPT message", e);
