@@ -20,17 +20,21 @@ export class UploadService {
 
   async uploadTraces(): Promise<{
     success: boolean;
+    domains?: string[];
     error?: string;
   }> {
     try {
       const traces = await this.traceService.stopSession();
       const postTraces = this.traceProcessor.process(traces);
 
+      const domains = this.traceProcessor.extractDomains(postTraces);
+
       // api
       await this.api.trace.uploadMany(postTraces);
 
       return {
         success: true,
+        domains,
       };
 
     } catch (error) {

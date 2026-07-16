@@ -38,9 +38,7 @@ export class SessionService {
       .createSession(session);
 
     if (created) {
-      await this.updateSession({
-        ref: created.ref
-      });
+      await this.updateSession(created);
     } else {
 
     }
@@ -66,27 +64,26 @@ export class SessionService {
 
     if (!result.success) {
       await this.handleUploadFailed();
-
-      await this.pageService.onUploadFailed();
       return;
     }
 
-    const ok = await this.sessionPersistenceService.updateSession(
+    const patch = {
+      uploadStatus: "uploaded" as const,
+      urls: result.domains ?? [],
+    };
+
+    // update local session to the remote
+    const response = await this.sessionPersistenceService.updateSession(
       session.clientId,
-      {
-        uploadStatus: "uploaded",
-      },
+      patch,
     );
 
-    console.log("ok", ok)
-    if (!ok) {
-      await this.handleUploadFailed();
-
-      return;
+    if (response) {
+      await this.handleUploadSucceeded(response);
     }
-
-    await this.handleUploadSucceeded();
-
+    else {
+      await this.handleUploadFailed();
+    }
   }
 
   async finishSession() {
@@ -161,10 +158,10 @@ export class SessionService {
     return updated;
   }
 
-  private async handleUploadSucceeded() {
-    await this.updateSession({
-      uploadStatus: "uploaded",
-    });
+  private async handleUploadSucceeded(updated: Session) {
+    await this.storage.setActiveSession(updated);
+
+    await this.notifySessionUpdated();
 
     await this.pageService.onUploadSucceeded();
   }

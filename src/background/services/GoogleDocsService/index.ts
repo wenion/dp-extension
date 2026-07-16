@@ -83,6 +83,7 @@ export class GoogleDocsService {
     );
   }
 
+  // TODO
   removeDocument(tabId: number): void {
     this.store.remove(tabId);
   }

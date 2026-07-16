@@ -794,4 +794,17 @@ export class TraceProcessor {
 
     return traces4;
   }
+
+  extractDomains(
+    traces: readonly Trace[],
+  ): string[] {
+    return [
+      ...new Set(
+        traces
+          .map(t => t.url)
+          .filter(Boolean)
+          .map(url => new URL(url).hostname),
+      ),
+    ];
+  }
 }

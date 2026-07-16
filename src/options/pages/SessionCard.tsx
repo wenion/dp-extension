@@ -5,7 +5,11 @@ import { Card, CardBody } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 import { Input } from "@heroui/input";
 
-import { Check, TriangleExclamationFill } from "@gravity-ui/icons";
+import {
+  ArrowUpRightFromSquare,
+  Check,
+  TriangleExclamationFill
+} from "@gravity-ui/icons";
 
 import type { UploadStatus } from "@/shared/types";
 
@@ -44,7 +48,7 @@ export function SessionCard({
 
   return (
     <Card shadow="sm" className="border border-default-200">
-      <CardBody className="flex flex-row items-center gap-4 p-4 justify-between">
+      <CardBody className="flex flex-row items-center gap-4 p-4 space-x-8 justify-between">
         {/* Session Info */}
         <div className="flex flex-col flex-grow">
           <Input
@@ -72,7 +76,7 @@ export function SessionCard({
         {/* Websites */}
         <div className="flex items-center justify-end gap-3 w-56 shrink-0">
           <div className="flex items-center gap-2">
-            {/* {sites.map((site) => (
+            {sites.map((site) => (
               <div
                 key={site.name}
                 title={site.name}
@@ -83,7 +87,7 @@ export function SessionCard({
               >
                 {site.name.charAt(0).toUpperCase()}
               </div>
-            ))} */}
+            ))}
           </div>
 
           {status === "uploaded" ? (
@@ -113,6 +117,14 @@ export function SessionCard({
               </Button>
             </>
           )}
+
+          <Button
+            isIconOnly
+            variant="light"
+            // onPress={openRemotePage}
+          >
+            <ArrowUpRightFromSquare />
+          </Button>
         </div>
       </CardBody>
     </Card>
