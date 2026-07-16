@@ -7,6 +7,13 @@ export async function initialize() {
   });
 }
 
+export async function mount() {
+  return chrome.runtime.sendMessage({
+    type: "APP/MOUNT",
+    source: "OPTIONS",
+  });
+}
+
 export async function refreshSessions() {
   return chrome.runtime.sendMessage({
     type: "SESSIONS/REFRESH",

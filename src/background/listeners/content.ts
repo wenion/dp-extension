@@ -1,5 +1,6 @@
 import type { CaptureController } from "../controllers/CaptureController";
 
+import type { AuthService } from "../services/AuthService";
 import type { ContentScriptService } from "../services/ContentScriptService";
 import type { GoogleDocsService } from "../services/GoogleDocsService";
 import type { PageService } from "../services/PageService";
@@ -13,12 +14,14 @@ import type { AppState } from "@/shared/types";
 
 
 export function startContentListener(
+  url: string,
+  authService: AuthService,
   storageService: StorageService,
   permissionService: PermissionService,
   pageService: PageService,
   sessionService: SessionService,
   sessionPersistenceService: SessionPersistenceService,
-  tabSerive: TabService,
+  tabService: TabService,
   contentScriptService: ContentScriptService,
   googleDocsService: GoogleDocsService,
   captureController: CaptureController,
@@ -48,6 +51,21 @@ export function startContentListener(
             tabId: sender.tab.id,
           }
           return initState;
+        case "APP/MOUNT":
+          // TODO
+          if (!authService.isAuthenticated()) {
+            await authService.openLogin(url);
+            return;
+          }
+
+          const session = sessionService.getActiveSession();
+          if (session) {
+            await pageService.showExitConfirmation();
+            return;
+          }
+
+          await contentScriptService.mount();
+          break;
         case "SESSION/START":
           await sessionService.startSession();
           if (sender.tab.url.startsWith("https://docs.google.com/document/")) {
@@ -107,16 +125,16 @@ export function startContentListener(
           break;
         case "TAB/INCLUDE":
           if (message.source === "CONTENT") {
-            await tabSerive.includeTab(sender.tab.id);
+            await tabService.includeTab(sender.tab.id);
           } else if (message.source === "OPTIONS") {
-            await tabSerive.includeTab(message.payload.tabId);
+            await tabService.includeTab(message.payload.tabId);
           }
           break;
         case "TAB/EXCLUDE":
           if (message.source === "CONTENT") {
-            await tabSerive.excludeTab(sender.tab.id);
+            await tabService.excludeTab(sender.tab.id);
           } else if (message.source === "OPTIONS") {
-            await tabSerive.excludeTab(message.payload.tabId);
+            await tabService.excludeTab(message.payload.tabId);
           }
           break;
         case "TAB/OPEN_OPTIONS":

@@ -19,10 +19,21 @@ export interface PageStateUpdatedEvent {
 //   payload: TabState;
 // }
 
-// export interface PageMountedUpdatedEvent {
-//   type: "PAGE/MOUNTED_UPDATED";
-//   payload: boolean;
-// }
+export interface PageMountedEvent {
+  type: "PAGE/MOUNTED";
+  payload: {
+    pageState: PageState;
+    mounted: boolean;
+    activeSession: Session | undefined;
+    tabs: readonly TabState[];
+    sessions: readonly Session[];
+    // tabId: number;
+  };
+}
+
+export interface PageUnmountedEvent {
+  type: "PAGE/UNMOUNTED";
+}
 
 export interface TabsUpdatedEvent {
   type: "TABS/UPDATED";
@@ -36,6 +47,8 @@ export interface SessionsUpdatedEvent {
 
 export type EventMessage =
   | SessionUpdatedEvent
-  | PageStateUpdatedEvent
   | SessionsUpdatedEvent
+  | PageStateUpdatedEvent
+  | PageMountedEvent
+  | PageUnmountedEvent
   | TabsUpdatedEvent;

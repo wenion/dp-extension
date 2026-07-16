@@ -81,6 +81,8 @@ export async function bootstrap() {
   const captureController = new CaptureController(sessionService, tabService, traceService);
 
   startContentListener(
+    env.apiUrl,
+    authService,
     storageService,
     permissionService,
     pageService,

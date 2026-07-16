@@ -24,9 +24,11 @@ export function registerMessageListener(capture: CaptureManager) {
       sendResponse: (res?: any) => void
     ) => {
       switch (msg.type) {
-        case "PAGE/SET_MOUNTED":
-          const { mounted, } = msg.payload;
-          mounted ? overlay.show(msg.payload) : overlay.hide();
+        case "PAGE/MOUNTED":
+          overlay.show(msg.payload);
+          break;
+        case "PAGE/UNMOUNTED":
+          overlay.hide();
           break;
         case "PING":
           sendResponse({

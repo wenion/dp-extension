@@ -18,6 +18,8 @@ import type { EventMessage } from "@/shared/message/events";
 
 
 type ContextType = {
+  mounted: boolean;
+
   page: PageState;
   setPage: (value: PageState) => void;
 
@@ -42,6 +44,7 @@ export function useAppContext() {
 }
 
 export function ContextProvider({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState<boolean>(false);
   const [page, setPage] = useState<PageState>("idle");
   const [session, _setSession] = useState<Session | null>(null);
   const [tabs, setTabs] = useState<TabState[]>([]);
@@ -51,6 +54,7 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
     async function init() {
       const state = await initialize() as AppState;
 
+      setMounted(state.mounted);
       setPage(state.pageState);
       _setSession(state.activeSession?? null);
       setTabs([...state.tabs]);
@@ -64,6 +68,7 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const listener = (message: EventMessage) => {
+      console.log("message.type", message.type, message)
       switch (message.type) {
         case "SESSION/UPDATED":
           _setSession(message.payload);
@@ -71,6 +76,19 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
 
         case "PAGE_STATE/UPDATED":
           setPage(message.payload);
+          break;
+
+        case "PAGE/MOUNTED":
+          setMounted(message.payload.mounted);
+          setPage(message.payload.pageState);
+          _setSession(message.payload.activeSession?? null);
+          setTabs([...message.payload.tabs]);
+          setSessions([...message.payload.sessions]);
+
+          break;
+
+        case "PAGE/UNMOUNTED":
+          setMounted(false);
           break;
 
         case "TABS/UPDATED":
@@ -105,6 +123,7 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<ContextType>(
     () => ({
+      mounted,
       page,
       setPage,
       session,
@@ -115,6 +134,7 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
       numberOfRecordingTabs,
     }),
     [
+      mounted,
       page,
       session,
       sessions,

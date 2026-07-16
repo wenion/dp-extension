@@ -38,7 +38,7 @@ export function startActionListener(
   chrome.action.onClicked.addListener(async (tab) => {
 
     if (!authService.isAuthenticated()) {
-      authService.openLogin(url);
+      await authService.openLogin(url);
       return;
     }
 

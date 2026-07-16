@@ -9,9 +9,12 @@ import type {
 
 
 export function getHeaderStatus(
+  mounted: boolean,
   page: PageState,
   session: Session | null,
 ) {
+
+  if (!mounted) return "inactive";
 
   if (page === "uploadFailed") return "uploadFailed";
   if (page === "uploaded") return "uploaded";
@@ -24,9 +27,9 @@ export function getHeaderStatus(
 }
 
 export default function Header() {
-  const { page, session } = useAppContext();
+  const { mounted, page, session } = useAppContext();
 
-  const status = getHeaderStatus(page, session);
+  const status = getHeaderStatus(mounted, page, session);
 
   return (
     <header className="flex items-start justify-between px-8 pt-8">
@@ -56,6 +59,19 @@ function StatusChip({
   status: string;
 }) {
   switch (status) {
+    case "inactive":
+      return (
+        <Chip
+          color="default"
+          startContent={
+            <div className="ml-2 h-2 w-2 rounded bg-current" />
+          }
+          variant="flat"
+        >
+          INACTIVE
+        </Chip>
+      );
+
     case "recording":
       return (
         <Chip

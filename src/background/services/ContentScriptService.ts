@@ -54,14 +54,14 @@ export class ContentScriptService {
     });
   }
 
-  async mount(tabId: number) {
+  async mount(tabId?: number) {
     await this.storage.setPageMounted(true);
 
     const initState =
       await this.storageService.getNormalizedAppState();
 
     await this.contentScriptClient.broadcast({
-      type: "PAGE/SET_MOUNTED",
+      type: "PAGE/MOUNTED",
       payload: {
         ...initState,
         tabId: tabId,
@@ -73,10 +73,7 @@ export class ContentScriptService {
     this.storage.setPageMounted(false);
 
     await this.contentScriptClient.broadcast({
-      type: "PAGE/SET_MOUNTED",
-      payload: {
-        mounted: false,
-      },
+      type: "PAGE/UNMOUNTED",
     });
   }
 
