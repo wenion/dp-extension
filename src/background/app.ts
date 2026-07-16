@@ -49,7 +49,12 @@ export async function bootstrap() {
   const contentScriptService =
     new ContentScriptService(storage, contentScriptClient, storageService );
 
-  const sessionPersistenceService = new SessionPersistenceService(api, storage);
+  const sessionPersistenceService =
+    new SessionPersistenceService(
+      api,
+      contentScriptClient,
+      storage
+    );
   const uploadService = new UploadService(api, traceService, traceProcessor);
   const pageService = new PageService(storage, contentScriptClient);
   const sessionService =

@@ -26,13 +26,35 @@ const SITE_INFO: Record<string, SiteInfo> = {
   },
 };
 
+const COLORS = [
+  "red",
+  "green",
+  "blue",
+  "orange",
+  "purple",
+  "cyan",
+  "pink",
+  "yellow",
+] as const;
+
+
+function randomColor(domain: string): string {
+  let hash = 0;
+
+  for (const ch of domain) {
+    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  }
+
+  return COLORS[hash % COLORS.length];
+}
+
 export function buildSites(domains: readonly string[]) {
   return domains.map((domain) => {
     const site = SITE_INFO[domain];
 
     return {
       name: site?.name ?? domain,
-      color: site?.color ?? "default",
+      color: site?.color ?? randomColor(domain),
     };
   });
 }

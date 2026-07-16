@@ -98,6 +98,14 @@ export function SessionCard({
             >
               Uploaded
             </Chip>
+          ) : status === "waiting" ? (
+            <Chip
+              color="primary"
+              className="uppercase font-bold"
+              variant="flat"
+            >
+              Unfinished session
+            </Chip>
           ) : (
             <>
               <Chip

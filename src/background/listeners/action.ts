@@ -55,7 +55,7 @@ export function startActionListener(
       return;
     }
 
-    await contentScriptService.ensureReady(tab.id!);
+    await contentScriptService.ensureReady(tab.id);
 
     await tabService.cleanupClosedTabs();
 

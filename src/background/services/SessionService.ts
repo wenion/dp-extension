@@ -91,6 +91,11 @@ export class SessionService {
 
     await this.pageService.onFinish();
 
+    const session = this.getActiveSession();
+    if (session) {
+      await this.sessionPersistenceService.appendSession(session);
+    }
+
     await this.deleteSession();
   }
 
