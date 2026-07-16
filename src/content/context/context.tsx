@@ -10,7 +10,7 @@ import type {
   PageState,
   Session,
   TabState,
-  AppState,
+  InitState,
 } from "@/shared/types";
 import type { EventMessage } from "@/shared/message/events";
 
@@ -40,7 +40,7 @@ export function useAppContext() {
 }
 
 type Props = {
-  initialState: AppState;
+  initialState: InitState;
   children: React.ReactNode;
 };
 
@@ -61,7 +61,6 @@ export function ContextProvider({
   
   useEffect(() => {
     const listener = (message: EventMessage) => {
-
       switch (message.type) {
         case "SESSION/UPDATED":
           _setSession(message.payload);

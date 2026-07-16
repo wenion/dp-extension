@@ -10,7 +10,7 @@ import type { SessionPersistenceService } from "../services/SessionPersistenceSe
 import type { StorageService } from "../services/StorageService";
 import type { TabService } from "../services/TabService";
 
-import type { AppState } from "@/shared/types";
+import type { InitState } from "@/shared/types";
 
 
 export function startContentListener(
@@ -31,18 +31,19 @@ export function startContentListener(
     async (
       message: any,
       sender: chrome.runtime.MessageSender,
+      sendResponse: (response?: any) => void,
     ) => {
       if (!sender.tab || sender.tab.id == null || !sender.tab.url) {
         // log
         return;
       }
-      console.log("from content", message)
       switch (message.type) {
         case "APP/GET_INITIAL_STATE":
-          const result = await storageService.getNormalizedAppState();
+          const result =
+            await storageService.getNormalizedAppState();
 
           // navigate or content started
-          const initState: AppState = {
+          const setupState: InitState = {
             mounted: result.mounted,
             pageState: result.pageState,
             activeSession: result.activeSession,
@@ -50,7 +51,10 @@ export function startContentListener(
             sessions: result.sessions,
             tabId: sender.tab.id,
           }
-          return initState;
+
+          sendResponse(setupState);
+          return;
+          // return initState;
         case "APP/MOUNT":
           // TODO
           if (!authService.isAuthenticated()) {
@@ -64,7 +68,7 @@ export function startContentListener(
             return;
           }
 
-          await contentScriptService.mount();
+          await pageService.mount(sender.tab.id);
           break;
         case "SESSION/START":
           await sessionService.startSession();
@@ -74,6 +78,13 @@ export function startContentListener(
           break;
         case "SESSION/END":
           await sessionService.endSession();
+          break;
+        case "SESSION/FORCE_END":
+          if (message.source === "CONTENT") {
+            await sessionService.forceEndSession(sender.tab.id);
+            return;
+          }
+          await sessionService.forceEndSession();
           break;
         case "SESSION/RENAME":
           await sessionPersistenceService.renameSession(
@@ -103,19 +114,10 @@ export function startContentListener(
           break;
         case "PAGE/INJECT":
           const tabId = message.payload.tabId;
-          const tab = await chrome.tabs.get(tabId);
+          const injected =
+            await contentScriptService.ensureInjected(tabId);
 
-          if (!tab.url) {
-            break;
-          }
-
-          const granted = await permissionService.hasScriptingPermission(tab.url);
-
-          if (!granted) {
-            break;
-          }
-
-          await contentScriptService.ensureReady(tabId);
+          sendResponse({ injected, });
           break;
         case "SESSION/PAUSE":
           await sessionService.pauseSession();

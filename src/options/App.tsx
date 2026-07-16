@@ -23,6 +23,10 @@ export default function App() {
 
   const domains = useGrantedDomains();
 
+  const activateExtension = () => {
+    mount();
+  }
+
   return (
     <main className="min-h-screen flex flex-col space-y-8 p-8">
       {!mounted? (
@@ -39,7 +43,7 @@ export default function App() {
                 color="primary"
                 size="lg"
                 startContent={<Power width={16} height={16}/>}
-                onPress={mount}
+                onPress={activateExtension}
               >
                 Activate extension
               </Button>

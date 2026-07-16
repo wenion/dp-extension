@@ -4,6 +4,8 @@ import {
   getActiveIcon
 } from "@/shared/icons";
 
+import { InjectionResult } from "@/shared/content-script";
+
 import type { ActionService } from "../services/ActionService";
 import type { AuthService } from "../services/AuthService";
 import type { ContentScriptService } from "../services/ContentScriptService";
@@ -46,16 +48,11 @@ export function startActionListener(
       return;
     }
 
-    const granted =
-      await permissionService.hasScriptingPermission(tab.url);
-
-    if (!granted) {
+    const result = await contentScriptService.ensureInjected(tab.id);
+    if (result === InjectionResult.NoPermission) {
       await chrome.runtime.openOptionsPage();
-      // No permission
       return;
     }
-
-    await contentScriptService.ensureReady(tab.id);
 
     await tabService.cleanupClosedTabs();
 

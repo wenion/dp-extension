@@ -1,4 +1,5 @@
 // import type { BackgroundRequest } from "@/shared/message/commands";
+import { InjectionResult } from "@/shared/content-script";
 
 export async function initialize() {
   return chrome.runtime.sendMessage({
@@ -33,6 +34,13 @@ export function endSession() {
     type: "SESSION/END",
     source: "OPTIONS",
   })
+}
+
+export function forceEndSession() {
+  chrome.runtime.sendMessage({
+    type: "SESSION/FORCE_END",
+    source: "OPTIONS",
+  });
 }
 
 export function expand() {
@@ -100,8 +108,11 @@ export function excludeTab(tabId: number) {
   })
 }
 
-export function injectContent(tabId: number) {
-  chrome.runtime.sendMessage({
+export async function injectContent(
+  tabId: number
+): Promise<InjectionResult> {
+
+  return chrome.runtime.sendMessage({
     type: "PAGE/INJECT",
     source: "OPTIONS",
     payload: { tabId },

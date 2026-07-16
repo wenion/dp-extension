@@ -74,8 +74,8 @@ export function startTabListener(
         status,
       );
       
-      if (status) {
-        contentScriptServicet.ensureReady(details.tabId);
+      if (hasPermission) {
+        await contentScriptServicet.ensureInjected(details.tabId);
       }
     }
   });

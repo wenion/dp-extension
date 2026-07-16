@@ -44,7 +44,7 @@ export class SessionService {
     }
   }
 
-  async endSession() {
+  private async completeSession() {
     const session = await this.updateSession({
       endedAt: Date.now(),
       captureState: "paused",
@@ -78,8 +78,29 @@ export class SessionService {
       patch,
     );
 
-    if (response) {
-      await this.handleUploadSucceeded(response);
+    return response;
+  }
+
+  async endSession() {
+    const result = await this.completeSession();
+
+    if (result) {
+      await this.handleUploadSucceeded(result);
+    }
+    else {
+      await this.handleUploadFailed();
+    }
+  }
+
+  async forceEndSession(tabId?: number) {
+    const result = await this.completeSession();
+
+    if (result) {
+      await this.handleForceUploadSucceeded(result);
+
+      // TODO
+      await this.finishSession();
+      await this.pageService.unmount(tabId);
     }
     else {
       await this.handleUploadFailed();
@@ -106,7 +127,6 @@ export class SessionService {
   }
 
   async resumeSession() {
-    
     await this.updateSession({
       captureState: "recording",
     });
@@ -169,6 +189,14 @@ export class SessionService {
     await this.notifySessionUpdated();
 
     await this.pageService.onUploadSucceeded();
+  }
+
+  private async handleForceUploadSucceeded(updated: Session) {
+    await this.storage.setActiveSession(updated);
+
+    await this.notifySessionUpdated();
+
+    await this.pageService.onForceUploadSucceeded();
   }
 
   private async handleUploadFailed() {

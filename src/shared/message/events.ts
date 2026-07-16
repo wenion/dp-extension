@@ -1,4 +1,5 @@
 import type {
+  AppState,
   Session,
   PageState,
   TabState,
@@ -21,14 +22,7 @@ export interface PageStateUpdatedEvent {
 
 export interface PageMountedEvent {
   type: "PAGE/MOUNTED";
-  payload: {
-    pageState: PageState;
-    mounted: boolean;
-    activeSession: Session | undefined;
-    tabs: readonly TabState[];
-    sessions: readonly Session[];
-    // tabId: number;
-  };
+  payload: AppState;
 }
 
 export interface PageUnmountedEvent {

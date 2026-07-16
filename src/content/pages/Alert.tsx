@@ -6,7 +6,7 @@ import { SquareFill } from '@gravity-ui/icons';
 
 import {
   cancelStop,
-  endSession,
+  forceEndSession,
  } from "../message/BackgroundClient";
 
  
@@ -34,7 +34,7 @@ export function Alert() {
               className="w-full border text-red-600 font-medium"
               variant="bordered"
               startContent={<SquareFill />}
-              onPress={endSession}
+              onPress={forceEndSession}
             >
               Turn off & upload
             </Button>

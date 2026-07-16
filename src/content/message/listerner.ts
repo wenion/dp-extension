@@ -1,6 +1,7 @@
-import { overlay } from "../overlay/overlay";
 import { CaptureManager } from "../capture";
 import { captureContext } from "../capture/context";
+import { overlay } from "../overlay/overlay";
+import { showDialog } from "../overlay/showDialog";
 
 
 export function registerMessageListener(capture: CaptureManager) {
@@ -29,6 +30,10 @@ export function registerMessageListener(capture: CaptureManager) {
           break;
         case "PAGE/UNMOUNTED":
           overlay.hide();
+          // TODO
+          if (msg.payload === captureContext.getTab()?.tabId) {
+            showDialog();
+          }
           break;
         case "PING":
           sendResponse({
@@ -44,6 +49,11 @@ export function registerMessageListener(capture: CaptureManager) {
         case "SESSION/UPDATED":
           captureContext.setActiveSession(msg.payload);
           syncCapture();
+          break;
+        case "PAGE_STATE/UPDATED":
+          // if (msg.payload === "forceUploaded") {
+          //   showDialog();
+          // }
           break;
         default:
           break;

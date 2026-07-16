@@ -250,9 +250,10 @@ export interface AppState {
   activeSession?: Session;
   tabs: readonly TabState[];
   sessions: readonly Session[];
+};
+
+export type InitState = AppState & {
   tabId: number;
-  // windowId: number;
-  // url: string;
 };
 
 export type PageState =
@@ -262,6 +263,7 @@ export type PageState =
   | "confirm"
   | "uploading"
   | "uploaded"
+  | "forceUploaded"
   | "uploadFailed"
   | "alert";
 
@@ -276,6 +278,7 @@ export type PageTrigger =
   | "BACK"
   | "UPLOAD" // END_SESSION
   | "UPLOADED"
+  | "FORCE_UPLOADED"
   | "UPLOADFAILED"
   | "EXIT"
   | "FINISH"

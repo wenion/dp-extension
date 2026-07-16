@@ -21,6 +21,13 @@ export function endSession() {
   })
 }
 
+export function forceEndSession() {
+  chrome.runtime.sendMessage({
+    type: "SESSION/FORCE_END",
+    source: "CONTENT",
+  });
+}
+
 export function expand() {
   chrome.runtime.sendMessage({
     type: "PAGE/EXPAND",

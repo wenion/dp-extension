@@ -47,7 +47,11 @@ export function Expanded() {
           text: "Permission required",
           className: "text-default-500",
         }
-      : null;
+      : {
+          icon: <EyeClosed />,
+          text: "Please reload the page",
+          className: "text-default-500",
+      };
 
   return (
     <div className="flex items-center">

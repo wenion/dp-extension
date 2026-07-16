@@ -1,23 +1,23 @@
 import type { Storage } from "../storage/Storage";
 
-import type { ContentScriptService } from "./ContentScriptService";
+import type { StorageService } from "./StorageService";
 import type { SessionService } from "./SessionService";
 import type { PageService } from "./PageService";
 
 export class ActionService {
   private readonly storage: Storage;
-  private readonly contentScriptService: ContentScriptService;
+  private readonly storageService: StorageService;
   private readonly pageService: PageService;
   private readonly sessionService: SessionService;
 
   constructor(
     storage: Storage,
-    contentScriptService: ContentScriptService,
+    storageService: StorageService,
     pageService: PageService,
     sessionService: SessionService,
   ) {
     this.storage = storage;
-    this.contentScriptService = contentScriptService;
+    this.storageService = storageService;
     this.sessionService = sessionService;
     this.pageService = pageService;
   }
@@ -32,9 +32,9 @@ export class ActionService {
     }
 
     if (mounted) {
-      await this.contentScriptService.unmount();
+      await this.pageService.unmount();
     } else {
-      await this.contentScriptService.mount(tabId);
+      await this.pageService.mount(tabId);
     }
   }
 }

@@ -1,6 +1,6 @@
 import { Storage } from "../storage/Storage";
 
-import type { PageState, Session } from "@/shared/types";
+import type { AppState, PageState, Session } from "@/shared/types";
 
 
 export class StorageService {
@@ -10,10 +10,10 @@ export class StorageService {
     this.storage = storage;
   }
 
-  async initialize() {
-    await this.storage.setPageState("idle");
-    await this.storage.setPageMounted(false);
-  }
+  // async initialize() {
+  //   await this.storage.setPageState("idle");
+  //   await this.storage.setPageMounted(false);
+  // }
 
   private normalizePageState(
     pageState?: PageState,
@@ -47,7 +47,7 @@ export class StorageService {
     return pageMounted ?? false;
   }
 
-  async repairState() {
+  private async repairState() {
     const pageState = this.storage.getPageState();
     const activeSession = this.storage.getActiveSession();
     const pageMounted = this.storage.getPageMounted();
@@ -65,7 +65,7 @@ export class StorageService {
     }
   }
 
-  async getNormalizedAppState() {
+  async getNormalizedAppState(): Promise<AppState> {
     await this.repairState();
 
     return {

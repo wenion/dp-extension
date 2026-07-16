@@ -19,6 +19,7 @@ import {
   cancelStop,
   endSession,
   excludeTab,
+  forceEndSession,
   finish,
   includeTab,
   injectContent,
@@ -43,27 +44,15 @@ export function Status() {
     const url = new URL(tab.url);
     const originPattern = `${url.origin}/*`;
 
-    // // Focus the window containing the tab
-    // if (tab.windowId != null) {
-    //   await chrome.windows.update(tab.windowId, {
-    //     focused: true,
-    //   });
-    // }
-
-    // // Activate the tab
-    // await chrome.tabs.update(tabId, {
-    //   active: true,
-    // });
-
-    // await new Promise(resolve => setTimeout(resolve, 100));
-
     const granted = await chrome.permissions.request({
       permissions: ["scripting"],
       origins: [originPattern],
     });
 
     if (granted) {
-      injectContent(tabId);
+      const result = await injectContent(tabId);
+      // TODO
+      console.log('result >>>', result)
     }
   }
 
@@ -213,7 +202,7 @@ export function Status() {
                 className="border border-rose-200 text-red-600 font-medium"
                 variant="bordered"
                 startContent={<SquareFill />}
-                onPress={endSession}
+                onPress={forceEndSession}
               >
                 Turn off &amp; Upload
               </Button>

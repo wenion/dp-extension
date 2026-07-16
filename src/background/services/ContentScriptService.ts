@@ -1,3 +1,5 @@
+import { InjectionResult } from "@/shared/content-script";
+
 import type { Storage } from "../storage/Storage";
 import type { ContentScriptClient } from "../clients/ContentScriptClient";
 import type { StorageService } from "../services/StorageService";
@@ -28,62 +30,96 @@ export class ContentScriptService {
     this.storageService = storageService;
   }
 
-  async ensureReady(tabId: number) {
+  /**
+   * Ensures the content script is available in the specified tab.
+   *
+   * If the content script is already running, it is reused.
+   * Otherwise, this method attempts to inject it and verifies that it
+   * is responsive before returning.
+   */
+  async ensureInjected(tabId: number): Promise<InjectionResult> {
+    const tab = await chrome.tabs.get(tabId);
+
+    if (!tab.url) {
+      return InjectionResult.UnsupportedUrl;
+    }
+
+    const url = new URL(tab.url);
+
+    if (!this.canInject(url)) {
+      return InjectionResult.UnsupportedUrl;
+    }
+
+    if (!(await this.hasHostPermission(url))) {
+      return InjectionResult.NoPermission;
+    }
+
+    if (await this.ping(tabId)) {
+      return InjectionResult.Success;
+    }
+
+    try {
+      await chrome.scripting.executeScript({
+        target: {
+          tabId,
+          allFrames: true,
+        },
+        files: ["content-script.js"],
+      });
+    } catch (error) {
+      console.error(
+        "Failed to inject content script.",
+        error,
+      );
+      return InjectionResult.InjectionFailed;
+    }
+
+    return (await this.ping(tabId))
+      ? InjectionResult.Success
+      : InjectionResult.ContentUnavailable;
+  }
+
+  /**
+   * Returns whether the content script is responsive.
+   */
+  private async ping(
+    tabId: number,
+  ): Promise<boolean> {
     try {
       await this.contentScriptClient.send(tabId, {
         type: "PING",
       });
-      return;
+
+      return true;
     } catch {
-      console.log("No running content script")
+      return false;
+    }
+  }
+
+  private canInject(url: URL): boolean {
+    // Only allow HTTP(S) pages.
+    if (
+      url.protocol !== "http:" &&
+      url.protocol !== "https:"
+    ) {
+      return false;
     }
 
-    const tab = await chrome.tabs.get(tabId);
-
-    if (!tab.url || !this.canInject(tab.url)) {
-        return;
+    // Chrome Web Store cannot be scripted.
+    if (
+      url.hostname === "chrome.google.com" ||
+      url.hostname === "chromewebstore.google.com"
+    ) {
+      return false;
     }
 
-    await this.inject(tabId);
+    return true;
   }
 
-  async inject (tabId: number) {
-    return await chrome.scripting.executeScript({
-      target: { tabId: tabId, allFrames: true },
-      files: ['content-script.js'],
+  private hasHostPermission(url: URL): Promise<boolean> {
+    return chrome.permissions.contains({
+      // permissions: ["scripting"],
+      origins: [`${url.origin}/*`]
     });
-  }
-
-  async mount(tabId?: number) {
-    await this.storage.setPageMounted(true);
-
-    const initState =
-      await this.storageService.getNormalizedAppState();
-
-    await this.contentScriptClient.broadcast({
-      type: "PAGE/MOUNTED",
-      payload: {
-        ...initState,
-        tabId: tabId,
-      },
-    });
-  }
-
-  async unmount() {
-    this.storage.setPageMounted(false);
-
-    await this.contentScriptClient.broadcast({
-      type: "PAGE/UNMOUNTED",
-    });
-  }
-
-  private canInject(url: string) {
-    return !(
-      url.startsWith("chrome://") ||
-      url.startsWith("chrome-extension://") ||
-      url.startsWith("edge://") ||
-      url.startsWith("about:") ||
-      url.startsWith("devtools:")
-    );
   }
 }

@@ -1,10 +1,10 @@
 import { ContextProvider } from "./context";
 
 import type { ReactNode } from "react";
-import type { AppState } from "@/shared/types";
+import type { InitState } from "@/shared/types";
 
 type Props = {
-  initialState: AppState;
+  initialState: InitState;
   children: ReactNode;
 };
 
