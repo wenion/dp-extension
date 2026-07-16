@@ -15,8 +15,8 @@ import { LayoutHeader } from '@gravity-ui/icons';
 import { useAppContext } from "../context/context";
 import {
   collapse,
-  pause,
-  resume,
+  pauseSession,
+  resumeSession,
   stop,
   includeTab,
   excludeTab,
@@ -94,7 +94,7 @@ export function Expanded() {
                 className="w-full border border-amber-400 text-amber-700 font-medium"
                 variant="bordered"
                 startContent={<PauseFill/>}
-                onPress={pause}
+                onPress={pauseSession}
               >
                 Pause
               </Button>
@@ -103,7 +103,7 @@ export function Expanded() {
                 className="w-full border border-amber-400 text-amber-700 font-medium"
                 variant="bordered"
                 startContent={<PlayFill/>}
-                onPress={resume}
+                onPress={resumeSession}
               >
                 Resume
               </Button>

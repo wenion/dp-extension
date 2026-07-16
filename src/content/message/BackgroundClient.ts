@@ -35,14 +35,14 @@ export function collapse() {
   })
 }
 
-export function pause() {
+export function pauseSession() {
   chrome.runtime.sendMessage({
     type: "SESSION/PAUSE",
     source: "CONTENT",
   })
 }
 
-export function resume() {
+export function resumeSession() {
   chrome.runtime.sendMessage({
     type: "SESSION/RESUME",
     source: "CONTENT",
