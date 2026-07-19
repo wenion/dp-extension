@@ -25,7 +25,9 @@ export class UploadService {
   }> {
     try {
       const traces = await this.traceService.stopSession();
-      const postTraces = this.traceProcessor.process(traces);
+      const orderedTraces =
+        this.traceProcessor.assignSequence(traces);
+      const postTraces = this.traceProcessor.process(orderedTraces);
 
       const domains = this.traceProcessor.extractDomains(postTraces);
 

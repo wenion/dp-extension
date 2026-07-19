@@ -37,6 +37,13 @@ export class TraceProcessor {
     return results;
   }
 
+  assignSequence(traces: Trace[]): Trace[] {
+    return traces.map((trace, index) => ({
+      ...trace,
+      sequence: index + 1,
+    }));
+  }
+
   processKeyboardEvents(traces: Trace[]): Trace[] {
     const results = [] as Trace[];
     for (const trace of traces) {
@@ -789,7 +796,7 @@ export class TraceProcessor {
   process(traces: Trace[]): Trace[] {
     const traces1 = this.processKeyboardEvents(traces);
     const traces2 = this.processMutationEvents(traces1);
-    const traces3 = this.processMutationEvents(traces2);
+    const traces3 = this.processPointerDownEvents(traces2);
     const traces4 = this.processGoogleDocsEvents(traces3);
 
     return traces4;

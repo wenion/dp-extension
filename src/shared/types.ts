@@ -52,7 +52,7 @@ export type UserEvent = {
   // sessionId?: string;
   author?: string;
   containerId?: number;
-  // source: TraceSource;
+  source?: string;
 };
 
 export type TraceContext = {
@@ -62,6 +62,7 @@ export type TraceContext = {
 
   tabId: number;
   windowId?: number;
+  sequence?: number;
 
   url: string;
 };
