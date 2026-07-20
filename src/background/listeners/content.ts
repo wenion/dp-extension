@@ -94,6 +94,14 @@ export function startContentListener(
           break;
         case "SESSION/RETRY":
           break;
+        case "SESSION/OPEN":
+          const link = new URL(url);
+          link.pathname="session";
+          link.searchParams.set("clientId", message.payload.sessionId);
+          chrome.tabs.create({
+            url: link.toString()
+          })
+          break;
         case "SESSIONS/REFRESH":
           sessionPersistenceService.refreshSessions();
           break;

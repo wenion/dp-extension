@@ -11,8 +11,9 @@ import { useAppContext } from "./context/context";
 import { useGrantedDomains } from "./context/useGrantedDomains";
 import {
   mount,
+  openSession,
   renameSession,
-  retryUpload
+  retryUpload,
 } from "./message/BackgroundClient";
 import { buildSites } from "./utils/buildSites";
 import { formatSessionTime } from "./utils/formatSessionTime";
@@ -78,6 +79,7 @@ export default function App() {
                     });
                   }}
                   onRetry={() => retryUpload(session.clientId)}
+                  onSessionClick={() => openSession(session.clientId)}
                 />
               ))}
             </div>

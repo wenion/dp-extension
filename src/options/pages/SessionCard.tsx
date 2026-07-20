@@ -24,6 +24,7 @@ type SessionCardProps = {
   status?: UploadStatus;
   onRename?: (title: string) => void;
   onRetry?: () => void;
+  onSessionClick?: () => void;
 };
 
 export function SessionCard({
@@ -33,6 +34,7 @@ export function SessionCard({
   status,
   onRename,
   onRetry,
+  onSessionClick,
 }: SessionCardProps) {
   const [value, setValue] = useState(title);
 
@@ -129,7 +131,7 @@ export function SessionCard({
           <Button
             isIconOnly
             variant="light"
-            // onPress={openRemotePage}
+            onPress={onSessionClick}
           >
             <ArrowUpRightFromSquare />
           </Button>

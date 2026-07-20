@@ -134,3 +134,11 @@ export function retryUpload(sessionId: string) {
     payload: { sessionId },
   })
 }
+
+export function openSession(sessionId: string) {
+  chrome.runtime.sendMessage({
+    type: "SESSION/OPEN",
+    source: "OPTIONS",
+    payload: { sessionId },
+  })
+}
