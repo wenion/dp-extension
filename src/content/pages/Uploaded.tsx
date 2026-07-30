@@ -1,9 +1,14 @@
 import { Button } from '@heroui/button';
-import {Card, CardHeader, CardBody, CardFooter} from "@heroui/card";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardFooter,
+} from "@heroui/card";
 
 import { CircleCheck } from '@gravity-ui/icons';
 
-import { finish } from "../message/BackgroundClient";
+import { finishUploaded } from "../message/BackgroundClient";
 
 export function Uploaded() {
   return (
@@ -23,7 +28,7 @@ export function Uploaded() {
             className="w-full"
             color="default"
             variant="bordered"
-            onPress={finish}
+            onPress={finishUploaded}
           >
             Done
           </Button>

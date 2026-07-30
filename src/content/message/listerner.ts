@@ -3,21 +3,11 @@ import { captureContext } from "../capture/context";
 import { overlay } from "../overlay/overlay";
 import { showDialog } from "../overlay/showDialog";
 
+import { connect } from "./BackgroundClient";
+
+import type { ContentState, TabState } from "@/shared/types";
 
 export function registerMessageListener(capture: CaptureManager) {
-  function syncCapture() {
-    const tab = captureContext.getTab();
-
-    if (!tab) {
-      return;
-    }
-
-    capture.ensureRecording(
-      tab,
-      captureContext.getActiveSession(),
-    );
-  }
-
   chrome.runtime.onMessage.addListener(
     (
       msg: any,
@@ -25,35 +15,72 @@ export function registerMessageListener(capture: CaptureManager) {
       sendResponse: (res?: any) => void
     ) => {
       switch (msg.type) {
+        case "CONTENT/INITIALIZED": {
+          const state = msg.payload as ContentState;
+          if (state.pageMounted) {
+            overlay.show(state);
+          } else {
+            overlay.hide();
+          }
+
+          captureContext.initialize({...state});
+          const tab = captureContext.getTab();
+          if (!tab) {
+            return;
+          }
+          if (tab.recordingScope === "recording" && state.activeSession) {
+            capture.mount(tab.url);
+          } else {
+            capture.unmount();
+          }
+          break;
+        }
         case "PAGE/MOUNTED":
-          overlay.show(msg.payload);
+          connect();
           break;
         case "PAGE/UNMOUNTED":
           overlay.hide();
           // TODO
           if (msg.payload === captureContext.getTab()?.tabId) {
-            showDialog();
+            showDialog("Session stopped & uploaded. Extension turned off.");
           }
           break;
         case "PING":
           sendResponse({
-            ok: true,
-            from: "content-script",
-            at: new Date().toISOString()
+            injected: true,
           });
           break;
-        case "TABS/UPDATED":
+        case "TABS/UPDATED": {
           captureContext.setTabs(msg.payload);
-          syncCapture();
+          const tabs = msg.payload as TabState[];
+          const tab = tabs.find(tab => tab.tabId === captureContext.getTab()?.tabId);
+          const activateSession = captureContext.getActiveSession();
+          if (tab?.recordingScope === "recording" && activateSession) {
+            capture.mount(tab.url);
+          } else {
+            capture.unmount();
+          }
           break;
-        case "SESSION/UPDATED":
+        }
+        case "SESSION/UPDATED": {
           captureContext.setActiveSession(msg.payload);
-          syncCapture();
+
+          const url = captureContext.getTab()?.url;
+          const ableRecord = captureContext.getTab()?.recordingScope === "recording";
+
+          if (msg.payload && ableRecord && url) {
+            capture.mount(url);
+          } else {
+            capture.unmount();
+          }
           break;
-        case "PAGE_STATE/UPDATED":
-          // if (msg.payload === "forceUploaded") {
-          //   showDialog();
-          // }
+        }
+        case "PAGE/SHOW":
+          if (msg.payload.tabId === captureContext.getTab()?.tabId) {
+            showDialog(
+              msg.payload.message,
+            );
+          }
           break;
         default:
           break;

@@ -1,85 +1,68 @@
 // network/httpClient.ts
+import { env } from "@/config/env";
 
-import { HttpError } from "./HttpError";
-import { Storage } from "../storage/Storage";
-
+import { HttpError } from "./errors/HttpError";
+import { NetworkError } from "./errors/NetworkError";
 
 export class HttpClient {
-  private readonly baseUrl: string;
-  private readonly storage: Storage;
-
-  constructor(
-    baseUrl: string,
-    storage: Storage,
-  ) {
-    this.baseUrl = baseUrl;
-    this.storage = storage;
-  }
+  private readonly baseUrl = env.apiUrl;
 
   get<T>(
     path: string,
     query?: Record<string, unknown>,
-    requireAuth = true,
   ) {
     return this.request<T>({
       path,
       method: "GET",
       query,
-      requireAuth,
     });
   }
 
   post<T>(
     path: string,
     body?: unknown,
-    requireAuth = true,
   ) {
     return this.request<T>({
       path,
       method: "POST",
       body,
-      requireAuth,
     });
   }
 
   patch<T>(
     path: string,
     body?: unknown,
-    requireAuth = true,
   ) {
     return this.request<T>({
       path,
       method: "PATCH",
       body,
-      requireAuth,
     });
   }
 
   put<T>(
     path: string,
     body?: unknown,
-    requireAuth = true,
   ) {
     return this.request<T>({
       path,
       method: "PUT",
       body,
-      requireAuth,
     });
   }
 
-  async request<T>({
+  protected appendHeaders(headers: Headers): void {}
+
+  protected async request<T>({
     path,
     method,
     body,
     query,
-    requireAuth = true,
   }:{
     path: string;
-    method: string;
+    method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
     body?: unknown;
     query?: Record<string, unknown>;
-    requireAuth?: boolean;
   }): Promise<T> {
 
     const url = new URL(path, this.baseUrl);
@@ -92,38 +75,54 @@ export class HttpClient {
       }
     }
 
-    const headers = new Headers();
+    const headers = this.buildHeaders();
 
-    if (body) {
-      headers.set("Content-Type", "application/json");
-    }
-
-    if (requireAuth) {
-      const token = await this.storage.getToken();
-
-      if (token) {
-        headers.set("Authorization", `Bearer ${token}`);
-      }
-    }
-
-    const response = await fetch(url, {
-      method,
-      headers,
-      body: body == null ? undefined : JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => undefined);
-
-      throw new HttpError(
-        response.status,
-        error,
+    if (
+      body != null &&
+      !(body instanceof FormData)
+    ) {
+      headers.set(
+        "Content-Type",
+        "application/json"
       );
     }
 
-    if (response.status === 204)
-      return undefined as T;
+    let response: Response;
 
-    return response.json();
+    try {
+      response = await fetch(url, {
+        method,
+        headers,
+        body:
+          body == null
+            ? undefined
+          : body instanceof FormData
+            ? body
+            : JSON.stringify(body),
+      });
+    } catch (error) {
+      throw new NetworkError(error);
+    }
+
+    if (!response.ok) {
+      throw new HttpError(
+        response.status,
+        await response.json(),
+      );
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    return await response.json() as T;
+  }
+
+  private buildHeaders(): Headers {
+    const headers = new Headers();
+
+    this.appendHeaders(headers);
+
+    return headers;
   }
 }

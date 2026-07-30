@@ -1,6 +1,8 @@
 import type { UserEvent, GoogleDocsMeta } from "@/shared/types";
 
-export const sendUserTrace = (trace: UserEvent) => {
+export const sendUserTrace = (
+  trace: UserEvent
+) => {
   chrome.runtime.sendMessage({
     type: "TRACE/USER",
     source: "CONTENT",
@@ -8,7 +10,9 @@ export const sendUserTrace = (trace: UserEvent) => {
   })
 }
 
-export const sendGoogleDocsTrace = (trace: GoogleDocsMeta) => {
+export const sendGoogleDocsTrace = (
+  trace: GoogleDocsMeta
+) => {
   chrome.runtime.sendMessage({
     type: "TRACE/GOOGLE",
     source: "CONTENT",

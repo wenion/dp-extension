@@ -1,16 +1,16 @@
-// import type { BackgroundRequest } from "@/shared/message/commands";
 import { InjectionResult } from "@/shared/content-script";
+import type { Session } from "@/shared/types";
 
-export async function initialize() {
+export async function connect() {
   return chrome.runtime.sendMessage({
-    type: "APP/GET_INITIAL_STATE",
+    type: "OPTIONS/CONNECT",
     source: "OPTIONS",
   });
 }
 
 export async function mount() {
   return chrome.runtime.sendMessage({
-    type: "APP/MOUNT",
+    type: "OPTIONS/MOUNT",
     source: "OPTIONS",
   });
 }
@@ -36,9 +36,9 @@ export function endSession() {
   })
 }
 
-export function forceEndSession() {
+export function exit() {
   chrome.runtime.sendMessage({
-    type: "SESSION/FORCE_END",
+    type: "SESSION/EXIT",
     source: "OPTIONS",
   });
 }
@@ -85,9 +85,16 @@ export function cancelStop() {
   })
 }
 
-export function finish() {
+export function finishUploaded() {
   chrome.runtime.sendMessage({
-    type: "PAGE/FINISH",
+    type: "SESSION/FINISH_UPLOADED",
+    source: "OPTIONS",
+  })
+}
+
+export function finishFailed() {
+  chrome.runtime.sendMessage({
+    type: "SESSION/FINISH_FAILED",
     source: "OPTIONS",
   })
 }
@@ -108,27 +115,42 @@ export function excludeTab(tabId: number) {
   })
 }
 
-export async function injectContent(
-  tabId: number
+export async function permissionGranted(
+  origin: string
 ): Promise<InjectionResult> {
-
   return chrome.runtime.sendMessage({
-    type: "PAGE/INJECT",
+    type: "TABS/GRANTED",
     source: "OPTIONS",
-    payload: { tabId },
+    payload: { origin },
   })
 }
 
-export function renameSession(sessionId: string, newTitle: string) {
-  chrome.runtime.sendMessage({
+export function nameSession(
+  sessionId: string,
+  newTitle: string
+): Promise<Session | undefined>  {
+  return chrome.runtime.sendMessage({
+    type: "SESSION/NAME",
+    source: "OPTIONS",
+    payload: { sessionId, newTitle },
+  })
+}
+
+export function renameSession(
+  sessionId: string,
+  newTitle: string
+): Promise<Session | undefined>  {
+  return chrome.runtime.sendMessage({
     type: "SESSION/RENAME",
     source: "OPTIONS",
     payload: { sessionId, newTitle },
   })
 }
 
-export function retryUpload(sessionId: string) {
-  chrome.runtime.sendMessage({
+export function retryUpload(
+  sessionId: string,
+): Promise<Session | undefined> {
+  return chrome.runtime.sendMessage({
     type: "SESSION/RETRY",
     source: "OPTIONS",
     payload: { sessionId },
@@ -141,4 +163,14 @@ export function openSession(sessionId: string) {
     source: "OPTIONS",
     payload: { sessionId },
   })
+}
+
+export async function dismissNotification(
+  notificationId: string,
+) {
+  return chrome.runtime.sendMessage({
+    type: "NOTIFICATION/DISMISS",
+    source: "OPTIONS",
+    payload: { notificationId },
+  });
 }

@@ -10,7 +10,7 @@ import type {
   PageState,
   Session,
   TabState,
-  InitState,
+  ContentState,
 } from "@/shared/types";
 import type { EventMessage } from "@/shared/message/events";
 
@@ -19,7 +19,6 @@ type ContextType = {
   setPage: (value: PageState) => void;
 
   session: Session | null;
-  // setSession: (value: Session) => void;
 
   tabs: TabState[];
   setTabs: (value: TabState[]) => void;
@@ -40,7 +39,7 @@ export function useAppContext() {
 }
 
 type Props = {
-  initialState: InitState;
+  initialState: ContentState;
   children: React.ReactNode;
 };
 
@@ -49,16 +48,14 @@ export function ContextProvider({
   children
 }: Props) {
   const tabId = initialState.tabId;
-  // if no tabId?
-  // const windowId = initialState.windowId;
-  const [page, setPage] = useState<PageState>(initialState.pageState);
+  const [page, setPage] = useState<PageState>(initialState.pageState ?? "idle");
   const [session, _setSession] = useState<Session | null>(
     initialState.activeSession ?? null
   );
   const [tabs, setTabs] = useState<TabState[]>([
     ...(initialState.tabs ?? [])
   ]);
-  
+
   useEffect(() => {
     const listener = (message: EventMessage) => {
       switch (message.type) {
@@ -92,7 +89,7 @@ export function ContextProvider({
     let count = 0;
 
     for (const tab of tabs) {
-      if (tab.recordingStatus === "recording") {
+      if (tab.recordingScope !== "not_in_scope") {
         count++;
       }
     }
@@ -105,7 +102,6 @@ export function ContextProvider({
       page,
       setPage,
       session,
-      // setSession,
       tabs,
       setTabs,
       currentTab,

@@ -1,9 +1,14 @@
 import { Button } from '@heroui/button';
-import {Card, CardHeader, CardBody, CardFooter} from "@heroui/card";
+import {
+  Card,
+  CardHeader,
+  CardBody,
+  CardFooter,
+} from "@heroui/card";
 
 import { TriangleExclamation } from '@gravity-ui/icons';
 
-import { finish } from "../message/BackgroundClient";
+import { finishFailed } from "../message/BackgroundClient";
 
 export function UploadFailed() {
   return (
@@ -26,7 +31,7 @@ export function UploadFailed() {
             className="w-full"
             color="default"
             variant="bordered"
-            onPress={finish}
+            onPress={finishFailed}
           >
             Done
           </Button>

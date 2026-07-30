@@ -1,7 +1,7 @@
 // commands.ts
 
 export interface MountCommand {
-  type: "APP/MOUNT";
+  type: "OPTIONS/MOUNT";
 }
 
 export type Command =

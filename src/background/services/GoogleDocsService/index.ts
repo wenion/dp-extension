@@ -1,54 +1,49 @@
-import { getDocumentId } from "./GoogleDocsUtils";
 import { transferToUserEventTrace } from "./GoogleDocsTraceMapper";
 
 import type { GoogleDocsApiClient} from "./GoogleDocsApiClient";
 import type { GoogleDocumentStore } from "./GoogleDocumentStore";
 import type { GoogleDocumentEngine } from "./GoogleDocumentEngine";
+import type { ContentScriptClient } from "../../clients/ContentScriptClient";
 
 import type { UserEvent, GoogleDocsMeta } from "@/shared/types";
-
 
 export class GoogleDocsService {
   private readonly api: GoogleDocsApiClient;
   private readonly store: GoogleDocumentStore;
   private readonly engine: GoogleDocumentEngine;
+  private readonly contentScriptClient: ContentScriptClient;
 
   constructor(
     api: GoogleDocsApiClient,
     store: GoogleDocumentStore,
     engine: GoogleDocumentEngine,
+    contentScriptClient: ContentScriptClient,
   ) {
     this.api = api;
     this.store = store;
     this.engine = engine;
+    this.contentScriptClient = contentScriptClient;
   }
 
-  async initializeDocument(
+  async create(
     tabId: number,
     url: string,
-  ) {
-    const docId = getDocumentId(url);
+    docId: string,
+  ): Promise<string> {
+    const current = this.store.get(tabId);
 
-    if (!docId) {
-      console.warn("Could not extract Google Docs document id:", url);
-      return;
+    if (current?.docId === docId) {
+      return current.state;
     }
 
-    const text =
-      await this.api.fetchDocumentText(docId);
-
-    console.log("init text", text)
-
-    this.store.initialize(
+    return this.loadDocument(
       tabId,
       url,
       docId,
-      text,
     );
-
   }
 
-  async updateDocument(
+  async update(
     tabId: number,
     meta: GoogleDocsMeta,
   ): Promise<UserEvent[]> {
@@ -66,8 +61,6 @@ export class GoogleDocsService {
       meta,
     );
 
-    console.log("updated", updated)
-
     if (!updated) {
       return [];
     }
@@ -83,33 +76,46 @@ export class GoogleDocsService {
     );
   }
 
-  // TODO
-  removeDocument(tabId: number): void {
-    this.store.remove(tabId);
+  remove(tabId: number): boolean {
+    return this.store.remove(tabId);
   }
 
-  async ensureInitialized(
+  async reload(
     tabId: number,
     url: string,
-  ): Promise<void> {
-    const docId = getDocumentId(url);
-
-    if (!docId) {
-      return;
-    }
-
-    const current = this.store.get(tabId);
-
-    if (
-      current &&
-      current.docId === docId
-    ) {
-      return;
-    }
-
-    await this.initializeDocument(
+    docId: string,
+  ): Promise<string> {
+    return this.loadDocument(
       tabId,
       url,
+      docId,
     );
+  }
+
+  private async loadDocument(
+    tabId: number,
+    url: string,
+    docId: string,
+  ): Promise<string> {
+    const text =
+      await this.api.fetchDocumentText(docId);
+
+    this.store.initialize(
+      tabId,
+      url,
+      docId,
+      text,
+    );
+
+    await this.contentScriptClient.broadcast({
+      type: "PAGE/SHOW",
+      payload: {
+        tabId,
+        message: "Google Doc ready for recording",
+        autoDismissMs: 5,
+      },
+    });
+
+    return text;
   }
 }

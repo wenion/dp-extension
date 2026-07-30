@@ -228,7 +228,7 @@ export interface Session {
   urls?: string[];
 };
 
-export type RecordingStatus =
+export type RecordingScope =
   | "recording"
   | "excluded"
   | "not_in_scope";
@@ -236,26 +236,73 @@ export type RecordingStatus =
 export interface TabState {
   tabId: number;
   windowId?: number;
-  googleDocId?: string;
+
   url: string;
-  title?: string;
   origin: string;
-  recordingStatus: RecordingStatus;
+  title?: string;
+  googleDocId?: string;
+
+  recordingScope: RecordingScope;
+  connected: boolean;
+
   createdAt: number;
   updatedAt: number;
 };
 
-export interface AppState {
-  mounted: boolean;
-  pageState: PageState;
+export const NotificationLevel = {
+  Info: "info",
+  Success: "success",
+  Warning: "warning",
+  Error: "error",
+} as const;
+
+export type NotificationLevel =
+  (typeof NotificationLevel)[keyof typeof NotificationLevel];
+
+export const NotificationAction = {
+  GrantHostPermission: "grant_host_permission",
+  SignIn: "sign_in",
+} as const;
+
+export type NotificationAction =
+  (typeof NotificationAction)[keyof typeof NotificationAction];
+
+export interface Notification {
+  id: string;
+
+  createdAt: number;
+
+  level: NotificationLevel;
+
+  title: string;
+  message: string;
+
+  dismissible: boolean;
+  expiresAt?: number;
+
+  tabId?: number;
+  action?: {
+    type: NotificationAction;
+    label: string;
+  };
+}
+
+export interface BackgroundState {
+  pageMounted?: boolean;
+  pageState?: PageState;
   activeSession?: Session;
   tabs: readonly TabState[];
-  sessions: readonly Session[];
-};
+}
 
-export type InitState = AppState & {
+export interface ContentState extends BackgroundState {
   tabId: number;
 };
+
+export interface OptionsState extends BackgroundState {  
+  sessions: readonly Session[];
+  currentNotification?: Notification;
+  notifications: readonly Notification[];
+}
 
 export type PageState =
   | "idle"
@@ -285,4 +332,3 @@ export type PageTrigger =
   | "FINISH"
   | "INCLUDE_PAGE"
   | "EXCLUDE_PAGE";
-  

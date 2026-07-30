@@ -1,18 +1,80 @@
-export const getIcon = (isColorful: boolean | undefined = false, active: boolean | undefined = false, size: number | undefined = 128) =>  {
+export const BadgeState = {
+  Unauthenticated: "unauthenticated",
+  Ready: "ready",
+  Recording: "recording",
+  Paused: "paused",
+  Excluded: "excluded",
+  Error: "error",
+} as const;
+
+export type BadgeState =
+  (typeof BadgeState)[keyof typeof BadgeState];
+
+type BadgeMetadata = {
+  title: string;
+  badgeText: string;
+  badgeColor?: string;
+};
+
+export const BadgeMetadata: Record<
+  BadgeState,
+  BadgeMetadata
+> = {
+  [BadgeState.Unauthenticated]: {
+    title: "Sign in required",
+    badgeText: "",
+  },
+
+  [BadgeState.Ready]: {
+    title: "Ready",
+    badgeText: "",
+  },
+
+  [BadgeState.Recording]: {
+    title: "Recording",
+    badgeText: "REC",
+    badgeColor: "#d93025",
+  },
+
+  [BadgeState.Paused]: {
+    title: "Recording paused",
+    badgeText: "",
+    badgeColor: "#fbbd04b6",
+  },
+
+  [BadgeState.Excluded]: {
+    title: "This tab is excluded",
+    badgeText: "",
+    badgeColor: "#9CA3AF",
+  },
+
+  [BadgeState.Error]: {
+    title: "Extension error",
+    badgeText: "!",
+    badgeColor: "#123008",
+  },
+};
+
+export const getBadgeIcon = (
+  state: BadgeState,
+  size = 128,
+) =>  {
   const VIEW = 24;
   const s = size / VIEW;
 
   const COLOR_SKY = "#0EA5E9";
   const COLOR_VIOLET = "#8B5CF6";
   const COLOR_AMBER = "#F59E0B";
-  const COLOR_GREEN = "#22c55e";
+  const COLOR_GREY = "#9CA3AF";
+  const COLOR_RED = "#EF4444";
+  const COLOR_YELLOW = "#EAB308";
 
   const canvas = new OffscreenCanvas(size, size);
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, size, size);
 
   // gradient border
-  if (isColorful) {
+  if (state !== "unauthenticated") {
     const grad = ctx.createLinearGradient(0, 0, size, 0);
     grad.addColorStop(0, COLOR_SKY);  // sky-500
     grad.addColorStop(0.5, COLOR_VIOLET); // violet-500
@@ -63,26 +125,29 @@ export const getIcon = (isColorful: boolean | undefined = false, active: boolean
     ctx.fill();
   }
 
-  if (active) {
-    ctx.strokeStyle = COLOR_GREEN;
-    ctx.lineWidth = 10 * s;
-
-    ctx.beginPath();
-    ctx.arc(X(16), Y(16), 2 * s, 0, Math.PI * 2);
-    ctx.stroke();
+  switch (state) {
+    case "unauthenticated":
+      return ctx.getImageData(0, 0, size, size);
+    case "ready":
+      return ctx.getImageData(0, 0, size, size);
+    case "recording":
+      ctx.strokeStyle = COLOR_RED;
+      break;
+    case "paused":
+      ctx.strokeStyle = COLOR_AMBER;
+      break;
+    case "excluded":
+      ctx.strokeStyle = COLOR_GREY;
+      break;
+    case "error":
+      ctx.strokeStyle = COLOR_YELLOW;
+      break;
   }
 
-  return ctx.getImageData(0, 0, size, size);
-}
+  ctx.lineWidth = 10 * s;
+  ctx.beginPath();
+  ctx.arc(X(16), Y(16), 2 * s, 0, Math.PI * 2);
+  ctx.stroke();
 
-export const getDefaultIcon = (size: number | undefined = 128) => {
-  return getIcon(false, false, size);
-}
-
-export const getActiveIcon = (size: number | undefined = 128) => {
-  return getIcon(true, false, size);
-}
-
-export const getCapturingIcon = () => {
-  return getIcon(true, true);
+  return ctx.getImageData(0, 0, size, size); 
 }

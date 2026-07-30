@@ -16,8 +16,8 @@ export class GoogleDocumentStore {
     return this.docs.has(tabId);
   }
 
-  remove(tabId: number): void {
-    this.docs.delete(tabId);
+  remove(tabId: number): boolean {
+    return this.docs.delete(tabId);
   }
 
   clear(): void {

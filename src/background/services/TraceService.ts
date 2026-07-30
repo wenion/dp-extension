@@ -1,86 +1,84 @@
-import type { TraceStore } from "../storage/TraceStorage";
+import { TraceApi } from "../api/TraceApi";
+
+import type { TraceRepository } from "../repositories/TraceRepository";
+import type { TraceProcessor } from "../TraceProcessor";
 
 import type {
   Trace,
-  UserEvent,
   TraceContext,
+  UserEvent,
 } from "@/shared/types";
 
-
 export class TraceService {
-  private readonly buffer: Trace[] = [];
-  private readonly flushSize: number;
-  private readonly store: TraceStore;
-
+  private readonly traceApi: TraceApi;
+  private readonly traceRepository: TraceRepository;
+  private readonly traceProcessor: TraceProcessor;
+  
   constructor(
-    store: TraceStore,
-    flushSize = 100,
+    traceApi: TraceApi,
+    traceRepository: TraceRepository,
+    traceProcessor: TraceProcessor,
   ) {
-    this.store = store;
-    this.flushSize = flushSize;
+    this.traceApi = traceApi;
+    this.traceRepository = traceRepository;
+    this.traceProcessor = traceProcessor;
   }
 
-  /**
-   * Called when recording starts.
-   */
-  async startSession(): Promise<void> {
-    this.buffer.length = 0;
+  async getUploadPayload(): Promise<Trace[]> {
+    const traces = await this.traceRepository.getAll();
+    const orderedTraces = this.traceProcessor.assignSequence(traces);
 
-    await this.store.clear();
+    const postTraces = this.traceProcessor.process(orderedTraces);
+
+    return postTraces;
   }
 
-  /**
-   * Add one trace.
-   */
-  async add(userEvent: UserEvent, context: TraceContext): Promise<void> {
+  async getUploadPayloadById(
+    sessionId: string,
+  ): Promise<Trace[]> {
+    const traces =
+      await this.traceRepository.getBySession(sessionId);
 
-    this.buffer.push({
-      ...userEvent,
-      ...context,
+    const ordered =
+      this.traceProcessor.assignSequence(traces);
+
+    return this.traceProcessor.process(ordered);
+  }
+
+  getDomains(traces: Trace[]): string[] {
+    return this.traceProcessor.extractDomains(traces);
+  }
+
+  async uploadTraces(traces: Trace[]) {
+    return this.traceApi.uploadMany(traces);
+  }
+
+  async clearTraces() {
+    await this.traceRepository.clear();
+  }
+
+  async clearTracesById(
+    sessionId: string,
+  ): Promise<void> {
+    await this.traceRepository.clearBySession(sessionId);
+  }
+
+  async add(trace: UserEvent, context: TraceContext) {
+    await this.traceRepository.append({
+      ...trace,
+      ...context
     });
-
-    if (this.buffer.length >= this.flushSize) {
-      await this.flush();
-    }
   }
 
-  /**
-   * Flush memory buffer to IndexedDB.
-   */
-  async flush(): Promise<void> {
-    if (this.buffer.length === 0) {
-      return;
-    }
-
-    const traces = [...this.buffer];
-
-    this.buffer.length = 0;
-
-    await this.store.appendMany(traces);
-  }
-
-  /**
-   * Called when recording ends.
-   */
-  async stopSession(): Promise<Trace[]> {
-    await this.flush();
-
-    return this.store.getAll();
-  }
-
-  /**
-   * Upload succeeded.
-   */
-  async completeSession(): Promise<void> {
-    this.buffer.length = 0;
-
-    await this.store.clear();
-  }
-
-  /**
-   * Number of traces waiting in memory.
-   */
-  get pendingCount(): number {
-    return this.buffer.length;
+  async addMany(
+    traces: readonly UserEvent[],
+    context: TraceContext,
+  ): Promise<void> {
+    await this.traceRepository.appendMany(
+      traces.map(trace => ({
+        ...trace,
+        ...context,
+      })),
+    );
   }
 }

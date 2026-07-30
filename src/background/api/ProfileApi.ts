@@ -1,10 +1,11 @@
-import { HttpClient } from "../network/HttpClient";
 import type { Profile } from "@/shared/types";
 
-export class ProfileApi {
-  private readonly http: HttpClient;
+import type { AuthenticatedClient } from "../network/AuthenticatedClient";
 
-  constructor(http: HttpClient) {
+export class ProfileApi {
+  private readonly http: AuthenticatedClient;
+
+  constructor(http: AuthenticatedClient) {
     this.http = http;
   }
 

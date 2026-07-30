@@ -1,3 +1,3 @@
-import { bootstrap } from "./app";
+import { app } from "./app";
 
-bootstrap().catch(console.error);
+void app.start();

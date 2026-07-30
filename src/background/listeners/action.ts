@@ -1,79 +1,53 @@
-import {
-  getDefaultIcon,
-  getCapturingIcon,
-  getActiveIcon
-} from "@/shared/icons";
-
+import { env } from "@/config/env";
 import { InjectionResult } from "@/shared/content-script";
 
-import type { ActionService } from "../services/ActionService";
-import type { AuthService } from "../services/AuthService";
-import type { ContentScriptService } from "../services/ContentScriptService";
-import type { PermissionService } from "../services/PermissionService";
-import type { TabService } from "../services/TabService";
-
+import type { NotificationController } from "../controllers/NotificationController";
+import type { PopupController } from "../controllers/PopupController";
+import type { TabController } from "../controllers/TabController";
 
 export function startActionListener(
-  url: string,
-  permissionService: PermissionService,
-  actionService: ActionService,
-  authService: AuthService,
-  contentScriptService: ContentScriptService,
-  tabService: TabService,
+  notificationController: NotificationController,
+  popupController: PopupController,
+  tabController: TabController,
 ) {
 
-  chrome.runtime.onInstalled.addListener(async (details: chrome.runtime.InstalledDetails) => {
-
+  chrome.runtime.onInstalled.addListener(async (details) => {
     if (details.reason === "install") {
-      const img16  = getDefaultIcon(16);
-      const img32  = getDefaultIcon(32);
-      chrome.action.setIcon({ imageData: { 16: img16, 32: img32 } });
-      // chrome.tabs.create({ url: "welcome.html" });
-      // storageService.initialize();
+
+      await chrome.storage.local.clear();
+      chrome.tabs.create({ url: env.apiUrl });
     }
   });
 
-  // chrome.runtime.onStartup.addListener(async () => {
-  //   await tabService.removeTimeoutTabs();
-  // });
-
   chrome.action.onClicked.addListener(async (tab) => {
-
-    if (!authService.isAuthenticated()) {
-      await authService.openLogin(url);
+    if (!tab.id) {
       return;
     }
 
-    if (!tab.url || !tab.id) {
+    const result = await popupController.handleActionClick(tab.id);
+    if (result !== InjectionResult.NoPermission) {
       return;
     }
 
-    const result = await contentScriptService.ensureInjected(tab.id);
-    if (result === InjectionResult.NoPermission) {
-      await chrome.runtime.openOptionsPage();
-      return;
-    }
-
-    await tabService.cleanupClosedTabs();
-
-    await actionService.toggle(tab.id);
-
+    await notificationController.showHostPermissionRequired(tab.id);
+    await chrome.runtime.openOptionsPage();
   });
 
   chrome.permissions.onAdded.addListener((permissions) => {
-
     if (permissions.origins) {
-      tabService.handlePermissionChange(permissions.origins, true);
+      tabController.updateRecordingScopeByOrigins(
+        permissions.origins,
+        "recording",
+      );
     }
-
   });
 
   chrome.permissions.onRemoved.addListener((permissions) => {
-
     if (permissions.origins) {
-      tabService.handlePermissionChange(permissions.origins, false);
+      tabController.updateRecordingScopeByOrigins(
+        permissions.origins,
+        "not_in_scope",
+      );
     }
-
-  });
-  
+  });  
 }

@@ -1,32 +1,30 @@
-import type { Storage } from "../storage/Storage";
+import { getDocumentId } from "./GoogleDocsService/GoogleDocsUtils";
 import type { ContentScriptClient } from "../clients/ContentScriptClient";
+import type { TabsRepository } from "../repositories/TabsRepository";
 
 import type {
-  RecordingStatus,
+  RecordingScope,
   TabState,
 } from "@/shared/types";
 
-
-export function getGoogleDocumentId(url?: string): string | undefined {
-  return url?.match(/\/d\/([^/]+)/)?.[1];
-}
-
 export class TabService {
-  private readonly storage: Storage;
+  private readonly repository: TabsRepository;
   private readonly contentScriptClient: ContentScriptClient;
 
   constructor(
-    storage: Storage,
+    repository: TabsRepository,
     contentScriptClient: ContentScriptClient,
   ) {
-    this.storage = storage;
+    this.repository = repository;
     this.contentScriptClient = contentScriptClient;
   }
 
   async registerTab(
     tabId: number,
     url: string,
-    status: RecordingStatus,
+    scope: RecordingScope,
+    title?: string,
+    connected?: boolean,
   ): Promise<TabState> {
 
     const now = Date.now();
@@ -40,10 +38,12 @@ export class TabService {
 
     const tabState: TabState = {
       tabId: tabId,
-      googleDocId: getGoogleDocumentId(url),
+      googleDocId: getDocumentId(url) ?? undefined,
       url: url,
       origin,
-      recordingStatus: status,
+      title: title,
+      recordingScope: scope,
+      connected: connected ?? true,
       createdAt: now,
       updatedAt: now,
     }
@@ -54,148 +54,167 @@ export class TabService {
   }
 
   async unregisterTab(tabId: number) {
-    await this.storage.removeTab(tabId);
-
-    await this.notifyTabsUpdated();
+    await this.removeTab(tabId);
   }
 
-  async updateTab(
+  async setTitle(
     tabId: number,
-    patch: Partial<TabState>,
-  ) {
-    const tab = this.storage.getTab(tabId);
-
-    if (!tab) {
-      return;
-    }
-
-    const updated: TabState = {
-      ...tab,
-      ...patch,
-      updatedAt: Date.now(),
-    };
-
-    await this.setTab(updated);
-
-    return updated;
+    title?: string,
+  ): Promise<TabState | undefined> {
+    return this.updateTab(
+      tabId,
+      tab => ({
+        ...tab,
+        title: title ?? tab.title,
+        updatedAt: Date.now(),
+      }),
+    );
   }
 
-  async excludeTab(tabId: number) {
-    await this.updateTab(
-      tabId,
-      {
-        recordingStatus: "excluded",
-      }
-    )
+  async resetExcludedTabs() {
+    this.updateTabs(
+      tab => tab.recordingScope === "excluded",
+      tab => ({
+        ...tab,
+        recordingScope: "recording",
+        updatedAt: Date.now(),
+      }),
+    );
   }
 
-  async includeTab(tabId: number) {
-    await this.updateTab(
+  async setRecording(
+    tabId: number
+  ): Promise<TabState | undefined> {
+    return this.updateTab(
       tabId,
-      {
-        recordingStatus: "recording",
-      }
-    )
+      tab => ({
+        ...tab,
+        recordingScope: "recording",
+        updatedAt: Date.now(),
+      }),
+    );
+  }
+
+  async setOutOfScope(
+    tabId: number
+  ): Promise<TabState | undefined> {
+    return this.updateTab(
+      tabId,
+      tab => ({
+        ...tab,
+        recordingScope: "not_in_scope",
+        updatedAt: Date.now(),
+      }),
+    );
+  }
+
+  async setExcluded(
+    tabId: number
+  ): Promise<TabState | undefined> {
+    return this.updateTab(
+      tabId,
+      tab => ({
+        ...tab,
+        recordingScope: "excluded",
+        updatedAt: Date.now(),
+      }),
+    );
+  }
+
+  async setDisconnected(
+    tabId: number
+  ): Promise<TabState | undefined> {
+    return this.updateTab(
+      tabId,
+      tab => ({
+        ...tab,
+        connected: false,
+        updatedAt: Date.now(),
+      }),
+    );
+  }
+
+  async updateRecordingScopeByOrigins(
+    origins:readonly string[],
+    recordingScope: RecordingScope,
+  ): Promise<void> {
+    const originSet = new Set(origins);
+
+    await this.updateTabs(
+      tab => originSet.has(`${tab.origin}/*`),
+      tab => ({
+        ...tab,
+        recordingScope,
+        updatedAt: Date.now(),
+      }),
+    );
+  }
+
+  getTabIds(): number[] {
+    return this.repository
+      .getTabs()
+      .map(tab => tab.tabId);
   }
 
   getTab(tabId: number) {
-    return this.storage.getTab(tabId);
+    return this.repository.getTab(tabId);
   }
 
   getTabs() {
-    return this.storage.getTabs();
+    return this.repository.getTabs();
   }
 
   hasTab(tabId: number) {
-    return this.storage.getTab(tabId) !== undefined;
+    return this.repository.getTab(tabId) !== undefined;
   }
 
-  isRecording(tabId: number) {
+  isRecordable(tabId: number) {
     return (
-      this.storage.getTab(tabId)?.recordingStatus ===
+      this.repository.getTab(tabId)?.recordingScope ===
       "recording"
     );
   }
 
-  private async setTab(tab: TabState) {
-    await this.storage.setTab(tab);
-
-    await this.notifyTabsUpdated();
-  }
-
-  async cleanupClosedTabs() {
-    const chromeTabs = await chrome.tabs.query({});
-
-   const chromeTabIds = new Set(
-      chromeTabs
-        .filter(
-          (
-            tab,
-          ): tab is chrome.tabs.Tab & { id: number } =>
-            tab.id !== undefined,
-        )
-        .map((tab) => tab.id),
+  private async updateTab(
+    tabId: number,
+    updater: (tab: TabState) => TabState,
+  ) {
+    const updated = this.repository.updateTab(
+      tabId,
+      updater,
     );
 
-    for (const tab of this.storage.getTabs()) {
-      if (!chromeTabIds.has(tab.tabId)) {
-        await this.storage.removeTab(tab.tabId);
-      }
-    }
-
-    await this.notifyTabsUpdated();
-  }
-
-  async handlePermissionChange(
-    origins: readonly string[],
-    granted: boolean,
-  ): Promise<void> {
-    const changed = await this.updateRecordingStatus(
-      origins,
-      granted,
-    );
-
-    if (!changed) {
+    if (!updated) {
       return;
     }
 
     await this.notifyTabsUpdated();
+
+    return updated;
   }
 
-  private async updateRecordingStatus(
-    origins: readonly string[],
-    granted: boolean,
-  ): Promise<boolean> {
-    const tabs = this.storage.getTabs();
+  private async updateTabs(
+    predicate: (tab: TabState) => boolean,
+    updater: (tab: TabState) => TabState,
+  ) {
+    this.repository.updateTabs(
+      predicate,
+      updater,
+    );
 
-    const originSet = new Set(origins);
+    await this.notifyTabsUpdated();
+  }
 
-    const nextStatus = granted
-      ? "recording"
-      : "not_in_scope";
+  private async setTab(tab: TabState) {
+    this.repository.setTab(tab);
 
-    let changed = false;
+    await this.notifyTabsUpdated();
+  }
 
-    for (const tab of tabs) {
-      if (!originSet.has(`${tab.origin}/*`)) {
-        continue;
-      }
+  private async removeTab(tab: number) {
+    this.repository.removeTab(tab);
 
-      if (tab.recordingStatus === nextStatus) {
-        continue;
-      }
-
-      tab.recordingStatus = nextStatus;
-      changed = true;
-    }
-
-    if (!changed) {
-      return false;
-    }
-
-    await this.storage.setTabs(tabs);
-
-    return true;
+    await this.notifyTabsUpdated();
   }
 
   private async notifyTabsUpdated() {

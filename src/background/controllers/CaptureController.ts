@@ -4,7 +4,6 @@ import type { TraceService } from "../services/TraceService";
 
 import type { UserEvent } from "@/shared/types";
 
-
 export class CaptureController {
 
   private sessionService: SessionService;
@@ -21,23 +20,28 @@ export class CaptureController {
     this.traceService = traceService;
   }
 
-  canCapture(tabId: number): boolean {
-
-    if (!this.sessionService.isRecording()) {
-      return false;
-    }
-
-    return this.tabService.isRecording(tabId);
-  }
-
   async capture(trace: UserEvent, tabId: number) {
-    if (!this.canCapture(tabId)) return;
-
     const session =
       this.sessionService.getActiveSession();
-    
+
+    // session paused
+    if (
+      !session ||
+      session.captureState === "paused"
+    ) {
+      return;
+    }
+
+    // tab not in scope
     const tabState =
-      this.tabService.getTab(tabId)!;
+      this.tabService.getTab(tabId);
+
+    if (
+      !tabState ||
+      tabState.recordingScope !== "recording"
+    ) {
+      return;
+    }
 
     await this.traceService.add(trace, {
       sessionId: session!.clientId,
@@ -46,7 +50,39 @@ export class CaptureController {
       tabId: tabState!.tabId,
       windowId: tabState!.windowId,
       url: tabState!.url,
-      });
+    });
   }
 
+  async captureMany(traces: UserEvent[], tabId: number) {
+    const session =
+      this.sessionService.getActiveSession();
+
+    // session paused
+    if (
+      !session ||
+      session.captureState === "paused"
+    ) {
+      return;
+    }
+
+    // tab not in scope
+    const tabState =
+      this.tabService.getTab(tabId);
+
+    if (
+      !tabState ||
+      tabState.recordingScope !== "recording"
+    ) {
+      return;
+    }
+
+    await this.traceService.addMany(traces, {
+      sessionId: session!.clientId,
+      sessionStart: session!.startedAt,
+      sessionEnd: session!.endedAt,
+      tabId: tabState!.tabId,
+      windowId: tabState!.windowId,
+      url: tabState!.url,
+    });
+  }
 }

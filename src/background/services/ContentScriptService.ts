@@ -1,9 +1,8 @@
-import { InjectionResult } from "@/shared/content-script";
-
-import type { Storage } from "../storage/Storage";
+import {
+  InjectionPermission,
+  InjectionResult,
+} from "@/shared/content-script";
 import type { ContentScriptClient } from "../clients/ContentScriptClient";
-import type { StorageService } from "../services/StorageService";
-
 
 /**
  * Ensures a content script is available in a browser tab.
@@ -15,49 +14,83 @@ import type { StorageService } from "../services/StorageService";
  */
 export class ContentScriptService {
 
-  private readonly storage: Storage;
   private readonly contentScriptClient: ContentScriptClient;
 
-  private readonly storageService: StorageService;
-
   constructor(
-    storage: Storage,
     contentScriptClient: ContentScriptClient,
-    storageService: StorageService,
   ) {
-    this.storage = storage;
     this.contentScriptClient = contentScriptClient;
-    this.storageService = storageService;
   }
 
   /**
-   * Ensures the content script is available in the specified tab.
+   * Attempts to inject the content script into the given tab.
    *
-   * If the content script is already running, it is reused.
-   * Otherwise, this method attempts to inject it and verifies that it
-   * is responsive before returning.
+   * If the content script is already injected, this method returns
+   * {@link InjectionResult.Success} without injecting again.
+   *
+   * Before injecting, this method verifies that:
+   * - the tab has a valid URL;
+   * - the URL is supported;
+   * - the extension has host permission.
+   *
+   * If injection cannot be completed, a detailed
+   * {@link InjectionResult} is returned describing the reason.
    */
-  async ensureInjected(tabId: number): Promise<InjectionResult> {
-    const tab = await chrome.tabs.get(tabId);
+  async inject(
+    tabId: number
+  ): Promise<InjectionResult> {
+    const permission =
+      await this.checkTabInjectionPermission(tabId);
+
+    switch (permission) {
+      case InjectionPermission.UnsupportedUrl:
+        return InjectionResult.UnsupportedUrl;
+
+      case InjectionPermission.NoPermission:
+        return InjectionResult.NoPermission;
+
+      case InjectionPermission.Allowed:
+        break;
+    }
+
+    if (await this.isInjected(tabId)) {
+      return InjectionResult.Success;
+    }
+
+    return this.executeInjection(tabId);
+  }
+
+  async checkTabInjectionPermission(
+    tabId: number
+  ): Promise<InjectionPermission> {
+     const tab = await chrome.tabs.get(tabId);
 
     if (!tab.url) {
-      return InjectionResult.UnsupportedUrl;
+      return InjectionPermission.UnsupportedUrl;
     }
 
     const url = new URL(tab.url);
 
+    return this.checkInjectionPermission(url);
+  }
+
+  async checkInjectionPermission(
+    url: URL,
+  ): Promise<InjectionPermission> {
     if (!this.canInject(url)) {
-      return InjectionResult.UnsupportedUrl;
+      return InjectionPermission.UnsupportedUrl;
     }
 
     if (!(await this.hasHostPermission(url))) {
-      return InjectionResult.NoPermission;
+      return InjectionPermission.NoPermission;
     }
 
-    if (await this.ping(tabId)) {
-      return InjectionResult.Success;
-    }
+    return InjectionPermission.Allowed;
+  }
 
+  async executeInjection(
+    tabId: number,
+  ): Promise<InjectionResult> {
     try {
       await chrome.scripting.executeScript({
         target: {
@@ -71,10 +104,11 @@ export class ContentScriptService {
         "Failed to inject content script.",
         error,
       );
+
       return InjectionResult.InjectionFailed;
     }
 
-    return (await this.ping(tabId))
+    return (await this.isInjected(tabId))
       ? InjectionResult.Success
       : InjectionResult.ContentUnavailable;
   }
@@ -82,15 +116,18 @@ export class ContentScriptService {
   /**
    * Returns whether the content script is responsive.
    */
-  private async ping(
+  private async isInjected(
     tabId: number,
   ): Promise<boolean> {
     try {
-      await this.contentScriptClient.send(tabId, {
-        type: "PING",
-      });
+      const response =
+        await this.contentScriptClient.send<{
+          injected: boolean;
+        }>(tabId, {
+          type: "PING",
+        });
 
-      return true;
+      return response?.injected === true;
     } catch {
       return false;
     }
@@ -118,7 +155,7 @@ export class ContentScriptService {
 
   private hasHostPermission(url: URL): Promise<boolean> {
     return chrome.permissions.contains({
-      // permissions: ["scripting"],
+      permissions: ["scripting"],
       origins: [`${url.origin}/*`]
     });
   }

@@ -1,14 +1,18 @@
 import { Button } from '@heroui/button';
-import { Card, CardHeader, CardBody, CardFooter } from "@heroui/card";
+import {
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+} from "@heroui/card";
 
 import { PauseFill } from '@gravity-ui/icons';
 import { SquareFill } from '@gravity-ui/icons';
 
 import {
   cancelStop,
-  forceEndSession,
+  exit,
  } from "../message/BackgroundClient";
-
  
 export function Alert() {
   return (
@@ -34,7 +38,7 @@ export function Alert() {
               className="w-full border text-red-600 font-medium"
               variant="bordered"
               startContent={<SquareFill />}
-              onPress={forceEndSession}
+              onPress={exit}
             >
               Turn off & upload
             </Button>

@@ -2,16 +2,26 @@ import { Button } from "@heroui/button";
 import { Card, CardBody } from "@heroui/card";
 import { addToast } from "@heroui/toast";
 
-import { Eye, EyeSlash, EyeClosed } from '@gravity-ui/icons';
+import {
+  Eye,
+  EyeClosed,
+  EyeSlash,
+  LinkSlash,
+} from "@gravity-ui/icons";
 
 type TabRecordCardProps = {
   tabId: number;
+
+  origin: string;
   title?: string;
-  domain: string;
+
+  recordingScope: "recording" | "excluded" | "not_in_scope";
+  connected: boolean;
+
   favicon?: string;
   captureState: "recording" | "paused";
-  recordingStatus: "recording" | "excluded" | "not_in_scope";
-  onincludeTab?: (tabId: number) => void;
+
+  onIncludeTab?: (tabId: number) => void;
   onExcludeTab?: (tabId: number) => void;
   onRequestPermission?: (tabId: number) => void;
 };
@@ -19,18 +29,19 @@ type TabRecordCardProps = {
 export function TabRecordCard({
   tabId,
   title,
-  domain,
+  origin,
   favicon,
+  connected,
   captureState,
-  recordingStatus,
-  onincludeTab,
+  recordingScope,
+  onIncludeTab,
   onExcludeTab,
   onRequestPermission,
 }: TabRecordCardProps) {
   const displayStatus =
-    recordingStatus === "recording"
+    recordingScope === "recording"
       ? captureState
-      : recordingStatus;
+      : recordingScope;
 
   const statusTextColor = {
     recording: "text-red-600",
@@ -47,22 +58,22 @@ export function TabRecordCard({
   } as const;
 
   const action =
-    recordingStatus === "recording"
+    recordingScope === "recording"
       ? {
           icon: <Eye />,
           onPress: onExcludeTab,
         }
-      : recordingStatus === "excluded"
+      : recordingScope === "excluded"
       ? {
           icon: <EyeSlash />,
-          onPress: onincludeTab,
+          onPress: onIncludeTab,
         }
       : {
           icon: <EyeClosed />,
           onPress: onRequestPermission,
         };
 
-  const openTab = async(tabId: number) => {
+  const openTab = async (tabId: number) => {
     try {
       const tab = await chrome.tabs.get(tabId);
 
@@ -90,7 +101,7 @@ export function TabRecordCard({
           {favicon ? (
             <img
               src={favicon}
-              alt={title}
+              alt={title ?? origin}
               className="h-11 w-11 rounded-xl object-cover"
             />
           ) : (
@@ -102,13 +113,25 @@ export function TabRecordCard({
 
         {/* Title */}
         <div className="min-w-0 flex-1">
-          <p
-            className="truncate text-base font-semibold text-primary cursor-pointer hover:underline"
-            onClick={() => openTab(tabId)}
-          >
-            {title}
+          <p className="flex items-center gap-2 min-w-0 text-base font-semibold">
+            <span
+              className="truncate cursor-pointer text-primary hover:underline"
+              onClick={() => openTab(tabId)}
+            >
+              {title}
+            </span>
+
+            {!connected && (
+              <span
+                className="inline-flex items-center gap-1 text-warning text-xs "
+                title="Extension is not connected to this page. Reload the page to reconnect."
+              >
+                <LinkSlash />
+                Disconnected · Need to reload the page
+              </span>
+            )}
           </p>
-          <p className="truncate text-sm text-default-500">{domain}</p>
+          <p className="truncate text-sm text-default-500">{origin}</p>
         </div>
 
         {/* Status */}

@@ -1,153 +1,35 @@
-import type { Storage } from "../storage/Storage";
+import type { StateRepository } from "../repositories/StateRepository";
 import type { ContentScriptClient } from "../clients/ContentScriptClient";
-import type { PageService } from "./PageService";
-import type { SessionPersistenceService } from "./SessionPersistenceService";
-import type { UploadService } from "./UploadService";
 
 import type { Session } from "@/shared/types";
-
+import { MissingActiveSessionError } from "./errors/MissingActiveSessionError";
 
 export class SessionService {
-  private readonly storage: Storage;
+  private readonly stateRepository: StateRepository;
   private readonly contentScriptClient: ContentScriptClient;
-  private readonly pageService: PageService;
-  private readonly sessionPersistenceService: SessionPersistenceService;
-  private readonly uploadService: UploadService;
 
   constructor(
-    storage: Storage,
+    stateRepository: StateRepository,
     contentScriptClient: ContentScriptClient,
-    pageService: PageService,
-    sessionPersistenceService: SessionPersistenceService,
-    uploadService: UploadService,
   ) {
-    this.storage = storage;
+    this.stateRepository = stateRepository;
     this.contentScriptClient = contentScriptClient;
-    this.pageService = pageService;
-    this.sessionPersistenceService = sessionPersistenceService;
-    this.uploadService = uploadService;
   }
 
-  async startSession() {
-    const session = await this.createSession();
-
-    await this.pageService.onSessionStarted();
-
-    // TODO cache/api request
-    const created = await this.sessionPersistenceService
-      .createSession(session);
-
-    if (created) {
-      await this.updateSession(created);
-    } else {
-
-    }
+  getActiveSession(): Session | undefined {
+    return this.stateRepository.getActiveSession();
   }
 
-  private async completeSession() {
-    const session = await this.updateSession({
-      endedAt: Date.now(),
-      captureState: "paused",
-      uploadStatus: "uploading",
-    });
+  async create(): Promise<Session> {
+    const active =
+      this.stateRepository.getActiveSession();
 
-    if (!session) return;
-
-    await this.pageService.onSessionEnded();
-
-    // TODO update badge
-
-    // upload traces
-    const result = await this.uploadService.uploadTraces();
-
-    console.log("result", result)
-
-    if (!result.success) {
-      await this.handleUploadFailed();
-      return;
-    }
-
-    const patch = {
-      uploadStatus: "uploaded" as const,
-      urls: result.domains ?? [],
-    };
-
-    // update local session to the remote
-    const response = await this.sessionPersistenceService.updateSession(
-      session.clientId,
-      patch,
-    );
-
-    return response;
-  }
-
-  async endSession() {
-    const result = await this.completeSession();
-
-    if (result) {
-      await this.handleUploadSucceeded(result);
-    }
-    else {
-      await this.handleUploadFailed();
-    }
-  }
-
-  async forceEndSession(tabId?: number) {
-    const result = await this.completeSession();
-
-    if (result) {
-      await this.handleForceUploadSucceeded(result);
-
+    if (active) {
       // TODO
-      await this.finishSession();
-      await this.pageService.unmount(tabId);
-    }
-    else {
-      await this.handleUploadFailed();
-    }
-  }
-
-  async finishSession() {
-    await this.uploadService.finishTraces();
-
-    await this.pageService.onFinish();
-
-    const session = this.getActiveSession();
-    if (session) {
-      await this.sessionPersistenceService.appendSession(session);
+      return active;
     }
 
-    await this.deleteSession();
-  }
-
-  async pauseSession() {
-    await this.updateSession({
-      captureState: "paused",
-    });
-  }
-
-  async resumeSession() {
-    await this.updateSession({
-      captureState: "recording",
-    });
-  }
-
-  getActiveSession() {
-    return this.storage.getActiveSession();
-  }
-
-  isRecording() {
-    return this.storage.getActiveSession()?.captureState === "recording";
-  }
-  
-  private async createSession(): Promise<Session> {
-    const existing = this.storage.getActiveSession();
-
-    if (existing) {
-      return existing;
-    }
-
-    const session : Session = {
+    const created : Session = {
       clientId: crypto.randomUUID(),
       startedAt: Date.now(),
       eventCount: 0,
@@ -155,60 +37,135 @@ export class SessionService {
       uploadStatus: "waiting",
     };
 
-    await this.storage.setActiveSession(session);
-    await this.notifySessionUpdated();
+    await this.updateActiveSession(created);
+
+    return created;
+  }
+
+  async end() {
+    return this.patchActiveSession({
+      endedAt: Date.now(),
+      captureState: "paused",
+      // uploadStatus: "uploading",
+    });
+  }
+
+  async finalize() {
+    await this.clearActiveSession();
+  }
+
+  async pause() {
+    return this.patchActiveSession({
+      captureState: "paused",
+    });
+  }
+
+  async resume() {
+    return this.patchActiveSession({
+      captureState: "recording",
+    });
+  }
+
+  async markUploading() {
+    return this.patchActiveSession({
+      uploadStatus: "uploading",
+    });
+  }
+
+  async markUploaded() {
+    return this.patchActiveSession({
+      uploadStatus: "uploaded",
+    });
+  }
+
+  async markFailed() {
+    return this.patchActiveSession({
+      uploadStatus: "failed",
+    });
+  }
+
+  async incrementEventCount() {
+    const active =
+      this.stateRepository.getActiveSession();
+
+    if (!active) {
+      throw new MissingActiveSessionError();
+    }
+
+    const session: Session = {
+      ...active,
+      eventCount: active.eventCount++,
+    };
+
+    await this.stateRepository.setActiveSession(session);
+    
+    return session;
+  }
+
+  async setUrls(urls: string[]) {
+    const active =
+      this.stateRepository.getActiveSession();
+
+    if (!active) {
+      throw new MissingActiveSessionError();
+    }
+
+    const session: Session = {
+      ...active,
+      urls: urls,
+    };
+
+    await this.stateRepository.setActiveSession(session);
+    
+    return session;
+  }
+
+  async setName(name: string) {
+    const active =
+      this.stateRepository.getActiveSession();
+
+    if (!active) {
+      throw new MissingActiveSessionError();
+    }
+
+    const session: Session = {
+      ...active,
+      name: name,
+    };
+
+    await this.stateRepository.setActiveSession(session);
+    
+    return session;
+  }
+
+  private async patchActiveSession(
+    patch: Partial<Session>,
+  ): Promise<Session> {
+    const active =
+      this.stateRepository.getActiveSession();
+
+    if (!active) {
+      throw new MissingActiveSessionError();
+    }
+
+    const session: Session = {
+      ...active,
+      ...patch,
+    };
+
+    await this.updateActiveSession(session);
 
     return session;
   }
 
-  /**
-   * Update active session and notify frontend.
-   */
-  private async updateSession(
-    patch: Partial<Session>,
-  ): Promise<Session| undefined> {
-    const session = this.storage.getActiveSession();
-
-    if (!session) return;
-
-    const updated: Session = {
-      ...session,
-      ...patch,
-    };
-
-    await this.storage.setActiveSession(updated);
+  private async updateActiveSession(session: Session) {
+    await this.stateRepository.setActiveSession(session);
 
     await this.notifySessionUpdated();
-
-    return updated;
   }
 
-  private async handleUploadSucceeded(updated: Session) {
-    await this.storage.setActiveSession(updated);
-
-    await this.notifySessionUpdated();
-
-    await this.pageService.onUploadSucceeded();
-  }
-
-  private async handleForceUploadSucceeded(updated: Session) {
-    await this.storage.setActiveSession(updated);
-
-    await this.notifySessionUpdated();
-
-    await this.pageService.onForceUploadSucceeded();
-  }
-
-  private async handleUploadFailed() {
-    await this.updateSession({
-      uploadStatus: "failed",
-    });
-
-    await this.pageService.onUploadFailed();
-  }
-
-  private async deleteSession() {
-    await this.storage.clearActiveSession();
+  private async clearActiveSession() {
+    await this.stateRepository.clearActiveSession();
 
     await this.notifySessionUpdated();
   }
@@ -216,7 +173,7 @@ export class SessionService {
   private async notifySessionUpdated() {
     await this.contentScriptClient.broadcast({
       type: "SESSION/UPDATED",
-      payload: this.storage.getActiveSession(),
+      payload: this.stateRepository.getActiveSession(),
     });
   }
 }

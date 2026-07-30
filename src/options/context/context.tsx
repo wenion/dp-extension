@@ -1,77 +1,116 @@
 import {
   createContext,
-  useEffect,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
 
-import { initialize, refreshSessions } from "../message/BackgroundClient";
+import { connect } from "../message/BackgroundClient";
 
+import type { EventMessage } from "@/shared/message/events";
 import type {
+  Notification,
+  OptionsState,
   PageState,
   Session,
   TabState,
-  AppState,
 } from "@/shared/types";
-import type { EventMessage } from "@/shared/message/events";
 
 
 type ContextType = {
   mounted: boolean;
 
   page: PageState;
-  setPage: (value: PageState) => void;
 
   session: Session | null;
+  sessions: readonly Session[];
 
-  sessions: Session[];
+  currentNotification: Notification | null;
+  notifications: readonly Notification[];
 
-  tabs: TabState[];
-  setTabs: (value: TabState[]) => void;
+  tabs: readonly TabState[];
+
   numberOfRecordingTabs: number;
 };
+
 const Context = createContext<ContextType | null>(null);
 
 export function useAppContext() {
   const context = useContext(Context);
 
   if (!context) {
-    throw new Error("useAppContext must be used within a ContextProvider");
+    throw new Error(
+      "useAppContext must be used within a ContextProvider"
+    );
   }
 
   return context;
 }
 
-export function ContextProvider({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState<boolean>(false);
-  const [page, setPage] = useState<PageState>("idle");
-  const [session, _setSession] = useState<Session | null>(null);
-  const [tabs, setTabs] = useState<TabState[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
+export function ContextProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [mounted, setMounted] = useState(false);
+
+  const [page, setPage] =
+    useState<PageState>("idle");
+
+  const [session, setSession] =
+    useState<Session | null>(null);
+
+  const [sessions, setSessions] =
+    useState<readonly Session[]>([]);
+
+  const [
+    currentNotification,
+    setCurrentNotification,
+  ] = useState<Notification | null>(null);
+
+  const [notifications, setNotifications] =
+    useState<readonly Notification[]>([]);
+
+  const [tabs, setTabs] =
+    useState<readonly TabState[]>([]);
 
   useEffect(() => {
-    async function init() {
-      const state = await initialize() as AppState;
-
-      setMounted(state.mounted);
-      setPage(state.pageState);
-      _setSession(state.activeSession?? null);
-      setTabs([...state.tabs]);
-      setSessions([...state.sessions]);
-
-      await refreshSessions();
-    }
-
-    void init();
-  }, []);
-
-  useEffect(() => {
-    const listener = (message: EventMessage) => {
-      console.log("message.type", message.type, message)
+    const listener = (
+      message: EventMessage
+    ) => {
       switch (message.type) {
+        case "OPTIONS/INITIALIZED": {
+          const {
+            pageMounted,
+            pageState,
+            activeSession,
+            sessions,
+            tabs,
+            notifications,
+            currentNotification,
+          } = message.payload as OptionsState;
+
+          setMounted(pageMounted ?? false);
+
+          setPage(pageState ?? "idle");
+
+          setSession(activeSession?? null);
+
+          
+          setSessions(sessions);
+          setTabs(tabs);
+
+          setNotifications(notifications);
+          if (currentNotification) {
+            setCurrentNotification(currentNotification);
+          }
+
+          break;
+        }
+
         case "SESSION/UPDATED":
-          _setSession(message.payload);
+          setSession(message.payload);
           break;
 
         case "PAGE_STATE/UPDATED":
@@ -79,12 +118,7 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
           break;
 
         case "PAGE/MOUNTED":
-          setMounted(message.payload.mounted);
-          setPage(message.payload.pageState);
-          _setSession(message.payload.activeSession?? null);
-          setTabs([...message.payload.tabs]);
-          setSessions([...message.payload.sessions]);
-
+          connect();
           break;
 
         case "PAGE/UNMOUNTED":
@@ -98,10 +132,24 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
         case "SESSIONS/UPDATED":
           setSessions(message.payload);
           break;
+
+        case "NOTIFICATIONS/UPDATED":
+          setNotifications(
+            message.payload.notifications
+          );
+          setCurrentNotification(
+            message.payload.currentNotification ??
+              null,
+          );
+          break;
       }
     };
 
-    chrome.runtime.onMessage.addListener(listener);
+    chrome.runtime.onMessage.addListener(
+      listener,
+    );
+
+    connect();
 
     return () => {
       chrome.runtime.onMessage.removeListener(listener);
@@ -112,7 +160,7 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
     let count = 0;
 
     for (const tab of tabs) {
-      if (tab.recordingStatus === "recording") {
+      if (tab.recordingScope === "recording") {
         count++;
       }
     }
@@ -120,28 +168,42 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
     return count;
   }, [tabs]);
 
-
   const value = useMemo<ContextType>(
     () => ({
       mounted,
+
       page,
-      setPage,
+
       session,
       sessions,
-      setSessions,
+
+      currentNotification,
+      notifications,
+
       tabs,
-      setTabs,
+
       numberOfRecordingTabs,
     }),
     [
       mounted,
+
       page,
+
       session,
       sessions,
+
+      currentNotification,
+      notifications,
+
       tabs,
+
       numberOfRecordingTabs,
     ],
   );
   
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  return (
+    <Context.Provider value={value}>
+      {children}
+    </Context.Provider>
+  );
 }

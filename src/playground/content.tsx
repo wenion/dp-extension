@@ -6,9 +6,8 @@ render(
   document.getElementById("content-root")!,
   {
     pageState: "collapsed",
-    mounted: true,
+    pageMounted: true,
     tabs: [],
     tabId: 0,
-    sessions: [],
   }
 );

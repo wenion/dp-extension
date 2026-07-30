@@ -1,109 +1,281 @@
-import { env } from "@/config/env";
-import { ApiClient } from "./api/ApiClient";
-import { ContentScriptClient } from "./clients/ContentScriptClient";
 import { HttpClient } from "./network/HttpClient";
-import { Storage } from "./storage/Storage";
-import { IndexedDBTraceStore } from "./storage/TraceStorage";
+import { AuthenticatedClient } from "./network/AuthenticatedClient";
 
+import { OAuthApi } from "./api/OAuthApi";
+import { ProfileApi } from "./api/ProfileApi";
+import { SessionApi } from "./api/SessionApi";
+import { TraceApi } from "./api/TraceApi";
+
+import { AuthRepository } from "./repositories/AuthRepository";
+import { SessionsRepository } from "./repositories/SessionsRepository";
+import { StateRepository } from "./repositories/StateRepository";
+import { TabsRepository } from "./repositories/TabsRepository";
+import { TraceRepository } from "./repositories/TraceRepository";
+import { NotificationRepository } from "./repositories/NotificationRepository";
+
+import { ContentScriptClient } from "./clients/ContentScriptClient";
+
+import { TraceProcessor } from "./TraceProcessor";
+
+import { startActionListener } from "./listeners/action";
+import { startAuthListener } from "./listeners/auth";
 import { startContentListener } from "./listeners/content";
-import { startStorageListener } from "./listeners/storage";
 import { startTabListener } from "./listeners/tab";
 
+import { AuthenticationService } from "./services/AuthenticationService";
+import { BadgeService } from "./services/BadgeService";
 import { ContentScriptService } from "./services/ContentScriptService";
-import { ActionService } from "./services/ActionService";
-import { TabService } from "./services/TabService";
+import { OAuthService } from "./services/OAuthService";
+import { PageService } from "./services/PageService";
 import { SessionService } from "./services/SessionService";
-import { PermissionService } from "./services/PermissionService";
-import { AuthService } from "./services/AuthService";
-import { StorageService } from "./services/StorageService";
+import { SessionsService } from "./services/SessionsService";
+import { TabService } from "./services/TabService";
+import { TraceService } from "./services/TraceService";
+import { NotificationService } from "./services/NotificationService";
 
 import { GoogleDocumentEngine } from "./services/GoogleDocsService/GoogleDocumentEngine";
-import { startAuthListener } from "./listeners/auth";
-import { startActionListener } from "./listeners/action";
-import { GoogleDocsService } from "./services/GoogleDocsService/index";
 import { GoogleDocsApiClient } from "./services/GoogleDocsService/GoogleDocsApiClient";
+import { GoogleDocsService } from "./services/GoogleDocsService/index";
 import { GoogleDocumentStore } from "./services/GoogleDocsService/GoogleDocumentStore";
+
 import { CaptureController } from "./controllers/CaptureController";
-import { TraceService } from "./services/TraceService";
-import { UploadService } from "./services/UploadService";
-import { TraceProcessor } from "./TraceProcessor";
-import { SessionPersistenceService } from "./services/SessionPersistenceService";
-import { PageService } from "./services/PageService";
+import { ContentController } from "./controllers/ContentController";
+import { GoogleDocsController } from "./controllers/GoogleDocsController";
+import { InitializationController } from "./controllers/InitializationController";
+import { NotificationController } from "./controllers/NotificationController";
+import { OptionsController } from "./controllers/OptionsController";
+import { PopupController } from "./controllers/PopupController";
+import { RecordingController } from "./controllers/RecordingController";
+import { TabController } from "./controllers/TabController";
 
+class Application {
+  // ------------------------
+  // Repositories
+  // ------------------------
+  readonly authRepository = new AuthRepository();
+  readonly sessionsRepository = new SessionsRepository();
+  readonly stateRepository = new StateRepository();
+  readonly tabsRepository = new TabsRepository();
+  readonly traceRepository = new TraceRepository();
+  readonly notificationRepository = new NotificationRepository();
 
-export async function bootstrap() {
-  const storage = new Storage();
-  await storage.init();
+  // ------------------------
+  // Network
+  // ------------------------
+  readonly httpClient = new HttpClient();
+  readonly oauthApi = new OAuthApi(this.httpClient);
 
-  const traceStroage = new IndexedDBTraceStore();
-  const api = new ApiClient(new HttpClient(env.apiUrl, storage));
-  const contentScriptClient = new ContentScriptClient(storage);
+  readonly oauthService = new OAuthService(
+    this.oauthApi,
+    this.authRepository,
+  );
 
-  const traceProcessor = new TraceProcessor();
+  readonly authenticatedClient =
+    new AuthenticatedClient(this.oauthService);
 
-  const permissionService = new PermissionService();
-  const storageService = new StorageService(storage);
-  const traceService = new TraceService(traceStroage);
-  const authService = new AuthService(api, storage);
-  const tabService = new TabService(storage, contentScriptClient);
-  const contentScriptService =
-    new ContentScriptService(storage, contentScriptClient, storageService );
+  readonly profileApi =
+    new ProfileApi(this.authenticatedClient);
 
-  const sessionPersistenceService =
-    new SessionPersistenceService(
-      api,
-      contentScriptClient,
-      storage
+  readonly sessionApi =
+    new SessionApi(this.authenticatedClient);
+
+  readonly traceApi =
+    new TraceApi(this.authenticatedClient);
+
+  // ------------------------
+  // Clients
+  // ------------------------
+
+  readonly contentScriptClient =
+    new ContentScriptClient(this.tabsRepository);
+
+  // ------------------------
+  // Services
+  // ------------------------
+
+  readonly authenticationService =
+    new AuthenticationService(this.oauthApi, this.authRepository,);
+
+  readonly badgeService =
+    new BadgeService();
+
+  readonly contentScriptService =
+    new ContentScriptService(this.contentScriptClient);
+
+  readonly pageService =
+    new PageService(
+      this.stateRepository,
+      this.contentScriptClient,
     );
-  const uploadService = new UploadService(api, traceService, traceProcessor);
-  const pageService = new PageService(storage, storageService, contentScriptClient);
-  const sessionService =
+
+  readonly sessionService =
     new SessionService(
-      storage,
-      contentScriptClient,
-      pageService,
-      sessionPersistenceService,
-      uploadService
-    );
-  const actionService =
-    new ActionService(
-      storage,
-      storageService,
-      pageService,
-      sessionService,
+      this.stateRepository,
+      this.contentScriptClient,
     );
 
-  const googleApi = new GoogleDocsApiClient();
-  const googleDocsStore = new GoogleDocumentStore();
-  const googleDocumentEngine = new GoogleDocumentEngine();
-  const googleDocsService = new GoogleDocsService(googleApi, googleDocsStore, googleDocumentEngine);
+  readonly sessionsService =
+    new SessionsService(
+      this.sessionApi,
+      this.sessionsRepository,
+      this.contentScriptClient,
+    );
 
-  const captureController = new CaptureController(sessionService, tabService, traceService);
+  readonly tabService =
+    new TabService(
+      this.tabsRepository,
+      this.contentScriptClient,
+    );
 
-  startContentListener(
-    env.apiUrl,
-    authService,
-    storageService,
-    permissionService,
-    pageService,
-    sessionService,
-    sessionPersistenceService,
-    tabService,
-    contentScriptService,
-    googleDocsService,
-    captureController
-  );
-  startStorageListener(contentScriptService);
-  startTabListener(tabService, permissionService, contentScriptService, googleDocsService, captureController);
-  startAuthListener(env.apiUrl, authService);
-  startActionListener(
-    env.apiUrl,
-    permissionService,
-    actionService,
-    authService,
-    contentScriptService,
-    tabService
-  );
+  readonly traceProcessor =
+    new TraceProcessor();
 
-  console.log("app start")
+  readonly traceService =
+    new TraceService(
+      this.traceApi,
+      this.traceRepository,
+      this.traceProcessor,
+    );
+
+  readonly notificationService =
+    new NotificationService(
+      this.notificationRepository,
+      this.contentScriptClient,
+    );
+
+  readonly googleApi =
+    new GoogleDocsApiClient();
+
+  readonly googleDocumentStore =
+    new GoogleDocumentStore();
+
+  readonly googleDocumentEngine =
+    new GoogleDocumentEngine();
+
+  readonly googleDocsService =
+    new GoogleDocsService(
+      this.googleApi,
+      this.googleDocumentStore,
+      this.googleDocumentEngine,
+      this.contentScriptClient,
+    );
+
+  // ------------------------
+  // Controllers
+  // ------------------------
+
+  readonly captureController =
+    new CaptureController(
+      this.sessionService,
+      this.tabService,
+      this.traceService,
+    );
+
+  readonly contentController =
+    new ContentController(
+      this.pageService,
+      this.tabService,
+    );
+
+  readonly googleDocsController=
+    new GoogleDocsController(
+      this.googleDocsService,
+      this.tabService,
+    );
+
+  readonly initializationController=
+    new InitializationController(
+      this.authenticationService,
+      this.sessionsService,
+    );
+
+  readonly optionsController =
+    new OptionsController(
+      this.authenticationService,
+      this.pageService,
+      this.sessionsService,
+      this.tabService,
+      this.notificationService,
+    );
+
+  readonly recordingController =
+    new RecordingController(
+      this.pageService,
+      this.sessionService,
+      this.sessionsService,
+      this.tabService,
+      this.traceService,
+    );
+
+  readonly popupController =
+    new PopupController(
+      this.authenticationService,
+      this.pageService,
+      this.sessionService,
+      this.tabService,
+      this.contentScriptService,
+    );
+
+  readonly notificationController =
+    new NotificationController(
+      this.notificationService,
+    );
+
+  readonly tabController =
+    new TabController(
+      this.contentScriptService,
+      this.tabService,
+    );
+
+  // ------------------------
+  // Startup
+  // ------------------------
+  async start() {
+    this.registerListeners();
+
+    await this.initializeRepositories();
+
+    await this.initializationController.onStartup();
+
+    console.log("Background started.");
+  }
+
+  private registerListeners() {
+    startContentListener(
+      this.captureController,
+      this.contentController,
+      this.googleDocsController,
+      this.optionsController,
+      this.recordingController,
+      this.notificationController,
+      this.tabController,
+    );
+
+    startTabListener(
+      this.captureController,
+      this.googleDocsController,
+      this.tabController,
+    );
+
+    startAuthListener(
+      this.initializationController,
+      this.notificationController,
+    );
+
+    startActionListener(
+      this.notificationController,
+      this.popupController,
+      this.tabController,
+    );
+  }
+
+  private async initializeRepositories() {
+    await Promise.all([
+      this.authRepository.initialize(),
+      this.stateRepository.initialize(),
+      this.traceRepository.initialize(),
+    ]);
+  }
 }
+
+export const app = new Application();

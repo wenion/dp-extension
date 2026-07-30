@@ -1,5 +1,12 @@
-export function showDialog() {
+const DIALOG_SELECTOR = '[data-trace-dialog="dp-colam"]';
+
+export function showDialog(
+  message: string = "",
+) {
+  document.querySelector(DIALOG_SELECTOR)?.remove();
+
   const container = document.createElement("div");
+  container.dataset.traceDialog = "dp-colam";
 
   Object.assign(container.style, {
     position: "fixed",
@@ -12,16 +19,15 @@ export function showDialog() {
     borderRadius: "10px",
     boxShadow: "0 8px 24px rgba(0,0,0,.15)",
     fontFamily: "system-ui, sans-serif",
-    fontSize: "14px",
+    fontSize: "20px",
     color: "#111827",
     zIndex: "2147483647",
   });
 
-  const message = document.createElement("div");
-  message.textContent =
-    "Session stopped & uploaded. Extension turned off.";
-  message.style.marginBottom = "16px";
-  message.style.lineHeight = "1.5";
+  const messageElement = document.createElement("div");
+  messageElement.textContent = message;
+  messageElement.style.marginBottom = "16px";
+  messageElement.style.lineHeight = "1.5";
 
   const button = document.createElement("button");
   button.textContent = "OK";
@@ -43,7 +49,7 @@ export function showDialog() {
 
   button.addEventListener("click", cleanup);
 
-  container.appendChild(message);
+  container.appendChild(messageElement);
   container.appendChild(button);
 
   document.body.appendChild(container);

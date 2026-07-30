@@ -1,9 +1,15 @@
 import type {
-  AppState,
-  Session,
+  Notification,
+  OptionsState,
   PageState,
+  Session,
   TabState,
 } from "@/shared/types";
+
+export interface PageStateInitedEvent {
+  type: "OPTIONS/INITIALIZED";
+  payload: OptionsState;
+}
 
 export interface SessionUpdatedEvent {
   type: "SESSION/UPDATED";
@@ -22,7 +28,6 @@ export interface PageStateUpdatedEvent {
 
 export interface PageMountedEvent {
   type: "PAGE/MOUNTED";
-  payload: AppState;
 }
 
 export interface PageUnmountedEvent {
@@ -39,7 +44,18 @@ export interface SessionsUpdatedEvent {
   payload: Session[];
 }
 
+export interface NotificationsUpdatedEvent {
+  type: "NOTIFICATIONS/UPDATED";
+  payload: {
+    notifications: Notification[],
+    currentNotification?: Notification,
+  }
+}
+
 export type EventMessage =
+  | NotificationsUpdatedEvent
+  | PageStateInitedEvent
+  | SessionUpdatedEvent
   | SessionUpdatedEvent
   | SessionsUpdatedEvent
   | PageStateUpdatedEvent

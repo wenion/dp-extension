@@ -1,32 +1,20 @@
 import type { CaptureController } from "../controllers/CaptureController";
-
-import type { AuthService } from "../services/AuthService";
-import type { ContentScriptService } from "../services/ContentScriptService";
-import type { GoogleDocsService } from "../services/GoogleDocsService";
-import type { PageService } from "../services/PageService";
-import type { PermissionService } from "../services/PermissionService";
-import type { SessionService } from "../services/SessionService";
-import type { SessionPersistenceService } from "../services/SessionPersistenceService";
-import type { StorageService } from "../services/StorageService";
-import type { TabService } from "../services/TabService";
-
-import type { InitState } from "@/shared/types";
-
+import type { ContentController } from "../controllers/ContentController";
+import type { GoogleDocsController } from "../controllers/GoogleDocsController";
+import type { OptionsController } from "../controllers/OptionsController";
+import type { RecordingController } from "../controllers/RecordingController";
+import type { NotificationController } from "../controllers/NotificationController";
+import type { TabController } from "../controllers/TabController";
 
 export function startContentListener(
-  url: string,
-  authService: AuthService,
-  storageService: StorageService,
-  permissionService: PermissionService,
-  pageService: PageService,
-  sessionService: SessionService,
-  sessionPersistenceService: SessionPersistenceService,
-  tabService: TabService,
-  contentScriptService: ContentScriptService,
-  googleDocsService: GoogleDocsService,
   captureController: CaptureController,
+  contentController: ContentController,
+  googleDocsController: GoogleDocsController,
+  optionsController: OptionsController,
+  recordingController: RecordingController,
+  notificationController: NotificationController,
+  tabController: TabController,
 ) {
-
   chrome.runtime.onMessage.addListener(
     async (
       message: any,
@@ -34,119 +22,117 @@ export function startContentListener(
       sendResponse: (response?: any) => void,
     ) => {
       if (!sender.tab || sender.tab.id == null || !sender.tab.url) {
-        // log
         return;
       }
       switch (message.type) {
-        case "APP/GET_INITIAL_STATE":
-          const result =
-            await storageService.getNormalizedAppState();
-
-          // navigate or content started
-          const setupState: InitState = {
-            mounted: result.mounted,
-            pageState: result.pageState,
-            activeSession: result.activeSession,
-            tabs: result.tabs,
-            sessions: result.sessions,
-            tabId: sender.tab.id,
-          }
-
-          sendResponse(setupState);
-          return;
-          // return initState;
-        case "APP/MOUNT":
-          // TODO
-          if (!authService.isAuthenticated()) {
-            await authService.openLogin(url);
-            return;
-          }
-
-          const session = sessionService.getActiveSession();
-          if (session) {
-            await pageService.showExitConfirmation();
-            return;
-          }
-
-          await pageService.mount(sender.tab.id);
+        case "CONTENT/CONNECT":
+          contentController.onContentConnected(sender.tab.id);
+          break;
+        case "OPTIONS/CONNECT":
+          optionsController.onOptionsConnected();
+          break;
+        case "OPTIONS/MOUNT":
+          optionsController.mount();
           break;
         case "SESSION/START":
-          await sessionService.startSession();
-          if (sender.tab.url.startsWith("https://docs.google.com/document/")) {
-            await googleDocsService.ensureInitialized(sender.tab.id, sender.tab.url);
-          }
+          await recordingController.startRecording();
+          await googleDocsController.replaceAll();
           break;
         case "SESSION/END":
-          await sessionService.endSession();
+          await recordingController.endRecording();
           break;
-        case "SESSION/FORCE_END":
+        case "SESSION/EXIT": {
           if (message.source === "CONTENT") {
-            await sessionService.forceEndSession(sender.tab.id);
-            return;
+            await recordingController.exitRecording(
+              sender.tab.id
+            );
+          } else {
+            await recordingController.exitRecording();
           }
-          await sessionService.forceEndSession();
           break;
-        case "SESSION/RENAME":
-          await sessionPersistenceService.renameSession(
-            message.payload.sessionId,
+        }
+        case "SESSION/NAME":
+          await recordingController.nameRecording(
             message.payload.newTitle,
           );
           break;
+        case "SESSION/RENAME":
+          try {
+            const session =
+              await optionsController.rename(
+                message.payload.sessionId,
+                message.payload.newTitle,
+              );
+
+            sendResponse(session);
+          } catch {
+            await notificationController.showRenameFailed();
+
+            sendResponse(undefined);
+          }
+          break;
         case "SESSION/RETRY":
+          try {
+            const session =
+              await recordingController.reuploadRecording(
+                message.payload.sessionId
+              );
+            sendResponse(session);
+          } catch {
+            await notificationController.showReuploadFailed();
+            sendResponse(undefined);
+          }
           break;
         case "SESSION/OPEN":
-          const link = new URL(url);
-          link.pathname="session";
-          link.searchParams.set("clientId", message.payload.sessionId);
-          chrome.tabs.create({
-            url: link.toString()
-          })
+          optionsController.openSession(message.payload.sessionId);
           break;
-        case "SESSIONS/REFRESH":
-          sessionPersistenceService.refreshSessions();
-          break;
+        // case "SESSIONS/REFRESH":
+        //   sessionPersistenceService.refreshSessions();
+        //   break;
         case "PAGE/EXPAND":
-          await pageService.expand();
+          await contentController.expand();
           break;
         case "PAGE/COLLAPSE":
-          await pageService.collapse();
+          await contentController.collapse();
           break;
         case "PAGE/STOP":
-          await pageService.showStopConfirmation();
+          await recordingController.stopRecording();
           break;
         case "PAGE/BACK":
-          await pageService.cancelStopConfirmation();
+          await recordingController.cancelStopRecording();
           break;
-        case "PAGE/FINISH":
-          await sessionService.finishSession();
+        case "SESSION/FINISH_UPLOADED":
+          await recordingController.finalizeRecording();
           break;
-        case "PAGE/INJECT":
-          const tabId = message.payload.tabId;
-          const injected =
-            await contentScriptService.ensureInjected(tabId);
-
-          sendResponse({ injected, });
+        case "SESSION/FINISH_FAILED":
+          await recordingController.finalizeRecordingFailed();
+          break;
+        case "TABS/GRANTED":
+          await tabController.injectTabsByOrigin(message.payload.origin);
           break;
         case "SESSION/PAUSE":
-          await sessionService.pauseSession();
+          await recordingController.pauseRecording();
           break;
         case "SESSION/RESUME":
-          await sessionService.resumeSession();
+          await recordingController.resumeRecording();
           break;
-        case "TAB/INCLUDE":
-          if (message.source === "CONTENT") {
-            await tabService.includeTab(sender.tab.id);
-          } else if (message.source === "OPTIONS") {
-            await tabService.includeTab(message.payload.tabId);
-          }
+        case "TAB/INCLUDE": {
+          let tabId =
+            message.source === "CONTENT"
+              ? sender.tab.id
+              : message.payload.tabId;
+          
+          await contentController.includeTab(tabId);
           break;
-        case "TAB/EXCLUDE":
-          if (message.source === "CONTENT") {
-            await tabService.excludeTab(sender.tab.id);
-          } else if (message.source === "OPTIONS") {
-            await tabService.excludeTab(message.payload.tabId);
-          }
+        }
+        case "TAB/EXCLUDE": {
+          let tabId =
+            message.source === "CONTENT"
+              ? sender.tab.id
+              : message.payload.tabId;
+          await contentController.excludeTab(tabId);
           break;
+        }
         case "TAB/OPEN_OPTIONS":
           await chrome.runtime.openOptionsPage();
           break;
@@ -154,10 +140,11 @@ export function startContentListener(
           captureController.capture(message.payload.trace, sender.tab.id);
           break;
         case "TRACE/GOOGLE":
-          const traces = await googleDocsService.updateDocument(sender.tab.id, message.payload.trace);
-          for (const trace of traces) {
-            await captureController.capture(trace, sender.tab.id);
-          }
+          const traces = await googleDocsController.updateDocument(sender.tab.id, message.payload.trace);
+          await captureController.captureMany(traces, sender.tab.id);
+          break;
+        case "NOTIFICATION/DISMISS":
+          notificationController.dismissNotification(message.payload.notificationId);
           break;
         default:
           break;

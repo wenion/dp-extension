@@ -1,32 +1,28 @@
-import { createNavigationTrace, creatPageFocusTrace } from "@/shared/TraceFactory";
+import {
+  createNavigationTrace,
+  createPageFocusTrace,
+} from "@/shared/TraceFactory";
 
 import type { CaptureController } from "../controllers/CaptureController";
-import type { ContentScriptService } from "../services/ContentScriptService";
-import type { GoogleDocsService } from "../services/GoogleDocsService";
-import type { PermissionService } from "../services/PermissionService";
-import type { TabService } from "../services/TabService";
-
+import type { GoogleDocsController } from "../controllers/GoogleDocsController";
+import type { TabController } from "../controllers/TabController";
 
 export function startTabListener(
-  tabService: TabService,
-  permission: PermissionService,
-  contentScriptServicet: ContentScriptService,
-  googleDocsService: GoogleDocsService,
   captureController: CaptureController,
+  googleDocsController: GoogleDocsController,
+  tabController: TabController,
 ) {
 
   chrome.tabs.onActivated.addListener(async(activeInfo) => {
-    const focusTrace = creatPageFocusTrace();
-    await captureController.capture(focusTrace, activeInfo.tabId);
+    const createdTrace = createPageFocusTrace();
+    await captureController.capture(createdTrace, activeInfo.tabId);
 
-    // TODO check tabstate & googledocs
+    await tabController.checkOrCreateTab(activeInfo.tabId);
   });
 
   chrome.tabs.onRemoved.addListener(async (tabId: number) => {
-    await tabService.unregisterTab(tabId);
-
-    // TODO remove GoogleDocs
-    googleDocsService.removeDocument(tabId);
+    await tabController.handleTabRemoved(tabId);
+    googleDocsController.remove(tabId);
   });
 
   chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
@@ -38,46 +34,27 @@ export function startTabListener(
       return;
     }
 
-    await tabService.updateTab(tabId, {
-      windowId: tab.windowId,
-      title: tab.title,
-    });
+    await tabController.handleTabUpdated(tabId, tab.title);
 
-    // add trace - PageNavigationTrace
-    const navigationTrace = createNavigationTrace();
+    const content =
+      await googleDocsController.initialize(tabId, tab.url);
+
+    const navigationTrace = createNavigationTrace(content);
     await captureController.capture(navigationTrace, tabId);
-    // if source is googledocs, will call googleDocsService
-    // if session start
-    // when document loaded
-    if (tab.url.startsWith("https://docs.google.com/document/")) {
-      // await googleDocsService.initializeDocument(tab.id, tab.url);
-      await googleDocsService.ensureInitialized(tabId, tab.url);
-    }
-    else {
-      googleDocsService.removeDocument(tabId);
-    }
-
   });
 
   chrome.webNavigation.onCommitted.addListener(async (details) => {
     if (
-      details.transitionType !== "auto_subframe" &&
-      details.transitionType !== "manual_subframe"
+      details.transitionType === "auto_subframe" ||
+      details.transitionType === "manual_subframe"
     ) {
-      const hasPermission =
-        await permission.hasScriptingPermission(details.url);
-
-      const status = hasPermission ? "recording" : "not_in_scope";
-      await tabService.registerTab(
-        details.tabId,
-        details.url,
-        status,
-      );
-      
-      if (hasPermission) {
-        await contentScriptServicet.ensureInjected(details.tabId);
-      }
+      return;
     }
-  });
 
+    console.log("webNavigation")
+    await tabController.handleNavigation(
+      details.tabId,
+      details.url
+    );
+  });
 }

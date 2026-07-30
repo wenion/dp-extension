@@ -4,13 +4,13 @@ import { Providers } from "../context/providers";
 import App from "./App";
 
 import type { Root } from "react-dom/client";
-import type { InitState } from "@/shared/types";
+import type { ContentState } from "@/shared/types";
 
 let reactRoot: Root | null = null;
 
 export function render(
   container: HTMLElement,
-  initialState: InitState,
+  initialState: ContentState,
 ) {
   if (reactRoot) {
     return;

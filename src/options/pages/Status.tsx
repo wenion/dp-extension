@@ -1,42 +1,72 @@
+import {
+  useEffect,
+  useState,
+} from "react";
+// HeroUI
 import { Alert } from "@heroui/alert";
 import { Button } from "@heroui/button";
 import { Card, CardBody } from "@heroui/card";
 import { Input } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
 
+// Icons
 import {
   Check,
   CircleFill,
   PauseFill,
   PlayFill,
   SquareFill,
-  TriangleRightFill,
   TriangleExclamationFill,
+  TriangleRightFill,
 } from "@gravity-ui/icons";
 
 import { useAppContext } from "../context/context";
+
+// Background actions
 import {
   cancelStop,
   endSession,
   excludeTab,
-  forceEndSession,
-  finish,
+  finishUploaded,
+  finishFailed,
+  exit,
   includeTab,
-  injectContent,
   pause,
+  permissionGranted,
   resume,
   startSession,
   stop,
- } from "../message/BackgroundClient"; 
+  nameSession,
+} from "../message/BackgroundClient";
+
 import { TabRecordCard } from "./TabRecordCard";
 
 import type { TabState } from "@/shared/types";
 
-
 export function Status() {
   const { page, session, tabs, numberOfRecordingTabs } = useAppContext();
+  const [name, setName] = useState<string>("");
 
-  const requestTabPermission = async(tabId: number) => {
+  useEffect(() => {
+    setName(session?.name ?? "");
+  }, [session?.name]);
+
+  const commitName = () => {
+    const trimmed = name.trim();
+
+    if (
+      session &&
+      trimmed !== "" &&
+      trimmed !== (session.name ?? "")
+    ) {
+      nameSession(
+        session.clientId,
+        trimmed
+      );
+    }
+  };
+
+  const requestTabPermission = async (tabId: number) => {
     const tab = tabs.find(tab => tab.tabId === tabId);
 
     if (!tab) return;
@@ -50,27 +80,16 @@ export function Status() {
     });
 
     if (granted) {
-      const result = await injectContent(tabId);
-      // TODO
-      console.log('result >>>', result)
+      await permissionGranted(url.origin);
     }
   }
 
-  function isHttpTab(tab: TabState) {
+  const isHttpTab = (tab: TabState) => {
     try {
       const protocol = new URL(tab.url).protocol;
       return protocol === "http:" || protocol === "https:";
     } catch {
       return false;
-    }
-  }
-
-  function getTabTitle(urlString: string) {
-    try {
-      const url = new URL(urlString);
-      return url.pathname.split("/").pop() || url.hostname;
-    } catch {
-      return urlString;
     }
   }
 
@@ -110,7 +129,7 @@ export function Status() {
             }
             </div>
             <div className="flex gap-4 items-center">
-              {numberOfRecordingTabs} tabs recording
+              {numberOfRecordingTabs} tab{numberOfRecordingTabs === 1 ? "" : "s"} recording
             </div>
           </div>
 
@@ -149,9 +168,20 @@ export function Status() {
             </h2>
           )}
 
-          <Input variant="bordered" placeholder="Name this session...(optional)" />
+          <Input
+            variant="bordered"
+            placeholder="Name this session...(optional)"
+            value={name}
+            onValueChange={setName}
+            onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
+          />
 
-          
           <div className="flex flex-col gap-4">
             <span>TABS IN THIS SESSION</span>
             {tabs
@@ -160,11 +190,12 @@ export function Status() {
                 <TabRecordCard
                   key={tab.tabId}
                   tabId={tab.tabId}
+                  origin={tab.origin}
                   title={tab.title}
-                  domain={tab.origin}
+                  recordingScope={tab.recordingScope}
+                  connected={tab.connected}
                   captureState={session?.captureState??"paused"}
-                  recordingStatus={tab.recordingStatus}
-                  onincludeTab={includeTab}
+                  onIncludeTab={includeTab}
                   onExcludeTab={excludeTab}
                   onRequestPermission={requestTabPermission}
                 />
@@ -202,7 +233,7 @@ export function Status() {
                 className="border border-rose-200 text-red-600 font-medium"
                 variant="bordered"
                 startContent={<SquareFill />}
-                onPress={forceEndSession}
+                onPress={exit}
               >
                 Turn off &amp; Upload
               </Button>
@@ -270,7 +301,7 @@ export function Status() {
               <Button
                 className="border font-medium"
                 variant="bordered"
-                onPress={finish}
+                onPress={finishUploaded}
               >
                 Done
               </Button>
@@ -301,7 +332,7 @@ export function Status() {
                 variant="bordered"
                 color="danger"
                 className="font-medium"
-                onPress={finish}
+                onPress={finishFailed}
               >
                 Done
               </Button>
@@ -312,7 +343,7 @@ export function Status() {
     default:
       return (
         <div className="p-2 border-default border-medium">
-          <span>No session running — start one to begin capturing.</span>
+          <span>Unknown Status</span>
         </div>
       )
   }

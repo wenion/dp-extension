@@ -8,13 +8,13 @@ import {
   removeStyle,
 } from "./dom";
 
-import type { InitState } from "@/shared/types";
+import type { ContentState } from "@/shared/types";
 
 export class Overlay {
   private host: HTMLDivElement | null = null;
   private style: HTMLLinkElement | null = null;
 
-  show(initialState: InitState) {
+  show(initialState: ContentState) {
     if (this.isVisible()) {
       return;
     }

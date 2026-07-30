@@ -1,11 +1,13 @@
-import { HttpClient } from "../network/HttpClient";
-import type { Session } from "@/shared/types";
 import type { ListSessionsResponse } from "@/shared/api";
+import type { Session } from "@/shared/types";
+
+import type { AuthenticatedClient } from "../network/AuthenticatedClient";
+
 
 export class SessionApi {
-  private readonly http: HttpClient;
+  private readonly http: AuthenticatedClient;
 
-  constructor(http: HttpClient) {
+  constructor(http: AuthenticatedClient) {
     this.http = http;
   }
 

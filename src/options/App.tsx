@@ -1,14 +1,14 @@
 import { Button } from "@heroui/button";
-import { Chip } from "@heroui/chip";
 import { addToast } from "@heroui/toast";
 
 import { Power } from "@gravity-ui/icons";
 
+import { Allowlist } from "./pages/Allowlist";
 import { Status } from "./pages/Status";
 import { SessionCard } from "./pages/SessionCard";
+import { NotificationBanner } from "./pages/NotificationBanner";
 
 import { useAppContext } from "./context/context";
-import { useGrantedDomains } from "./context/useGrantedDomains";
 import {
   mount,
   openSession,
@@ -22,14 +22,13 @@ import { formatSessionTime } from "./utils/formatSessionTime";
 export default function App() {
   const { mounted, sessions } = useAppContext();
 
-  const domains = useGrantedDomains();
-
   const activateExtension = () => {
     mount();
   }
 
   return (
     <main className="min-h-screen flex flex-col space-y-8 p-8">
+      <NotificationBanner />
       {!mounted? (
         <>
           <div className="flex min-h-screen p-6">
@@ -69,32 +68,48 @@ export default function App() {
                   time={formatSessionTime(session.startedAt, )}
                   sites={buildSites(session.urls ?? [])}
                   status={session.uploadStatus}
-                  onRename={(newTitle) => {
-                    renameSession(session.clientId, newTitle);
-                    // TODO
-                    addToast({
-                      title: "Success",
-                      description: "Session renamed.",
-                      color: "success",
-                    });
+                  onRename={async (newTitle) => {
+                    const updated =
+                      await renameSession(session.clientId, newTitle);
+                    if (!updated) {
+                      addToast({
+                        title: "Rename failed",
+                        description: "Unable to rename session.",
+                        color: "danger",
+                      });
+
+                    } else {
+                      addToast({
+                        title: "Success",
+                        description: "Session renamed.",
+                        color: "success",
+                      });
+                    }
                   }}
-                  onRetry={() => retryUpload(session.clientId)}
+                  onRetry={async() => {
+                    const updated =
+                      await retryUpload(session.clientId);
+                    if (!updated) {
+                       addToast({
+                        title: "Re-upload failed",
+                        description: "Unable to re-upload the session.",
+                        color: "danger",
+                      });
+                    } else {
+                       addToast({
+                        title: "Re-upload complete",
+                        description: "The session was uploaded successfully.",
+                        color: "success",
+                      });
+                    }
+                    }}
                   onSessionClick={() => openSession(session.clientId)}
                 />
               ))}
             </div>
           </section>
 
-          <section className="text-default-500">
-            <h1 className="my-2 text-lg uppercase">
-              Standing allowlist · warm-starts new tabs
-            </h1>
-            <div className="flex flex-wrap gap-2">
-              {domains.map(domain => (
-                <Chip key={domain} radius="sm" variant="bordered">{domain}</Chip>
-              ))}
-            </div>
-          </section>
+          <Allowlist />
         </>
       )}
     </main>

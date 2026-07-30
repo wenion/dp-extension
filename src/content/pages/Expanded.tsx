@@ -1,47 +1,48 @@
-import { Button } from '@heroui/button';
+import { Button } from "@heroui/button";
+import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card";
 import { Divider } from "@heroui/divider";
-import { Card, CardHeader, CardBody, CardFooter } from "@heroui/card";
 
-import { CircleFill } from '@gravity-ui/icons';
-import { ChevronDown } from '@gravity-ui/icons';
-import { PlayFill } from '@gravity-ui/icons';
-import { Eye } from '@gravity-ui/icons';
-import { EyeSlash } from '@gravity-ui/icons';
-import { EyeClosed } from '@gravity-ui/icons';
-import { PauseFill } from '@gravity-ui/icons';
-import { SquareFill } from '@gravity-ui/icons';
-import { LayoutHeader } from '@gravity-ui/icons';
+import {
+  ChevronDown,
+  CircleFill,
+  Eye,
+  EyeClosed,
+  EyeSlash,
+  LayoutHeader,
+  PauseFill,
+  PlayFill,
+  SquareFill,
+} from "@gravity-ui/icons";
 
 import { useAppContext } from "../context/context";
 import {
   collapse,
+  excludeTab,
+  includeTab,
+  openOptionsPage,
   pauseSession,
   resumeSession,
   stop,
-  includeTab,
-  excludeTab,
-  openOptionsPage,
- } from "../message/BackgroundClient";
-
+} from "../message/BackgroundClient";
 
 export function Expanded() {
   const { session, currentTab, numberOfRecordingTabs } = useAppContext();
   const action =
-    currentTab?.recordingStatus === "recording"
+    currentTab?.recordingScope === "recording"
       ? {
           icon: <Eye />,
           onPress: excludeTab,
           text: session?.captureState === "recording"? "Recording" : "Paused",
           className: session?.captureState === "recording"? "text-red-600":" text-amber-700",
         }
-      : currentTab?.recordingStatus === "excluded"
+      : currentTab?.recordingScope === "excluded"
       ? {
           icon: <EyeSlash />,
           onPress: includeTab,
           text: "Excluded",
           className: "text-default-500",
         }
-      : currentTab?.recordingStatus === "not_in_scope"
+      : currentTab?.recordingScope === "not_in_scope"
       ? {
           icon: <EyeClosed />,
           text: "Permission required",

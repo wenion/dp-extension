@@ -1,8 +1,6 @@
-// import type { BackgroundRequest } from "@/shared/message/commands";
-
-export async function initialize() {
+export async function connect() {
   return chrome.runtime.sendMessage({
-    type: "APP/GET_INITIAL_STATE",    
+    type: "CONTENT/CONNECT",    
     source: "CONTENT",
   });
 }
@@ -21,9 +19,9 @@ export function endSession() {
   })
 }
 
-export function forceEndSession() {
+export function exit() {
   chrome.runtime.sendMessage({
-    type: "SESSION/FORCE_END",
+    type: "SESSION/EXIT",
     source: "CONTENT",
   });
 }
@@ -70,9 +68,16 @@ export function cancelStop() {
   })
 }
 
-export function finish() {
+export function finishUploaded() {
   chrome.runtime.sendMessage({
-    type: "PAGE/FINISH",
+    type: "SESSION/FINISH_UPLOADED",
+    source: "CONTENT",
+  })
+}
+
+export function finishFailed() {
+  chrome.runtime.sendMessage({
+    type: "SESSION/FINISH_FAILED",
     source: "CONTENT",
   })
 }

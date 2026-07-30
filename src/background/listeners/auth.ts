@@ -1,33 +1,32 @@
-import { AuthService } from "../services/AuthService";
+import { env } from "@/config/env";
 
+import type { InitializationController } from "../controllers/InitializationController";
+import type { NotificationController } from "../controllers/NotificationController";
 
 export function startAuthListener(
-  url: string,
-  authService: AuthService,
+  initializationController: InitializationController,
+  notificationController: NotificationController,
 ) {
 
   chrome.runtime.onMessageExternal.addListener(
     (msg: any, sender: chrome.runtime.MessageSender, sendResponse: (res?: any) => void
   ) => {
     (async () => {
+      if (!sender.origin?.startsWith(env.apiUrl)) {
+        sendResponse({ ok: false, error: "Unauthorized sender" });
+        return;
+      }
+
+      if (msg?.type !== "AUTH_CODE") {
+        sendResponse({ ok: false, error: "Invalid message type" });
+        return;
+      }
+
       try {
-        if (!sender.origin?.startsWith(url)) {
-          sendResponse({ ok: false, error: "Unauthorized sender" });
-          return;
-        }
-  
-        if (msg?.type !== "AUTH_CODE") {
-          sendResponse({ ok: false, error: "Invalid message type" });
-          return;
-        }
-
-        await authService.completeLogin(msg.code);
-
-        await authService.bootstrap();
-  
+        await initializationController.onAuthenticationCompleted(msg.code);
         sendResponse({ ok: true });
       } catch (err) {
-          console.error("onMessageExternal failed:", err);
+          await notificationController.showNotLoggedIn();
           sendResponse({
             ok: false,
             error: err instanceof Error ? err.message : "Unknown error",
