@@ -1,9 +1,11 @@
 export const BadgeState = {
   Unauthenticated: "unauthenticated",
+  Disabled: "disabled",
   Ready: "ready",
   Recording: "recording",
   Paused: "paused",
   Excluded: "excluded",
+  OutOfScope: "not_in_scope",
   Error: "error",
 } as const;
 
@@ -11,6 +13,7 @@ export type BadgeState =
   (typeof BadgeState)[keyof typeof BadgeState];
 
 type BadgeMetadata = {
+  mode: "disabled" | "ready" | "recording" | "paused" | "excluded" | "not_in_scope",
   title: string;
   badgeText: string;
   badgeColor?: string;
@@ -21,34 +24,53 @@ export const BadgeMetadata: Record<
   BadgeMetadata
 > = {
   [BadgeState.Unauthenticated]: {
+    mode: "disabled",
     title: "Sign in required",
+    badgeText: "AUTH",
+  },
+
+  [BadgeState.Disabled]: {
+    mode: "disabled",
+    title: "Disabled",
     badgeText: "",
   },
 
   [BadgeState.Ready]: {
+    mode: "ready",
     title: "Ready",
     badgeText: "",
   },
 
   [BadgeState.Recording]: {
+    mode: "recording",
     title: "Recording",
-    badgeText: "REC",
+    badgeText: "",
     badgeColor: "#d93025",
   },
 
   [BadgeState.Paused]: {
+    mode: "paused",
     title: "Recording paused",
     badgeText: "",
     badgeColor: "#fbbd04b6",
   },
 
   [BadgeState.Excluded]: {
+    mode: "excluded",
     title: "This tab is excluded",
+    badgeText: "",
+    badgeColor: "#4B5563",
+  },
+
+  [BadgeState.OutOfScope]: {
+    mode: "not_in_scope",
+    title: "This tab is out of scope",
     badgeText: "",
     badgeColor: "#9CA3AF",
   },
 
   [BadgeState.Error]: {
+    mode: "excluded",
     title: "Extension error",
     badgeText: "!",
     badgeColor: "#123008",
@@ -56,29 +78,27 @@ export const BadgeMetadata: Record<
 };
 
 export const getBadgeIcon = (
-  state: BadgeState,
+  mode: "disabled" | "ready" | "recording" | "paused" | "excluded" | "not_in_scope",
+  color?: BadgeMetadata["badgeColor"],
   size = 128,
 ) =>  {
   const VIEW = 24;
   const s = size / VIEW;
 
-  const COLOR_SKY = "#0EA5E9";
-  const COLOR_VIOLET = "#8B5CF6";
-  const COLOR_AMBER = "#F59E0B";
-  const COLOR_GREY = "#9CA3AF";
-  const COLOR_RED = "#EF4444";
-  const COLOR_YELLOW = "#EAB308";
+  const BG_COLOR_SKY = "#0EA5E9";
+  const BG_COLOR_VIOLET = "#8B5CF6";
+  const BG_COLOR_AMBER = "#F59E0B";
 
   const canvas = new OffscreenCanvas(size, size);
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, size, size);
 
   // gradient border
-  if (state !== "unauthenticated") {
+  if (mode !== "disabled") {
     const grad = ctx.createLinearGradient(0, 0, size, 0);
-    grad.addColorStop(0, COLOR_SKY);  // sky-500
-    grad.addColorStop(0.5, COLOR_VIOLET); // violet-500
-    grad.addColorStop(1, COLOR_AMBER);  // amber-500
+    grad.addColorStop(0, BG_COLOR_SKY);  // sky-500
+    grad.addColorStop(0.5, BG_COLOR_VIOLET); // violet-500
+    grad.addColorStop(1, BG_COLOR_AMBER);  // amber-500
     ctx.strokeStyle = grad;
   }
 
@@ -121,27 +141,15 @@ export const getBadgeIcon = (
   for (const [cx, cy] of dots) {
     ctx.beginPath();
     ctx.arc(X(cx), Y(cy), dotR, 0, Math.PI * 2);
-    ctx.fillStyle = COLOR_VIOLET;
+    ctx.fillStyle = BG_COLOR_VIOLET;
     ctx.fill();
   }
 
-  switch (state) {
-    case "unauthenticated":
-      return ctx.getImageData(0, 0, size, size);
-    case "ready":
-      return ctx.getImageData(0, 0, size, size);
-    case "recording":
-      ctx.strokeStyle = COLOR_RED;
-      break;
-    case "paused":
-      ctx.strokeStyle = COLOR_AMBER;
-      break;
-    case "excluded":
-      ctx.strokeStyle = COLOR_GREY;
-      break;
-    case "error":
-      ctx.strokeStyle = COLOR_YELLOW;
-      break;
+  if (color) {
+    ctx.strokeStyle = color;
+  }
+  else {
+    return ctx.getImageData(0, 0, size, size);
   }
 
   ctx.lineWidth = 10 * s;

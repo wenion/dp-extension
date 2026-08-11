@@ -50,9 +50,9 @@ export function SessionCard({
 
   return (
     <Card shadow="sm" className="border border-default-200">
-      <CardBody className="flex flex-row items-center gap-4 p-4 space-x-8 justify-between">
+      <CardBody className="flex flex-row items-center gap-x-8 justify-between">
         {/* Session Info */}
-        <div className="flex flex-col flex-grow">
+        <div className="flex flex-1 min-w-0 flex-col">
           <Input
             variant="flat"
             placeholder="Untitled session"
@@ -76,21 +76,23 @@ export function SessionCard({
         </div>
 
         {/* Websites */}
-        <div className="flex items-center justify-end gap-3 w-56 shrink-0">
-          <div className="flex items-center gap-2">
-            {sites.map((site) => (
-              <div
-                key={site.name}
-                title={site.name}
-                className="flex h-8 w-8 items-center justify-center rounded text-sm font-semibold text-white"
-                style={{
-                  backgroundColor: site.color,
-                }}
-              >
-                {site.name.charAt(0).toUpperCase()}
-              </div>
-            ))}
-          </div>
+        <div className="flex items-center justify-end gap-3 shrink-0">
+          {sites.length > 0 && (
+            <div className="flex items-center gap-2">
+              {sites.map((site) => (
+                <div
+                  key={site.name}
+                  title={site.name}
+                  className="flex h-8 w-8 items-center justify-center rounded text-sm font-semibold text-white"
+                  style={{
+                    backgroundColor: site.color,
+                  }}
+                >
+                  {site.name.charAt(0).toUpperCase()}
+                </div>
+              ))}
+            </div>
+          )}
 
           {status === "uploaded" ? (
             <Chip
@@ -99,14 +101,6 @@ export function SessionCard({
               startContent={<Check className="text-green-700"/>}
             >
               Uploaded
-            </Chip>
-          ) : status === "waiting" ? (
-            <Chip
-              color="primary"
-              className="uppercase font-bold"
-              variant="flat"
-            >
-              Unfinished session
             </Chip>
           ) : (
             <>

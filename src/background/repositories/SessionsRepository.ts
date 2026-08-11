@@ -1,24 +1,39 @@
+import { dbPromise } from "./db/AppDatabase";
+
 import type { Session } from "@/shared/types";
 
+const STORE_NAME = "sessions";
+
 export class SessionsRepository {
-  private sessions = new Map<string, Session>();
+  private readonly sessions = new Map<string, Session>();
 
-  initialize(sessions: readonly Session[]) {
-    this.sessions = new Map(
-      sessions.map(session => [
-        session.clientId,
-        session
-      ]),
-    );
+  async initialize(): Promise<void> {
+    const db = await dbPromise;
+    const sessions = await db.getAll(STORE_NAME);
+
+    this.sessions.clear();
+
+    for (const session of sessions) {
+      this.sessions.set(session.clientId, session);
+    }
   }
 
-  getSession(clientId: string): Session | undefined {
-    return this.sessions.get(clientId);
+  async setLocal(session: Session): Promise<void> {
+    const db = await dbPromise;
+
+    await db.put(STORE_NAME, session);
+
+    this.sessions.set(session.clientId, session);
   }
 
-  getSessions(): readonly Session[] {
-    return [...this.sessions.values()]
-      .sort((a, b) => b.startedAt - a.startedAt);
+  async deleteLocal(
+    clientId: string,
+  ): Promise<void> {
+    const db = await dbPromise;
+
+    await db.delete(STORE_NAME, clientId);
+
+    this.sessions.delete(clientId);
   }
 
   setSession(session: Session) {
@@ -26,16 +41,18 @@ export class SessionsRepository {
   }
 
   setSessions(sessions: readonly Session[]) {
-    this.sessions = new Map(
-      sessions.map(session => [session.clientId, session])
-    );
+    for (const session of sessions) {
+      this.sessions.set(session.clientId, session);
+    }
   }
 
-  removeSession(clientId: string): boolean {
-    return this.sessions.delete(clientId);
+  get(
+    clientId: string,
+  ): Session | undefined {
+    return this.sessions.get(clientId);
   }
 
-  clear() {
-    this.sessions.clear();
+  getAll(): Session[] {
+    return Array.from(this.sessions.values());
   }
 }

@@ -1,10 +1,12 @@
-import type { NotificationRepository } from "../repositories/NotificationRepository";
-import type { ContentScriptClient } from "../clients/ContentScriptClient";
+import type { NotificationRepository } from "../../repositories/NotificationRepository";
+import type { ContentScriptClient } from "../../clients/ContentScriptClient";
 
 import {
   NotificationLevel,
   type Notification
 } from "@/shared/types";
+
+import type { NotificationDefinition } from "./NotificationDefinitions";
 
 export class NotificationService {
   private readonly notificationRepository: NotificationRepository;
@@ -26,75 +28,23 @@ export class NotificationService {
     return this.notificationRepository.getCurrent();
   }
 
-  async info(
-    title: string,
-    message: string,
+  async notify(
+    definition: NotificationDefinition,
     options?: {
-      dismissible?: boolean;
-      expiresAt?: number;
       tabId?: number;
-      action?: Notification["action"];
     },
-  ) {
+  ): Promise<void> {
     await this.present(
-      NotificationLevel.Info,
-      title,
-      message,
-      options,
-    );
-  }
-
-  async success(
-    title: string,
-    message: string,
-    options?: {
-      dismissible?: boolean;
-      expiresAt?: number;
-      tabId?: number;
-      action?: Notification["action"];
-    },
-  ) {
-    await this.present(
-      NotificationLevel.Success,
-      title,
-      message,
-      options,
-    );
-  }
-
-  async warning(
-    title: string,
-    message: string,
-    options?: {
-      dismissible?: boolean;
-      expiresAt?: number;
-      tabId?: number;
-      action?: Notification["action"];
-    },
-  ) {
-    await this.present(
-      NotificationLevel.Warning,
-      title,
-      message,
-      options,
-    );
-  }
-
-  async error(
-    title: string,
-    message: string,
-    options?: {
-      dismissible?: boolean;
-      expiresAt?: number;
-      tabId?: number;
-      action?: Notification["action"];
-    },
-  ) {
-    await this.present(
-      NotificationLevel.Error,
-      title,
-      message,
-      options,
+      definition.level,
+      definition.title,
+      definition.message,
+      {
+        ...options,
+        action: definition.action && {
+          ...definition.action,
+          tabId: options?.tabId,
+        },
+      },
     );
   }
 
@@ -105,7 +55,6 @@ export class NotificationService {
     options?: {
       dismissible?: boolean;
       expiresAt?: number;
-      tabId?: number;
       action?: Notification["action"];
     },
   ) {
@@ -120,18 +69,18 @@ export class NotificationService {
       dismissible: options?.dismissible ?? true,
       expiresAt: options?.expiresAt,
 
-      tabId: options?.tabId,
-
       action: options?.action,
     };
 
     this.notificationRepository.set(notification);
 
+    this.notificationRepository.setCurrent(notification.id);
+
     await this.notifyNotificationsUpdated();
   }
 
-  async dismiss(id: string): Promise<void> {
-    this.notificationRepository.remove(id);
+  async dismiss(): Promise<void> {
+    this.notificationRepository.clearCurrent();
 
     await this.notifyNotificationsUpdated();
   }

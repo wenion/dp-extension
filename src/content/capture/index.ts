@@ -4,11 +4,11 @@ import { getPlatform } from "./platform";
 import type { Dispose } from "./types";
 import type { Platform } from "./platform";
 
-export class CaptureManager {
+export class SiteCapture {
   private platform?: Platform;
   private dispose?: Dispose;
 
-  mount(
+  start(
     url: string
   ) {
     if (this.dispose) {
@@ -19,7 +19,7 @@ export class CaptureManager {
     this.dispose = initializeSite(this.platform);
   }
 
-  unmount() {
+  stop() {
     this.dispose?.();
     this.dispose = undefined;
     this.platform = undefined;

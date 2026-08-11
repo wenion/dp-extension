@@ -1,28 +1,34 @@
-import type { SessionService } from "../services/SessionService";
-import type { TabService } from "../services/TabService";
+import type { ActiveSessionService } from "../services/ActiveSessionService";
+import type { TabsService } from "../services/TabsService";
 import type { TraceService } from "../services/TraceService";
 
 import type { UserEvent } from "@/shared/types";
 
 export class CaptureController {
 
-  private sessionService: SessionService;
-  private tabService: TabService;
+  private activeSessionService: ActiveSessionService;
+  private tabsService: TabsService;
   private traceService: TraceService;
 
   constructor(
-    sessionService: SessionService,
-    tabService: TabService,
+    activeSessionService: ActiveSessionService,
+    tabsService: TabsService,
     traceService: TraceService,
   ) {
-    this.sessionService = sessionService;
-    this.tabService = tabService;
+    this.activeSessionService = activeSessionService;
+    this.tabsService = tabsService;
     this.traceService = traceService;
   }
 
-  async capture(trace: UserEvent, tabId: number) {
+  async capture(
+    trace: UserEvent,
+    tabId: number,
+    options?: {
+      ignoreRecordingScope?: boolean;
+    },
+  ) {
     const session =
-      this.sessionService.getActiveSession();
+      this.activeSessionService.getActiveSession();
 
     // session paused
     if (
@@ -34,28 +40,32 @@ export class CaptureController {
 
     // tab not in scope
     const tabState =
-      this.tabService.getTab(tabId);
+      this.tabsService.getTab(tabId);
+
+    if (!tabState) {
+      return;
+    }
 
     if (
-      !tabState ||
+      !options?.ignoreRecordingScope &&
       tabState.recordingScope !== "recording"
     ) {
       return;
     }
 
     await this.traceService.add(trace, {
-      sessionId: session!.clientId,
-      sessionStart: session!.startedAt,
-      sessionEnd: session!.endedAt,
-      tabId: tabState!.tabId,
-      windowId: tabState!.windowId,
-      url: tabState!.url,
+      sessionId: session.clientId,
+      sessionStart: session.startedAt,
+      sessionEnd: session.endedAt,
+      tabId: tabState.tabId,
+      windowId: tabState.windowId,
+      url: tabState.url,
     });
   }
 
   async captureMany(traces: UserEvent[], tabId: number) {
     const session =
-      this.sessionService.getActiveSession();
+      this.activeSessionService.getActiveSession();
 
     // session paused
     if (
@@ -67,7 +77,7 @@ export class CaptureController {
 
     // tab not in scope
     const tabState =
-      this.tabService.getTab(tabId);
+      this.tabsService.getTab(tabId);
 
     if (
       !tabState ||

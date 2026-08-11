@@ -12,30 +12,16 @@ export function startSession() {
   })
 }
 
-export function endSession() {
+export function expandPanel() {
   chrome.runtime.sendMessage({
-    type: "SESSION/END",
+    type: "PANEL/EXPAND",
     source: "CONTENT",
   })
 }
 
-export function exit() {
+export function collapsePanel() {
   chrome.runtime.sendMessage({
-    type: "SESSION/EXIT",
-    source: "CONTENT",
-  });
-}
-
-export function expand() {
-  chrome.runtime.sendMessage({
-    type: "PAGE/EXPAND",
-    source: "CONTENT",
-  })
-}
-
-export function collapse() {
-  chrome.runtime.sendMessage({
-    type: "PAGE/COLLAPSE",
+    type: "PANEL/COLLAPSE",
     source: "CONTENT",
   })
 }
@@ -54,30 +40,51 @@ export function resumeSession() {
   })
 }
 
-export function stop() {
+export function requestSessionEnd() {
   chrome.runtime.sendMessage({
-    type: "PAGE/STOP",
+    type: "SESSION/END_REQUEST",
     source: "CONTENT",
   })
 }
 
-export function cancelStop() {
+export function endSession() {
   chrome.runtime.sendMessage({
-    type: "PAGE/BACK",
+    type: "SESSION/END",
     source: "CONTENT",
   })
 }
 
-export function finishUploaded() {
+export function cancelSessionEndRequest() {
   chrome.runtime.sendMessage({
-    type: "SESSION/FINISH_UPLOADED",
+    type: "SESSION/END_REQUEST_CANCELLED",
     source: "CONTENT",
   })
 }
 
-export function finishFailed() {
+export function exitSession() {
   chrome.runtime.sendMessage({
-    type: "SESSION/FINISH_FAILED",
+    type: "SESSION/EXIT",
+    source: "CONTENT",
+  });
+}
+
+export function cancelSessionExitRequest() {
+  chrome.runtime.sendMessage({
+    type: "SESSION/EXIT_REQUEST_CANCELLED",
+    source: "CONTENT",
+  })
+}
+
+export function completeUploadedSession() {
+  chrome.runtime.sendMessage({
+    type: "SESSION/UPLOADED_DONE",
+    source: "CONTENT",
+  })
+}
+
+export function completeUploadFailedSession() {
+  chrome.runtime.sendMessage({
+    type: "SESSION/UPLOAD_FAILED_DONE",
     source: "CONTENT",
   })
 }

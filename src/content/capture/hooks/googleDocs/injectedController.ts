@@ -5,7 +5,7 @@ import {
 
 import type { XHRHookConfig } from "./controllerType";
 
-export const attachXHR = (config?: XHRHookConfig) => {
+export const enableXHR = (config?: XHRHookConfig) => {
   window.postMessage(
     {
       source: MESSAGE_SOURCE.CONTENT,
@@ -16,7 +16,7 @@ export const attachXHR = (config?: XHRHookConfig) => {
   );
 }
 
-export const detachXHR = () => {
+export const disableXHR = () => {
   window.postMessage(
     {
       source: MESSAGE_SOURCE.CONTENT,
@@ -26,7 +26,9 @@ export const detachXHR = () => {
   );
 }
 
-export const injectPageScript = (onLoad?: () => void) => {
+export const loadInjectedScript = (
+  onLoad?: () => void
+) => {
   const script = document.createElement("script");
   script.src = chrome.runtime.getURL("injected.js");
 
@@ -36,6 +38,10 @@ export const injectPageScript = (onLoad?: () => void) => {
     } finally {
       script.remove();
     }
+  });
+
+  script.addEventListener("error", () => {
+    script.remove();
   });
 
   (document.head || document.documentElement).appendChild(script);

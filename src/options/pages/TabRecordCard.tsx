@@ -9,13 +9,15 @@ import {
   LinkSlash,
 } from "@gravity-ui/icons";
 
+import type { RecordingScope } from "@/shared/types"
+
 type TabRecordCardProps = {
   tabId: number;
 
   origin: string;
   title?: string;
 
-  recordingScope: "recording" | "excluded" | "not_in_scope";
+  recordingScope: RecordingScope;
   connected: boolean;
 
   favicon?: string;
@@ -48,6 +50,7 @@ export function TabRecordCard({
     paused: "text-amber-700",
     excluded: "text-default-700",
     not_in_scope: "text-default-500",
+    unsupported: "text-default-500",
   } as const;
 
   const statusLabel = {
@@ -55,6 +58,7 @@ export function TabRecordCard({
     paused: "PAUSED",
     excluded: "EXCLUDED",
     not_in_scope: "NOT IN SCOPE",
+    unsupported: "NOT IN SCOPE",
   } as const;
 
   const action =

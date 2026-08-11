@@ -1,3 +1,4 @@
+import type { BackgroundEvent } from "@/shared/message/backgroundEvents";
 import type { TabsRepository } from "../repositories/TabsRepository";
 
 /**
@@ -18,8 +19,14 @@ export class ContentScriptClient {
     this.tabsRepository = tabsRepository;
   }
 
-  async send<T>(tabId: number, message: any): Promise<T> {
-    return chrome.tabs.sendMessage(tabId, message);
+  async send<T = void>(
+    tabId: number,
+    message: BackgroundEvent,
+  ): Promise<T> {
+    return chrome.tabs.sendMessage(
+      tabId,
+      message,
+    );
   }
 
   /**
@@ -29,11 +36,19 @@ export class ContentScriptClient {
    * one unavailable content script does not prevent others
    * from receiving the message.
    */
-  async broadcast(message: any): Promise<void> {
-    const tabs = this.tabsRepository.getTabs();
+  async broadcast(
+    message: BackgroundEvent
+  ): Promise<void> {
+    const tabs =
+      this.tabsRepository.getTabs();
 
     await Promise.allSettled(
-      tabs.map(tab => this.send(tab.tabId, message)),
+      tabs.map(tab =>
+        this.send(
+          tab.tabId,
+          message,
+        ),
+      ),
     );
   }
 }

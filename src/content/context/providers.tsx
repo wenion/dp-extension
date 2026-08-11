@@ -1,10 +1,10 @@
 import { ContextProvider } from "./context";
 
 import type { ReactNode } from "react";
-import type { ContentState } from "@/shared/types";
+import type { OverlayState } from "../types";
 
 type Props = {
-  initialState: ContentState;
+  initialState: OverlayState;
   children: ReactNode;
 };
 
@@ -13,7 +13,7 @@ export function Providers({
   children
 }: Props) {
   return (
-    <ContextProvider initialState={initialState}>
+    <ContextProvider contentState={initialState}>
       {children}
     </ContextProvider>
   );

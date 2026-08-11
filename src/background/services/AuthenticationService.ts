@@ -1,22 +1,19 @@
 import { env } from "@/config/env";
 
-import { OAuthApi } from "../api/OAuthApi";
-import { AuthRepository } from "../repositories/AuthRepository";
+import type { OAuthApi } from "../api/OAuthApi";
+
+import type { AuthRepository } from "../repositories/AuthRepository";
 
 export class AuthenticationService {
-  private readonly api: OAuthApi;
+  private readonly oauthApi: OAuthApi;
   private readonly authRepository: AuthRepository;
 
   constructor(
-    api: OAuthApi,
+    oauthApi: OAuthApi,
     authRepository: AuthRepository,
   ) {
-    this.api = api;
+    this.oauthApi = oauthApi;
     this.authRepository = authRepository;
-  }
-
-  isAuthenticated(): boolean {
-    return !!this.authRepository.getAccessToken();
   }
 
   async openLogin() {
@@ -27,9 +24,9 @@ export class AuthenticationService {
 
     chrome.tabs.create({ url: url.href });
   }
- 
+
   async completeLogin(code: string) {
-    const tokens = await this.api.exchange(code);
+    const tokens = await this.oauthApi.exchange(code);
 
     await this.authRepository.setTokens(tokens);
   }

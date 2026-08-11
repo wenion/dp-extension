@@ -8,23 +8,30 @@ export async function connect() {
   });
 }
 
-export async function mount() {
-  return chrome.runtime.sendMessage({
-    type: "OPTIONS/MOUNT",
-    source: "OPTIONS",
-  });
-}
-
-export async function refreshSessions() {
-  return chrome.runtime.sendMessage({
-    type: "SESSIONS/REFRESH",
-    source: "OPTIONS",
-  });
-}
-
 export function startSession() {
   chrome.runtime.sendMessage({
     type: "SESSION/START",
+    source: "OPTIONS",
+  })
+}
+
+export function pauseSession() {
+  chrome.runtime.sendMessage({
+    type: "SESSION/PAUSE",
+    source: "OPTIONS",
+  })
+}
+
+export function resumeSession() {
+  chrome.runtime.sendMessage({
+    type: "SESSION/RESUME",
+    source: "OPTIONS",
+  })
+}
+
+export function requestSessionEnd() {
+  chrome.runtime.sendMessage({
+    type: "SESSION/END_REQUEST",
     source: "OPTIONS",
   })
 }
@@ -36,66 +43,38 @@ export function endSession() {
   })
 }
 
-export function exit() {
+export function cancelSessionEndRequest() {
+  chrome.runtime.sendMessage({
+    type: "SESSION/END_REQUEST_CANCELLED",
+    source: "OPTIONS",
+  })
+}
+
+export function exitSession() {
   chrome.runtime.sendMessage({
     type: "SESSION/EXIT",
     source: "OPTIONS",
   });
 }
 
-export function expand() {
+export function cancelSessionExitRequest() {
   chrome.runtime.sendMessage({
-    type: "PAGE/EXPAND",
+    type: "SESSION/EXIT_REQUEST_CANCELLED",
     source: "OPTIONS",
   })
 }
 
-export function collapse() {
+export function completeUploadedSession() {
   chrome.runtime.sendMessage({
-    type: "PAGE/COLLAPSE",
-    source: "OPTIONS",
+    type: "SESSION/UPLOADED_DONE",
+    source: "CONTENT",
   })
 }
 
-export function pause() {
+export function completeUploadFailedSession() {
   chrome.runtime.sendMessage({
-    type: "SESSION/PAUSE",
-    source: "OPTIONS",
-  })
-}
-
-export function resume() {
-  chrome.runtime.sendMessage({
-    type: "SESSION/RESUME",
-    source: "OPTIONS",
-  })
-}
-
-export function stop() {
-  chrome.runtime.sendMessage({
-    type: "PAGE/STOP",
-    source: "OPTIONS",
-  })
-}
-
-export function cancelStop() {
-  chrome.runtime.sendMessage({
-    type: "PAGE/BACK",
-    source: "OPTIONS",
-  })
-}
-
-export function finishUploaded() {
-  chrome.runtime.sendMessage({
-    type: "SESSION/FINISH_UPLOADED",
-    source: "OPTIONS",
-  })
-}
-
-export function finishFailed() {
-  chrome.runtime.sendMessage({
-    type: "SESSION/FINISH_FAILED",
-    source: "OPTIONS",
+    type: "SESSION/UPLOAD_FAILED_DONE",
+    source: "CONTENT",
   })
 }
 
@@ -125,12 +104,12 @@ export async function permissionGranted(
   })
 }
 
-export function nameSession(
+export function setActiveSessionName(
   sessionId: string,
   newTitle: string
 ): Promise<Session | undefined>  {
   return chrome.runtime.sendMessage({
-    type: "SESSION/NAME",
+    type: "OPTIONS/NAME_SESSION",
     source: "OPTIONS",
     payload: { sessionId, newTitle },
   })
@@ -141,7 +120,7 @@ export function renameSession(
   newTitle: string
 ): Promise<Session | undefined>  {
   return chrome.runtime.sendMessage({
-    type: "SESSION/RENAME",
+    type: "OPTIONS/RENAME_SESSION",
     source: "OPTIONS",
     payload: { sessionId, newTitle },
   })
@@ -151,7 +130,7 @@ export function retryUpload(
   sessionId: string,
 ): Promise<Session | undefined> {
   return chrome.runtime.sendMessage({
-    type: "SESSION/RETRY",
+    type: "OPTIONS/RETRY_SESSION",
     source: "OPTIONS",
     payload: { sessionId },
   })
@@ -169,8 +148,15 @@ export async function dismissNotification(
   notificationId: string,
 ) {
   return chrome.runtime.sendMessage({
-    type: "NOTIFICATION/DISMISS",
+    type: "OPTIONS/DISMISS_NOTIFICATION",
     source: "OPTIONS",
     payload: { notificationId },
+  });
+}
+
+export async function toggleMount() {
+  return chrome.runtime.sendMessage({
+    type: "OPTIONS/TOGGLE_MOUNT",
+    source: "OPTIONS",
   });
 }

@@ -8,7 +8,7 @@ import {
 
 import { TriangleExclamation } from '@gravity-ui/icons';
 
-import { finishFailed } from "../message/BackgroundClient";
+import { completeUploadFailedSession } from "../message/BackgroundClient";
 
 export function UploadFailed() {
   return (
@@ -31,7 +31,7 @@ export function UploadFailed() {
             className="w-full"
             color="default"
             variant="bordered"
-            onPress={finishFailed}
+            onPress={completeUploadFailedSession}
           >
             Done
           </Button>

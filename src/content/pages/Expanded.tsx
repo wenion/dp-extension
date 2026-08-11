@@ -16,24 +16,28 @@ import {
 
 import { useAppContext } from "../context/context";
 import {
-  collapse,
+  collapsePanel,
   excludeTab,
   includeTab,
   openOptionsPage,
   pauseSession,
   resumeSession,
-  stop,
+  requestSessionEnd,
 } from "../message/BackgroundClient";
 
 export function Expanded() {
-  const { session, currentTab, numberOfRecordingTabs } = useAppContext();
+  const {
+    activeSession,
+    currentTab,
+    numberOfRecordingTabs,
+  } = useAppContext();
   const action =
     currentTab?.recordingScope === "recording"
       ? {
           icon: <Eye />,
           onPress: excludeTab,
-          text: session?.captureState === "recording"? "Recording" : "Paused",
-          className: session?.captureState === "recording"? "text-red-600":" text-amber-700",
+          text: activeSession?.captureState === "recording"? "Recording" : "Paused",
+          className: activeSession?.captureState === "recording"? "text-red-600":" text-amber-700",
         }
       : currentTab?.recordingScope === "excluded"
       ? {
@@ -59,7 +63,7 @@ export function Expanded() {
       <Card className='border-default border-medium w-80' shadow="none">
         <CardHeader className="flex py-2 justify-between items-center">
           {/* <div className="flex gap-x-2 items-center"> */}
-          {session && session.captureState === "recording" ? (
+          {activeSession?.captureState === "recording" ? (
             <div className="flex gap-x-2 items-center text-red-600">
               <CircleFill />
               <p>Recording</p>
@@ -86,7 +90,7 @@ export function Expanded() {
               isIconOnly
               variant="bordered"
               size="sm"
-              onPress={collapse}
+              onPress={collapsePanel}
             >
               <ChevronDown />
             </Button>
@@ -94,7 +98,7 @@ export function Expanded() {
         </CardHeader>
         <CardBody className="pb-4 px-4">
           <div className='flex gap-x-4'>
-            {session && session.captureState === "recording" ? (
+            {activeSession?.captureState === "recording" ? (
               <Button
                 className="w-full border border-amber-400 text-amber-700 font-medium"
                 variant="bordered"
@@ -117,12 +121,12 @@ export function Expanded() {
               className="w-full border border-rose-200 text-red-600 font-medium"
               variant="bordered"
               startContent={<SquareFill />}
-              onPress={stop}
+              onPress={requestSessionEnd}
             >
               Stop
             </Button>
           </div>
-          {(!session || session.captureState === "paused") && (
+          {(!activeSession || activeSession.captureState === "paused") && (
             <p className="pt-2 text-sm text-amber-700">Capture suspended — no events recorded while paused.</p>)}
         </CardBody>
         <Divider/>

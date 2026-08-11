@@ -205,7 +205,7 @@ export type GoogleDocsMeta = {
 };
 
 export type UploadStatus =
-  | "waiting"
+  // | "waiting"
   | "uploading"
   | "uploaded"
   | "failed";
@@ -231,7 +231,8 @@ export interface Session {
 export type RecordingScope =
   | "recording"
   | "excluded"
-  | "not_in_scope";
+  | "not_in_scope"
+  | "unsupported";
 
 export interface TabState {
   tabId: number;
@@ -280,16 +281,15 @@ export interface Notification {
   dismissible: boolean;
   expiresAt?: number;
 
-  tabId?: number;
   action?: {
     type: NotificationAction;
     label: string;
+    tabId?: number;
   };
 }
 
 export interface BackgroundState {
-  pageMounted?: boolean;
-  pageState?: PageState;
+  mount: boolean;
   activeSession?: Session;
   tabs: readonly TabState[];
 }
@@ -300,35 +300,20 @@ export interface ContentState extends BackgroundState {
 
 export interface OptionsState extends BackgroundState {  
   sessions: readonly Session[];
-  currentNotification?: Notification;
   notifications: readonly Notification[];
-}
+  currentNotification?: Notification;
+};
 
-export type PageState =
+export type PanelPage =
   | "idle"
+  | "notice"
   | "collapsed"
   | "expanded"
-  | "confirm"
-  | "uploading"
-  | "uploaded"
-  | "forceUploaded"
-  | "uploadFailed"
-  | "alert";
+  | "collapsed"
+  | "end"
+  | "exit"
+  | UploadStatus;
 
-export type PageTrigger = 
-  | "START_SESSION"
-  | "END_SESSION"
-  | "EXPAND"
-  | "COLLAPSE"
-  | "PAUSE"
-  | "RESUME"
-  | "STOP"
-  | "BACK"
-  | "UPLOAD" // END_SESSION
-  | "UPLOADED"
-  | "FORCE_UPLOADED"
-  | "UPLOADFAILED"
-  | "EXIT"
-  | "FINISH"
-  | "INCLUDE_PAGE"
-  | "EXCLUDE_PAGE";
+export interface ActiveSession extends Session {
+  page?: PanelPage;
+};

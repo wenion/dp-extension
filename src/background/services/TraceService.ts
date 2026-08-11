@@ -1,7 +1,6 @@
 import { TraceApi } from "../api/TraceApi";
 
 import type { TraceRepository } from "../repositories/TraceRepository";
-import type { TraceProcessor } from "../TraceProcessor";
 
 import type {
   Trace,
@@ -12,57 +11,26 @@ import type {
 export class TraceService {
   private readonly traceApi: TraceApi;
   private readonly traceRepository: TraceRepository;
-  private readonly traceProcessor: TraceProcessor;
   
   constructor(
     traceApi: TraceApi,
     traceRepository: TraceRepository,
-    traceProcessor: TraceProcessor,
   ) {
     this.traceApi = traceApi;
     this.traceRepository = traceRepository;
-    this.traceProcessor = traceProcessor;
   }
 
-  async getUploadPayload(): Promise<Trace[]> {
-    const traces = await this.traceRepository.getAll();
-    const orderedTraces = this.traceProcessor.assignSequence(traces);
-
-    const postTraces = this.traceProcessor.process(orderedTraces);
-
-    return postTraces;
-  }
-
-  async getUploadPayloadById(
+  async getTracesById(
     sessionId: string,
   ): Promise<Trace[]> {
-    const traces =
-      await this.traceRepository.getBySession(sessionId);
-
-    const ordered =
-      this.traceProcessor.assignSequence(traces);
-
-    return this.traceProcessor.process(ordered);
+    return this.traceRepository.getBySession(sessionId);
   }
 
-  getDomains(traces: Trace[]): string[] {
-    return this.traceProcessor.extractDomains(traces);
-  }
-
-  async uploadTraces(traces: Trace[]) {
+  async uploadTraces(traces: Trace[]): Promise<{ids: string[]}> {
     return this.traceApi.uploadMany(traces);
   }
 
-  async clearTraces() {
-    await this.traceRepository.clear();
-  }
-
-  async clearTracesById(
-    sessionId: string,
-  ): Promise<void> {
-    await this.traceRepository.clearBySession(sessionId);
-  }
-
+  // ===== Repository =====
   async add(trace: UserEvent, context: TraceContext) {
     await this.traceRepository.append({
       ...trace,
@@ -80,5 +48,15 @@ export class TraceService {
         ...context,
       })),
     );
+  }
+
+  async clearTraces() {
+    await this.traceRepository.clear();
+  }
+
+  async clearTracesById(
+    sessionId: string,
+  ): Promise<void> {
+    await this.traceRepository.clearBySession(sessionId);
   }
 }

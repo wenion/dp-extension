@@ -10,6 +10,15 @@ type DocElement = {
   mts?: Array<DocElement>; // array of operations for "mlti"
 };
 
+type XHRTraceMessage = {
+  source: string;
+  meta: {
+    method: string;
+    url: string;
+  };
+  body: Document | XMLHttpRequestBodyInit | null;
+};
+
 function parseSaveBundle(msg: any): GoogleDocsMeta[] {
   const traces: GoogleDocsMeta[] = [];
 
@@ -96,7 +105,9 @@ function parseSaveBundle(msg: any): GoogleDocsMeta[] {
       }
       traces.push(data);
 
-      return ei && si ? ei - si : 0;
+      return ei !== undefined && si !== undefined
+        ? ei - si
+        : 0;
     }
     return 0;
   }
@@ -142,26 +153,36 @@ function parseAssistWriting(msg: any): GoogleDocsMeta | null {
 }
 
 export function createGoogleDocsMessageListener(
-    emit: (trace: GoogleDocsMeta) => void
+  emit: (trace: GoogleDocsMeta) => void,
 ) {
-  return (event: MessageEvent) => {
+  return (event: MessageEvent<XHRTraceMessage>) => {
 
-    if (event.source !== window) return;
+    if (event.source !== window) {
+      return;
+    }
 
     const msg = event.data;
 
-    if (!msg || msg.source !== "injected") {
+    if (
+      !msg ||
+      msg.source !== "injected"
+    ) {
       return;
     }
 
     const meta = msg.meta;
+
     if (meta.url.includes("/save")) {
       parseSaveBundle(msg).forEach(emit);
     }
-    else if (meta.url.includes("/assistwriting")) {
+    else if (
+      meta.url.includes("/assistwriting")
+    ) {
       const trace = parseAssistWriting(msg);
 
-      if (trace) emit(trace);
+      if (trace) {
+        emit(trace);
+      }
     }
   };
 }

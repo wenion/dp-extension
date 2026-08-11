@@ -5,12 +5,12 @@ import { PauseFill } from '@gravity-ui/icons';
 import { SquareFill } from '@gravity-ui/icons';
 
 import {
-  cancelStop,
+  cancelSessionEndRequest,
   endSession,
  } from "../message/BackgroundClient";
 
 
-export function Confirm() {
+export function EndConfirmation() {
   return (
     <div className="flex gap-4 items-center">
       <Card className='border-default border-medium w-80' shadow="none">
@@ -24,7 +24,7 @@ export function Confirm() {
           <Button
             className="w-full border font-medium"
             variant="bordered"
-            onPress={cancelStop}
+            onPress={cancelSessionEndRequest}
           >
             Cancel
           </Button>

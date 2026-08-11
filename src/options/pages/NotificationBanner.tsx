@@ -1,29 +1,16 @@
 import { env } from "@/config/env";
 
-import { Alert, type AlertProps } from "@heroui/alert";
+import type { AlertProps } from "@heroui/alert";
+import { Alert } from "@heroui/alert";
+import { Button } from "@heroui/button";
 import {
   Card,
-  CardHeader,
-  CardBody,
   CardFooter,
+  CardHeader,
 } from "@heroui/card";
-import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
 import { Link } from "@heroui/link";
-
-import {
-  CircleInfoFill as InfoIcon,
-  TriangleExclamationFill as WarningIcon,
-  CircleCheckFill as CheckCircleIcon,
-  SquareExclamation as ErrorIcon,
-  CircleXmark as CloseIcon,
-  Link as LinkIcon,
-} from '@gravity-ui/icons';
-import {
-  permissionGranted,
- } from "../message/BackgroundClient"; 
-import { useAppContext } from "../context/context";
-import { dismissNotification } from "../message/BackgroundClient";
+import { Link as LinkIcon } from "@gravity-ui/icons";
 
 import {
   NotificationAction,
@@ -31,20 +18,12 @@ import {
   type NotificationLevel as NotificationLevelType,
 } from "@/shared/types";
 
-// const levelIcons = {
-//   [NotificationLevel.Info]: (
-//     <InfoIcon className="h-5 w-5 text-primary" />
-//   ),
-//   [NotificationLevel.Success]: (
-//     <CheckCircleIcon className="h-5 w-5 text-success" />
-//   ),
-//   [NotificationLevel.Warning]: (
-//     <WarningIcon className="h-5 w-5 text-warning" />
-//   ),
-//   [NotificationLevel.Error]: (
-//     <ErrorIcon className="h-5 w-5 text-danger" />
-//   ),
-// };
+import { useAppContext } from "../context/context";
+import {
+  dismissNotification,
+  permissionGranted,
+} from "../message/BackgroundClient";
+
 const alertColors: Record<
   NotificationLevelType,
   NonNullable<AlertProps["color"]>
@@ -66,11 +45,13 @@ export function NotificationBanner() {
   }
 
   const tab =
-    currentNotification.tabId === undefined
+    currentNotification.action?.tabId === undefined
       ? undefined
       : tabs.find(
-          t => t.tabId === currentNotification.tabId,
+          t => t.tabId === currentNotification.action?.tabId,
         );
+
+  console.log("currentNotification", currentNotification)
 
   const openTab = async () => {
     if (!tab) {
@@ -99,15 +80,16 @@ export function NotificationBanner() {
   };
 
   const performNotificationAction = async () => {
-    if (
-      !currentNotification.action ||
-      !tab
-    ) {
+    if (!currentNotification.action) {
       return;
     }
 
     switch (currentNotification.action.type) {
       case NotificationAction.GrantHostPermission: {
+        if (!tab) {
+          return;
+        }
+
         try {
           const url = new URL(tab.url);
 
@@ -169,11 +151,11 @@ export function NotificationBanner() {
 
       </CardHeader>
 
-      {(tab || currentNotification.action) && (
+      {(currentNotification.action) && (
         <>
-          <CardFooter className="flex items-center space-x-8 px-8 pb-3 pt-0">
+          <CardFooter className="flex items-center space-x-8 pb-3 pt-0">
 
-            {tab ? (
+            {tab && (
               <Chip
                 variant="flat"
                 startContent={<LinkIcon />}
@@ -186,19 +168,15 @@ export function NotificationBanner() {
                   {new URL(tab.url).hostname}
                 </Link>
               </Chip>
-            ) : (
-              <span />
             )}
 
-            {tab && currentNotification.action && (
-              <Button
-                size="sm"
-                color="danger"
-                onPress={performNotificationAction}
-              >
-                {currentNotification.action.label}
-              </Button>
-            )}
+            <Button
+              size="sm"
+              color="danger"
+              onPress={performNotificationAction}
+            >
+              {currentNotification.action.label}
+            </Button>
 
           </CardFooter>
         </>

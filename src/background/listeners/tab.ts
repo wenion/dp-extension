@@ -4,24 +4,23 @@ import {
 } from "@/shared/TraceFactory";
 
 import type { CaptureController } from "../controllers/CaptureController";
+import type { ExtensionController } from "../controllers/ExtensionController";
 import type { GoogleDocsController } from "../controllers/GoogleDocsController";
-import type { TabController } from "../controllers/TabController";
 
 export function startTabListener(
   captureController: CaptureController,
+  extensionController: ExtensionController,
   googleDocsController: GoogleDocsController,
-  tabController: TabController,
 ) {
-
   chrome.tabs.onActivated.addListener(async(activeInfo) => {
+    await extensionController.handleTabActivated(activeInfo.tabId);
+
     const createdTrace = createPageFocusTrace();
     await captureController.capture(createdTrace, activeInfo.tabId);
-
-    await tabController.checkOrCreateTab(activeInfo.tabId);
   });
 
   chrome.tabs.onRemoved.addListener(async (tabId: number) => {
-    await tabController.handleTabRemoved(tabId);
+    await extensionController.handleTabRemoved(tabId);
     googleDocsController.remove(tabId);
   });
 
@@ -34,7 +33,7 @@ export function startTabListener(
       return;
     }
 
-    await tabController.handleTabUpdated(tabId, tab.title);
+    await extensionController.handleTabUpdated(tabId, tab.title);
 
     const content =
       await googleDocsController.initialize(tabId, tab.url);
@@ -51,8 +50,7 @@ export function startTabListener(
       return;
     }
 
-    console.log("webNavigation")
-    await tabController.handleNavigation(
+    await extensionController.handleTabNavigated(
       details.tabId,
       details.url
     );

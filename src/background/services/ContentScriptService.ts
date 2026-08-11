@@ -22,6 +22,13 @@ export class ContentScriptService {
     this.contentScriptClient = contentScriptClient;
   }
 
+  hasHostPermission(url: URL): Promise<boolean> {
+    return chrome.permissions.contains({
+      permissions: ["scripting"],
+      origins: [`${url.origin}/*`]
+    });
+  }
+
   /**
    * Attempts to inject the content script into the given tab.
    *
@@ -77,7 +84,7 @@ export class ContentScriptService {
   async checkInjectionPermission(
     url: URL,
   ): Promise<InjectionPermission> {
-    if (!this.canInject(url)) {
+    if (!this.isSupportedProtocol(url)) {
       return InjectionPermission.UnsupportedUrl;
     }
 
@@ -133,30 +140,7 @@ export class ContentScriptService {
     }
   }
 
-  private canInject(url: URL): boolean {
-    // Only allow HTTP(S) pages.
-    if (
-      url.protocol !== "http:" &&
-      url.protocol !== "https:"
-    ) {
-      return false;
-    }
-
-    // Chrome Web Store cannot be scripted.
-    if (
-      url.hostname === "chrome.google.com" ||
-      url.hostname === "chromewebstore.google.com"
-    ) {
-      return false;
-    }
-
-    return true;
-  }
-
-  private hasHostPermission(url: URL): Promise<boolean> {
-    return chrome.permissions.contains({
-      permissions: ["scripting"],
-      origins: [`${url.origin}/*`]
-    });
+  private isSupportedProtocol(url: URL): boolean {
+    return ["http:", "https:"].includes(url.protocol);
   }
 }

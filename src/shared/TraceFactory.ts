@@ -16,3 +16,17 @@ export function createPageFocusTrace(): UserEvent {
     timestamp: Date.now(),
   };
 }
+
+export function createSessionStartTrace(): UserEvent {
+ return {
+    eventType: "session start",
+    timestamp: Date.now(),
+  };
+}
+
+export function createSessionEndTrace(): UserEvent {
+ return {
+    eventType: "session end",
+    timestamp: Date.now(),
+  };
+}

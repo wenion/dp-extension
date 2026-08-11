@@ -97,6 +97,15 @@ export class GoogleDocsService {
     url: string,
     docId: string,
   ): Promise<string> {
+
+    await this.contentScriptClient.send(
+      tabId,
+      {
+        type: "NOTICE/SHOW",
+        payload: "Google Docs is preparing for recording..."
+      },
+    );
+
     const text =
       await this.api.fetchDocumentText(docId);
 
@@ -107,14 +116,13 @@ export class GoogleDocsService {
       text,
     );
 
-    await this.contentScriptClient.broadcast({
-      type: "PAGE/SHOW",
-      payload: {
-        tabId,
-        message: "Google Doc ready for recording",
-        autoDismissMs: 5,
+    await this.contentScriptClient.send(
+      tabId,
+      {
+        type: "NOTICE/SHOW",
+
       },
-    });
+    );
 
     return text;
   }

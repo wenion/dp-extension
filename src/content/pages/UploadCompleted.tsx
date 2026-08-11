@@ -8,9 +8,9 @@ import {
 
 import { CircleCheck } from '@gravity-ui/icons';
 
-import { finishUploaded } from "../message/BackgroundClient";
+import { completeUploadedSession } from "../message/BackgroundClient";
 
-export function Uploaded() {
+export function UploadCompleted() {
   return (
     <div className="flex gap-4 items-center">
       <Card className='border-default border-medium w-80'>
@@ -28,7 +28,7 @@ export function Uploaded() {
             className="w-full"
             color="default"
             variant="bordered"
-            onPress={finishUploaded}
+            onPress={completeUploadedSession}
           >
             Done
           </Button>

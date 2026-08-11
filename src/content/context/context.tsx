@@ -6,71 +6,83 @@ import {
   useState,
 } from "react";
 
+import type { OverlayState } from "../types";
+
 import type {
-  PageState,
-  Session,
+  ActiveSession,
+  PanelPage,
   TabState,
-  ContentState,
 } from "@/shared/types";
-import type { EventMessage } from "@/shared/message/events";
+
+import type {
+  BackgroundEvent,
+} from "@/shared/message/backgroundEvents";
 
 type ContextType = {
-  page: PageState;
-  setPage: (value: PageState) => void;
+  page: PanelPage;
+  notice?: string;
 
-  session: Session | null;
+  activeSession?: ActiveSession;
 
-  tabs: TabState[];
-  setTabs: (value: TabState[]) => void;
+  tabs: readonly TabState[];
+  currentTab?: TabState,
 
-  currentTab : TabState | undefined,
   numberOfRecordingTabs: number,
 };
-const Context = createContext<ContextType | null>(null);
+
+const Context =
+  createContext<ContextType | null>(null);
 
 export function useAppContext() {
   const context = useContext(Context);
 
   if (!context) {
-    throw new Error("useAppContext must be used within a ContextProvider");
+    throw new Error(
+      "useAppContext must be used within a ContextProvider",
+    );
   }
 
   return context;
 }
 
 type Props = {
-  initialState: ContentState;
+  contentState: OverlayState;
   children: React.ReactNode;
 };
 
 export function ContextProvider({
-  initialState,
+  contentState,
   children
 }: Props) {
-  const tabId = initialState.tabId;
-  const [page, setPage] = useState<PageState>(initialState.pageState ?? "idle");
-  const [session, _setSession] = useState<Session | null>(
-    initialState.activeSession ?? null
-  );
-  const [tabs, setTabs] = useState<TabState[]>([
-    ...(initialState.tabs ?? [])
-  ]);
+  const { tabId } = contentState;
+
+  const [activeSession, setActiveSession] =
+    useState<ActiveSession | undefined>(
+      contentState.activeSession,
+    );
+
+  const [tabs, setTabs] =
+    useState<readonly TabState[]>(
+      contentState.tabs,
+    );
+
+  const [notice, setNotice] =
+    useState<string>();
 
   useEffect(() => {
-    const listener = (message: EventMessage) => {
+    const listener = (message: BackgroundEvent) => {
       switch (message.type) {
         case "SESSION/UPDATED":
-          _setSession(message.payload);
-          break;
-
-        case "PAGE_STATE/UPDATED":
-          setPage(message.payload);
+          setActiveSession(message.payload);
           break;
 
         case "TABS/UPDATED":
           setTabs(message.payload);
           break;
 
+        case "NOTICE/SHOW":
+          setNotice(message.payload);
+          break;
       }
     };
 
@@ -81,40 +93,57 @@ export function ContextProvider({
     };
   }, []);
 
-  const currentTab = useMemo(() => {
-    return tabs.find(tab => tab.tabId === tabId);
-  }, [tabs, tabId]);
+  const currentTab = useMemo(
+    () =>
+      tabs.find(
+        tab => tab.tabId === tabId,
+      ),
+    [tabs, tabId],
+  );
 
-  const numberOfRecordingTabs = useMemo(() => {
-    let count = 0;
+  const numberOfRecordingTabs = useMemo(
+    () =>
+      tabs.filter(
+        tab => tab.recordingScope === "recording",
+      ).length,
+    [tabs],
+  );
 
-    for (const tab of tabs) {
-      if (tab.recordingScope !== "not_in_scope") {
-        count++;
-      }
+  const page = useMemo<PanelPage>(() => {
+    if (notice) {
+      return "notice";
     }
-
-    return count;
-  }, [tabs]);
+    if (activeSession?.endedAt) {
+      return activeSession.uploadStatus;
+    }
+    else if (activeSession?.page) {
+      return activeSession?.page;
+    }
+    return "idle";
+  }, [activeSession, notice]);
 
   const value = useMemo<ContextType>(
     () => ({
       page,
-      setPage,
-      session,
+      notice,
+      activeSession,
       tabs,
-      setTabs,
       currentTab,
       numberOfRecordingTabs,
     }),
     [
       page,
-      session,
+      notice,
+      activeSession,
       tabs,
       currentTab,
       numberOfRecordingTabs,
     ],
   );
   
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  return (
+    <Context.Provider value={value}>
+      {children}
+    </Context.Provider>
+  );
 }

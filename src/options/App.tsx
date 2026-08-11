@@ -10,21 +10,20 @@ import { NotificationBanner } from "./pages/NotificationBanner";
 
 import { useAppContext } from "./context/context";
 import {
-  mount,
   openSession,
   renameSession,
   retryUpload,
+  toggleMount,
 } from "./message/BackgroundClient";
 import { buildSites } from "./utils/buildSites";
 import { formatSessionTime } from "./utils/formatSessionTime";
 
 
 export default function App() {
-  const { mounted, sessions } = useAppContext();
-
-  const activateExtension = () => {
-    mount();
-  }
+  const {
+    mounted,
+    sessions,
+  } = useAppContext();
 
   return (
     <main className="min-h-screen flex flex-col space-y-8 p-8">
@@ -43,7 +42,7 @@ export default function App() {
                 color="primary"
                 size="lg"
                 startContent={<Power width={16} height={16}/>}
-                onPress={activateExtension}
+                onPress={toggleMount}
               >
                 Activate extension
               </Button>

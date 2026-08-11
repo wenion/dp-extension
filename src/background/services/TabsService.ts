@@ -7,7 +7,7 @@ import type {
   TabState,
 } from "@/shared/types";
 
-export class TabService {
+export class TabsService {
   private readonly repository: TabsRepository;
   private readonly contentScriptClient: ContentScriptClient;
 
@@ -19,60 +19,105 @@ export class TabService {
     this.contentScriptClient = contentScriptClient;
   }
 
-  async registerTab(
+  async addTab(
     tabId: number,
     url: string,
-    scope: RecordingScope,
+    origin: string,
+    recordingScope: RecordingScope,
+    connected: boolean,
     title?: string,
-    connected?: boolean,
   ): Promise<TabState> {
-
     const now = Date.now();
-    let origin = "";
-
-    try {
-      origin = new URL(url ?? "").origin;
-    } catch {
-      // Ignore invalid URL such as chrome:// or about:blank.
-    }
 
     const tabState: TabState = {
       tabId: tabId,
-      googleDocId: getDocumentId(url) ?? undefined,
-      url: url,
+      url,
       origin,
-      title: title,
-      recordingScope: scope,
-      connected: connected ?? true,
+      title,
+      googleDocId: getDocumentId(url),
+      recordingScope,
+      connected,
       createdAt: now,
       updatedAt: now,
     }
 
-    await this.setTab(tabState);
+    return this.createTab(tabState);
+  }
+  
+  async removeTab(
+    tab: number
+  ): Promise<boolean> {
+    const result =
+      this.repository.removeTab(tab);
+    await this.notifyTabsUpdated();
 
-    return tabState;
+    return result;
   }
 
-  async unregisterTab(tabId: number) {
-    await this.removeTab(tabId);
-  }
-
-  async setTitle(
+  async updateTitle(
     tabId: number,
     title?: string,
   ): Promise<TabState | undefined> {
     return this.updateTab(
       tabId,
-      tab => ({
-        ...tab,
-        title: title ?? tab.title,
+      {
+        title,
         updatedAt: Date.now(),
-      }),
+      },
     );
   }
 
-  async resetExcludedTabs() {
-    this.updateTabs(
+  async setRecording(
+    tabId: number,
+  ): Promise<TabState | undefined> {
+    return this.updateTab(
+      tabId,
+      {
+        recordingScope: "recording",
+        updatedAt: Date.now(),
+      },
+    );
+  }
+
+  async setOutOfScope(
+    tabId: number,
+  ): Promise<TabState | undefined> {
+    return this.updateTab(
+      tabId,
+      {
+        recordingScope: "not_in_scope",
+        updatedAt: Date.now(),
+      },
+    );
+  }
+
+  async setExcluded(
+    tabId: number,
+  ): Promise<TabState | undefined> {
+    return this.updateTab(
+      tabId,
+      {
+        recordingScope: "excluded",
+        updatedAt: Date.now(),
+      },
+    );
+  }
+
+  async setConnected(
+    tabId: number,
+    connected: boolean,
+  ): Promise<TabState | undefined> {
+    return this.updateTab(
+      tabId,
+      {
+        connected,
+        updatedAt: Date.now(),
+      },
+    );
+  }
+
+  async setExcludedTabsToRecording(): Promise<TabState[]> {
+    return this.updateTabs(
       tab => tab.recordingScope === "excluded",
       tab => ({
         ...tab,
@@ -82,65 +127,13 @@ export class TabService {
     );
   }
 
-  async setRecording(
-    tabId: number
-  ): Promise<TabState | undefined> {
-    return this.updateTab(
-      tabId,
-      tab => ({
-        ...tab,
-        recordingScope: "recording",
-        updatedAt: Date.now(),
-      }),
-    );
-  }
-
-  async setOutOfScope(
-    tabId: number
-  ): Promise<TabState | undefined> {
-    return this.updateTab(
-      tabId,
-      tab => ({
-        ...tab,
-        recordingScope: "not_in_scope",
-        updatedAt: Date.now(),
-      }),
-    );
-  }
-
-  async setExcluded(
-    tabId: number
-  ): Promise<TabState | undefined> {
-    return this.updateTab(
-      tabId,
-      tab => ({
-        ...tab,
-        recordingScope: "excluded",
-        updatedAt: Date.now(),
-      }),
-    );
-  }
-
-  async setDisconnected(
-    tabId: number
-  ): Promise<TabState | undefined> {
-    return this.updateTab(
-      tabId,
-      tab => ({
-        ...tab,
-        connected: false,
-        updatedAt: Date.now(),
-      }),
-    );
-  }
-
-  async updateRecordingScopeByOrigins(
+  async setRecordingScopeByOrigins(
     origins:readonly string[],
     recordingScope: RecordingScope,
-  ): Promise<void> {
+  ): Promise<TabState[]> {
     const originSet = new Set(origins);
 
-    await this.updateTabs(
+    return this.updateTabs(
       tab => originSet.has(`${tab.origin}/*`),
       tab => ({
         ...tab,
@@ -156,65 +149,68 @@ export class TabService {
       .map(tab => tab.tabId);
   }
 
-  getTab(tabId: number) {
+  getTab(tabId: number): TabState | undefined {
     return this.repository.getTab(tabId);
   }
 
-  getTabs() {
+  getTabs(): readonly TabState[] {
     return this.repository.getTabs();
   }
 
-  hasTab(tabId: number) {
+  getTabsByOrigin(origin: string): TabState[] {
+    return this.repository
+      .getTabs()
+      .filter(tab => tab.origin === origin);
+  }
+
+  hasTab(tabId: number): boolean {
     return this.repository.getTab(tabId) !== undefined;
   }
 
-  isRecordable(tabId: number) {
+  isRecordable(tabId: number): boolean {
     return (
       this.repository.getTab(tabId)?.recordingScope ===
       "recording"
     );
   }
 
-  private async updateTab(
-    tabId: number,
-    updater: (tab: TabState) => TabState,
-  ) {
-    const updated = this.repository.updateTab(
-      tabId,
-      updater,
-    );
-
-    if (!updated) {
-      return;
-    }
-
+  private async createTab(
+    tab: TabState,
+  ): Promise<TabState> {
+    this.repository.setTab(tab);
     await this.notifyTabsUpdated();
 
+    return tab;
+  }
+
+  private async updateTab(
+    tabId: number,
+    patch: Partial<TabState>,
+  ): Promise<TabState | undefined> {
+    const updated =
+      this.repository.updateTab(
+        tabId,
+        tab => ({
+          ...tab,
+          ...patch,
+        })
+      );
+    await this.notifyTabsUpdated();
     return updated;
   }
 
   private async updateTabs(
     predicate: (tab: TabState) => boolean,
     updater: (tab: TabState) => TabState,
-  ) {
-    this.repository.updateTabs(
+  ): Promise<TabState[]> {
+    const updatedTabs = this.repository.updateTabs(
       predicate,
       updater,
     );
 
     await this.notifyTabsUpdated();
-  }
 
-  private async setTab(tab: TabState) {
-    this.repository.setTab(tab);
-
-    await this.notifyTabsUpdated();
-  }
-
-  private async removeTab(tab: number) {
-    this.repository.removeTab(tab);
-
-    await this.notifyTabsUpdated();
+    return updatedTabs;
   }
 
   private async notifyTabsUpdated() {

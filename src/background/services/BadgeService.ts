@@ -4,47 +4,124 @@ import {
   getBadgeIcon,
 } from "@/shared/icons";
 
+import type {
+  TabState,
+  ActiveSession,
+} from "@/shared/types";
+
 export class BadgeService {
-  async resetAll(
-    authenticated: boolean,
+
+  async updateBadge(
+    tabs: readonly TabState[],
+    mounted?: boolean,
+    activeSession?: ActiveSession,
+  ): Promise<void> {
+
+    console.log("BadgeService tabs", tabs, mounted, activeSession)
+
+    if (mounted && activeSession) {
+      const paused =
+        activeSession.captureState === "paused";
+
+      await Promise.all(
+        tabs.map(async tab => {
+          // if (!tab.connected) {
+          //   await this.setExcluded(tab.tabId);
+          //   return;
+          // }
+
+          if (tab.recordingScope === "excluded") {
+            await this.setExcluded(tab.tabId);
+            return;
+          }
+
+          if (tab.recordingScope === "not_in_scope") {
+            await this.setOutOfScope(tab.tabId);
+            return;
+          }
+
+          if (paused) {
+            await this.setPaused(tab.tabId);
+          }
+          else {
+            await this.setRecording(tab.tabId);
+          }
+        }),
+      );
+
+      return;
+    }
+
+    if (mounted) {
+      await this.setReadyWithTabs(tabs);
+      return;
+    }
+
+    await this.setDisabledWithTabs(tabs);
+  }
+
+  async setUnauthenticated(
   ): Promise<void> {
     await this.show(
-      authenticated
-        ? BadgeState.Ready
-        : BadgeState.Unauthenticated,
+      BadgeState.Unauthenticated,
     );
   }
 
-  async setRecording(
-    tabIds: number[],
+  async setDisabled(): Promise<void> {
+    await this.show(
+      BadgeState.Disabled,
+    );
+  }
+
+  async setReady(): Promise<void> {
+    await this.show(BadgeState.Ready);
+  }
+
+  private async setDisabledWithTabs(
+    tabs: readonly TabState[],
   ): Promise<void> {
     await Promise.all(
-      tabIds.map(tabId =>
-        this.show(BadgeState.Recording, tabId),
+      tabs.map(tab =>
+        this.show(BadgeState.Disabled, tab.tabId),
       ),
     );
   }
 
-  async setPaused(
-    tabIds: number[],
+  private async setReadyWithTabs(
+    tabs: readonly TabState[],
   ): Promise<void> {
     await Promise.all(
-      tabIds.map(tabId =>
-        this.show(BadgeState.Paused, tabId),
+      tabs.map(tab =>
+        this.show(BadgeState.Ready, tab.tabId),
       ),
     );
   }
 
-  async setExcluded(
+  private async setRecording(
     tabId: number,
   ): Promise<void> {
-    await this.show(
-      BadgeState.Excluded,
-      tabId,
-    );
+    await this.show(BadgeState.Recording, tabId);
   }
 
-  async show(
+  private async setPaused(
+    tabId: number,
+  ): Promise<void> {
+    await this.show(BadgeState.Paused, tabId);
+  }
+
+  private async setExcluded(
+    tabId: number,
+  ): Promise<void> {
+    await this.show(BadgeState.Excluded, tabId);
+  }
+
+  private async setOutOfScope(
+    tabId: number,
+  ): Promise<void> {
+    await this.show(BadgeState.OutOfScope, tabId);
+  }
+
+  private async show(
     state: BadgeState,
     tabId?: number,
   ): Promise<void> {
@@ -54,8 +131,8 @@ export class BadgeService {
       chrome.action.setIcon({
         tabId,
         imageData: {
-          16: getBadgeIcon(state, 16),
-          32: getBadgeIcon(state, 32),
+          16: getBadgeIcon(metadata.mode, metadata.badgeColor, 16),
+          32: getBadgeIcon(metadata.mode, metadata.badgeColor, 32),
         },
       }),
 

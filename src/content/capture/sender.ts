@@ -1,4 +1,7 @@
-import type { UserEvent, GoogleDocsMeta } from "@/shared/types";
+import type {
+  GoogleDocsMeta,
+  UserEvent,
+} from "@/shared/types";
 
 export const sendUserTrace = (
   trace: UserEvent
@@ -18,4 +21,4 @@ export const sendGoogleDocsTrace = (
     source: "CONTENT",
     payload: { trace }
   })
-}
+};

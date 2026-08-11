@@ -1,9 +1,27 @@
 import type { TabState } from "@/shared/types";
 
+const STORAGE_KEY = "tabs";
+
 export class TabsRepository {
   private tabs = new Map<number, TabState>();
 
-  getTab(tabId: number): TabState | undefined {
+  async initialize(): Promise<void> {
+    const { tabs } =
+      await chrome.storage.local.get<{
+        tabs?: TabState[];
+      }>(STORAGE_KEY);
+
+    this.tabs = new Map(
+      (tabs ?? []).map(tab => [
+        tab.tabId,
+        tab,
+      ]),
+    );
+  }
+
+  getTab(
+    tabId: number,
+  ): TabState | undefined {
     return this.tabs.get(tabId);
   }
 
@@ -11,20 +29,34 @@ export class TabsRepository {
     return [...this.tabs.values()];
   }
 
-  setTab(tab: TabState): void {
-    this.tabs.set(tab.tabId, tab);
-  }
-
-  setTabs(tabs: readonly TabState[]): void {
-    this.tabs = new Map(
-      tabs.map(tab => [tab.tabId, tab])
+  async setTab(
+    tab: TabState,
+  ): Promise<void> {
+    this.tabs.set(
+      tab.tabId,
+      tab,
     );
+
+    await this.persist();
   }
 
-  updateTab(
+  async setTabs(
+    tabs: readonly TabState[],
+  ): Promise<void> {
+    this.tabs = new Map(
+      tabs.map(tab => [
+        tab.tabId,
+        tab,
+      ]),
+    );
+
+    await this.persist();
+  }
+
+  async updateTab(
     tabId: number,
     updater: (tab: TabState) => TabState,
-  ): TabState | undefined {
+  ): Promise<TabState | undefined> {
     const tab = this.tabs.get(tabId);
 
     if (!tab) {
@@ -33,36 +65,76 @@ export class TabsRepository {
 
     const updated = updater(tab);
 
-    this.tabs.set(tabId, updated);
+    this.tabs.set(
+      tabId,
+      updated,
+    );
+
+    await this.persist();
 
     return updated;
   }
 
-  updateTabs(
+  async updateTabs(
     predicate: (tab: TabState) => boolean,
     updater: (tab: TabState) => TabState,
-  ): void {
+  ): Promise<TabState[]> {
+    const updatedTabs: TabState[] = [];
+
     for (const [tabId, tab] of this.tabs) {
       if (!predicate(tab)) {
         continue;
       }
 
+      const updated = updater(tab);
+
       this.tabs.set(
         tabId,
-        updater(tab),
+        updated,
       );
+
+      updatedTabs.push(updated);
     }
+
+    if (updatedTabs.length > 0) {
+      await this.persist();
+    }
+
+    return updatedTabs;
   }
 
-  removeTab(tabId: number): boolean {
-    return this.tabs.delete(tabId);
+  async removeTab(
+    tabId: number,
+  ): Promise<boolean> {
+    const removed =
+      this.tabs.delete(tabId);
+
+    if (removed) {
+      await this.persist();
+    }
+
+    return removed;
   }
 
-  clear(): void {
+  async clear(): Promise<void> {
     this.tabs.clear();
+
+    await chrome.storage.local.remove(
+      STORAGE_KEY,
+    );
   }
 
-  hasTab(tabId: number): boolean {
+  hasTab(
+    tabId: number,
+  ): boolean {
     return this.tabs.has(tabId);
+  }
+
+  private async persist(): Promise<void> {
+    await chrome.storage.local.set({
+      [STORAGE_KEY]: [
+        ...this.tabs.values(),
+      ],
+    });
   }
 }

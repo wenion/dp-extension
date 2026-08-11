@@ -10,13 +10,13 @@ import {
 } from "@gravity-ui/icons";
 
 import { useAppContext } from "../context/context";
-import { expand } from "../message/BackgroundClient";
+import { expandPanel } from "../message/BackgroundClient";
 
 export function Collapsed() {
   const {
     currentTab,
     numberOfRecordingTabs,
-    session,
+    activeSession,
   } = useAppContext();
 
   const scopeIcon =
@@ -35,7 +35,7 @@ export function Collapsed() {
         color="default"
         variant="bordered"
         startContent={
-          session && session.captureState === "recording" ? (
+          activeSession?.captureState === "recording" ? (
             <CircleFill className='text-red-600'/>
           ) : (
             <PauseFill className='text-amber-700'/>
@@ -47,7 +47,7 @@ export function Collapsed() {
             <span>{numberOfRecordingTabs}</span>
           </div>
         }
-        onPress={expand}
+        onPress={expandPanel}
       >
         {scopeIcon}
       </Button>

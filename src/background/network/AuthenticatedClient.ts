@@ -60,6 +60,7 @@ export class AuthenticatedClient extends HttpClient {
       try {
         await this.oauthService.refresh();
       } catch (e) {
+        console.error(e)
         await this.oauthService.clearTokens();
         throw e;
       }

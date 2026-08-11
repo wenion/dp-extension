@@ -1,19 +1,13 @@
 import type { CaptureController } from "../controllers/CaptureController";
-import type { ContentController } from "../controllers/ContentController";
+import type { ExtensionController } from "../controllers/ExtensionController";
 import type { GoogleDocsController } from "../controllers/GoogleDocsController";
 import type { OptionsController } from "../controllers/OptionsController";
-import type { RecordingController } from "../controllers/RecordingController";
-import type { NotificationController } from "../controllers/NotificationController";
-import type { TabController } from "../controllers/TabController";
 
 export function startContentListener(
   captureController: CaptureController,
-  contentController: ContentController,
+  extensionController: ExtensionController,
   googleDocsController: GoogleDocsController,
   optionsController: OptionsController,
-  recordingController: RecordingController,
-  notificationController: NotificationController,
-  tabController: TabController,
 ) {
   chrome.runtime.onMessage.addListener(
     async (
@@ -24,97 +18,82 @@ export function startContentListener(
       if (!sender.tab || sender.tab.id == null || !sender.tab.url) {
         return;
       }
+      console.log("message", message)
       switch (message.type) {
         case "CONTENT/CONNECT":
-          contentController.onContentConnected(sender.tab.id);
+          extensionController.onContentConnected(sender.tab.id);
           break;
         case "OPTIONS/CONNECT":
-          optionsController.onOptionsConnected();
+          extensionController.onOptionsConnected();
           break;
-        case "OPTIONS/MOUNT":
-          optionsController.mount();
-          break;
-        case "SESSION/START":
-          await recordingController.startRecording();
-          await googleDocsController.replaceAll();
-          break;
-        case "SESSION/END":
-          await recordingController.endRecording();
-          break;
-        case "SESSION/EXIT": {
-          if (message.source === "CONTENT") {
-            await recordingController.exitRecording(
-              sender.tab.id
-            );
-          } else {
-            await recordingController.exitRecording();
-          }
+        case "SESSION/START": {
+          await extensionController.startRecording();
+          // await recordingController.startRecording();
+          // await googleDocsController.replaceAll();
+          // const startTrace = createSessionStartTrace();
+          // await captureController.capture(
+          //   startTrace,
+          //   sender.tab.id,
+          //   { ignoreRecordingScope: true },
+          // );
           break;
         }
-        case "SESSION/NAME":
-          await recordingController.nameRecording(
-            message.payload.newTitle,
-          );
+        case "PANEL/EXPAND":
+          await extensionController.expand();
           break;
-        case "SESSION/RENAME":
-          try {
-            const session =
-              await optionsController.rename(
-                message.payload.sessionId,
-                message.payload.newTitle,
-              );
-
-            sendResponse(session);
-          } catch {
-            await notificationController.showRenameFailed();
-
-            sendResponse(undefined);
-          }
-          break;
-        case "SESSION/RETRY":
-          try {
-            const session =
-              await recordingController.reuploadRecording(
-                message.payload.sessionId
-              );
-            sendResponse(session);
-          } catch {
-            await notificationController.showReuploadFailed();
-            sendResponse(undefined);
-          }
-          break;
-        case "SESSION/OPEN":
-          optionsController.openSession(message.payload.sessionId);
-          break;
-        // case "SESSIONS/REFRESH":
-        //   sessionPersistenceService.refreshSessions();
-        //   break;
-        case "PAGE/EXPAND":
-          await contentController.expand();
-          break;
-        case "PAGE/COLLAPSE":
-          await contentController.collapse();
-          break;
-        case "PAGE/STOP":
-          await recordingController.stopRecording();
-          break;
-        case "PAGE/BACK":
-          await recordingController.cancelStopRecording();
-          break;
-        case "SESSION/FINISH_UPLOADED":
-          await recordingController.finalizeRecording();
-          break;
-        case "SESSION/FINISH_FAILED":
-          await recordingController.finalizeRecordingFailed();
-          break;
-        case "TABS/GRANTED":
-          await tabController.injectTabsByOrigin(message.payload.origin);
+        case "PANEL/COLLAPSE":
+          await extensionController.collapse();
           break;
         case "SESSION/PAUSE":
-          await recordingController.pauseRecording();
+          await extensionController.pauseRecording();
           break;
         case "SESSION/RESUME":
-          await recordingController.resumeRecording();
+          await extensionController.resumeRecording();
+          break;
+        case "SESSION/END_REQUEST":
+          await extensionController.endRequested();
+          break;
+        case "SESSION/END": {
+          // const startTrace = createSessionEndTrace();
+          // await captureController.capture(
+          //   startTrace,
+          //   sender.tab.id,
+          //   { ignoreRecordingScope: true },
+          // );
+          // await recordingController.endRecording();
+          await extensionController.endRecording();
+          break;
+        }
+        case "SESSION/END_REQUEST_CANCELLED": {
+          await extensionController.expand();
+          break;
+        }
+        case "SESSION/EXIT": {
+          await extensionController.exitRecording();
+          // const startTrace = createSessionEndTrace();
+          // await captureController.capture(
+          //   startTrace,
+          //   sender.tab.id,
+          //   { ignoreRecordingScope: true },
+          // );
+          // if (message.source === "CONTENT") {
+          //   await recordingController.exitRecording(
+          //     sender.tab.id
+          //   );
+          // } else {
+          //   await recordingController.exitRecording();
+          // }
+          break;
+        }
+        case "SESSION/EXIT_REQUEST_CANCELLED": {
+          await extensionController.expand();
+          break;
+        }
+        case "SESSION/UPLOADED_DONE":
+          await extensionController.finalizeRecording();
+          break;
+        case "SESSION/UPLOAD_FAILED_DONE":
+          await extensionController.finalizeRecordingFailed();
           break;
         case "TAB/INCLUDE": {
           let tabId =
@@ -122,7 +101,7 @@ export function startContentListener(
               ? sender.tab.id
               : message.payload.tabId;
           
-          await contentController.includeTab(tabId);
+          await extensionController.setTabRecording(tabId);
           break;
         }
         case "TAB/EXCLUDE": {
@@ -130,9 +109,48 @@ export function startContentListener(
             message.source === "CONTENT"
               ? sender.tab.id
               : message.payload.tabId;
-          await contentController.excludeTab(tabId);
+          await extensionController.setTabExcluded(tabId);
           break;
         }
+        case "OPTIONS/TOGGLE_MOUNT": {
+          await extensionController.toggleMount();
+          break;
+        }
+        case "OPTIONS/NAME_SESSION":
+          await extensionController.setActiveSessionName(
+            message.payload.newTitle,
+          );
+          break;
+        case "OPTIONS/RENAME_SESSION": {
+          const result =
+            await optionsController.rename(
+              message.payload.sessionId,
+              message.payload.newTitle,
+            );
+          sendResponse(result);
+          break;
+        }
+        case "OPTIONS/RETRY_SESSION": {
+          const result =
+            await extensionController.reuploadRecording(
+              message.payload.sessionId,
+            );
+          sendResponse(result);
+          break;
+        }
+        case "OPTIONS/DISMISS_NOTIFICATION": {
+          extensionController.dismissNotification(message.payload.notificationId);
+          break;
+        }
+        case "SESSION/OPEN": {
+          optionsController.openSession(message.payload.sessionId);
+          break;
+        }
+        case "TABS/GRANTED":
+          await extensionController.injectContentScriptsByOrigin(
+            message.payload.origin
+          );
+          break;
         case "TAB/OPEN_OPTIONS":
           await chrome.runtime.openOptionsPage();
           break;
@@ -142,9 +160,6 @@ export function startContentListener(
         case "TRACE/GOOGLE":
           const traces = await googleDocsController.updateDocument(sender.tab.id, message.payload.trace);
           await captureController.captureMany(traces, sender.tab.id);
-          break;
-        case "NOTIFICATION/DISMISS":
-          notificationController.dismissNotification(message.payload.notificationId);
           break;
         default:
           break;

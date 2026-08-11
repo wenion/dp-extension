@@ -1,6 +1,5 @@
 import type { Trace  } from "@/shared/types";
 
-
 export type DocState = {
   state: string;
   value: string;
@@ -15,8 +14,49 @@ export type DocState = {
   type: string;
 };
 
-export class TraceProcessor {
+export class TraceProcessorService {
   private readonly keyboardState = new Map<number, DocState>();
+
+  getDomains(
+    traces: readonly Trace[],
+  ): string[] {
+    return [
+      ...new Set(
+        traces
+          .map(t => t.url)
+          .filter(Boolean)
+          .map(url => new URL(url).hostname),
+      ),
+    ];
+  }
+
+  prepareTraces(
+    traces: Trace[],
+  ): Trace[] {
+    const ordered =
+      this.assignSequence(traces);
+
+    const filtered =
+      this.process(ordered);
+
+    return filtered;
+  }
+
+  private assignSequence(traces: Trace[]): Trace[] {
+    return traces.map((trace, index) => ({
+      ...trace,
+      sequence: index + 1,
+    }));
+  }
+
+  private process(traces: Trace[]): Trace[] {
+    const traces1 = this.processKeyboardEvents(traces);
+    const traces2 = this.processMutationEvents(traces1);
+    const traces3 = this.processPointerDownEvents(traces2);
+    const traces4 = this.processGoogleDocsEvents(traces3);
+
+    return traces4;
+  }
 
   private findAllMatches(str: string, sub: string): { start: number; end: number }[] {
     const results = [];
@@ -37,14 +77,7 @@ export class TraceProcessor {
     return results;
   }
 
-  assignSequence(traces: Trace[]): Trace[] {
-    return traces.map((trace, index) => ({
-      ...trace,
-      sequence: index + 1,
-    }));
-  }
-
-  processKeyboardEvents(traces: Trace[]): Trace[] {
+  private processKeyboardEvents(traces: Trace[]): Trace[] {
     const results = [] as Trace[];
     for (const trace of traces) {
       if (trace.eventType === "keydown") {
@@ -645,7 +678,7 @@ export class TraceProcessor {
     return results;
   }
 
-  processMutationEvents(traces: Trace[]): Trace[] {
+  private processMutationEvents(traces: Trace[]): Trace[] {
     const result: Trace[] = [];
 
     let pending: Trace | undefined;
@@ -695,7 +728,7 @@ export class TraceProcessor {
     return result;
   }
 
-  processPointerDownEvents(traces: Trace[]): Trace[] {
+  private processPointerDownEvents(traces: Trace[]): Trace[] {
     const result: Trace[] = [];
 
     let pending: Trace | undefined;
@@ -734,7 +767,7 @@ export class TraceProcessor {
     return result;
   }
 
-  processGoogleDocsEvents(traces: Trace[]): Trace[] {
+  private processGoogleDocsEvents(traces: Trace[]): Trace[] {
     const result: Trace[] = [];
 
     let pending: Trace | undefined;
@@ -791,27 +824,5 @@ export class TraceProcessor {
     }
 
     return result;
-  }
-
-  process(traces: Trace[]): Trace[] {
-    const traces1 = this.processKeyboardEvents(traces);
-    const traces2 = this.processMutationEvents(traces1);
-    const traces3 = this.processPointerDownEvents(traces2);
-    const traces4 = this.processGoogleDocsEvents(traces3);
-
-    return traces4;
-  }
-
-  extractDomains(
-    traces: readonly Trace[],
-  ): string[] {
-    return [
-      ...new Set(
-        traces
-          .map(t => t.url)
-          .filter(Boolean)
-          .map(url => new URL(url).hostname),
-      ),
-    ];
   }
 }

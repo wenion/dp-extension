@@ -1,4 +1,6 @@
-export function getDocumentId(url: string): string | null {
+export function getDocumentId(
+  url: string
+): string | undefined {
   try {
     const { hostname, pathname } = new URL(url);
 
@@ -6,11 +8,11 @@ export function getDocumentId(url: string): string | null {
       hostname !== "docs.google.com" ||
       !pathname.startsWith("/document/d/")
     ) {
-      return null;
+      return undefined;
     }
 
     return pathname.split("/")[3] ?? null;
   } catch {
-    return null;
+    return undefined;
   }
 }

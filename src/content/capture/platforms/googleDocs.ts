@@ -4,7 +4,10 @@ import {
 } from "../hooks/googleDocs";
 
 import { ListenerGroup } from "../listener/ListenerGroup";
-import { sendUserTrace, sendGoogleDocsTrace } from "../sender";
+import {
+  sendUserTrace,
+  sendGoogleDocsTrace,
+} from "../sender";
 import type { Dispose } from "../types";
 
 
@@ -15,7 +18,6 @@ const googleDocsConfig = {
 
 export const googleDocsPlatform = {
   mount(): Dispose {
-    console.log("google mount")
     const group = new ListenerGroup();
 
     group.add(
@@ -26,7 +28,7 @@ export const googleDocsPlatform = {
     group.add(
       mountGoogleDocsXHR(
         googleDocsConfig,
-        sendGoogleDocsTrace
+        sendGoogleDocsTrace,
       )
     );
 

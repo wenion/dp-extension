@@ -24,19 +24,20 @@ import { useAppContext } from "../context/context";
 
 // Background actions
 import {
-  cancelStop,
+  cancelSessionEndRequest,
+  cancelSessionExitRequest,
+  completeUploadedSession,
+  completeUploadFailedSession,
   endSession,
+  exitSession,
   excludeTab,
-  finishUploaded,
-  finishFailed,
-  exit,
   includeTab,
-  pause,
+  pauseSession,
   permissionGranted,
-  resume,
+  resumeSession,
   startSession,
-  stop,
-  nameSession,
+  requestSessionEnd,
+  setActiveSessionName,
 } from "../message/BackgroundClient";
 
 import { TabRecordCard } from "./TabRecordCard";
@@ -44,23 +45,28 @@ import { TabRecordCard } from "./TabRecordCard";
 import type { TabState } from "@/shared/types";
 
 export function Status() {
-  const { page, session, tabs, numberOfRecordingTabs } = useAppContext();
+  const {
+    activeSession,
+    numberOfRecordingTabs,
+    page,
+    tabs,
+  } = useAppContext();
   const [name, setName] = useState<string>("");
 
   useEffect(() => {
-    setName(session?.name ?? "");
-  }, [session?.name]);
+    setName(activeSession?.name ?? "");
+  }, [activeSession?.name]);
 
   const commitName = () => {
     const trimmed = name.trim();
 
     if (
-      session &&
+      activeSession &&
       trimmed !== "" &&
-      trimmed !== (session.name ?? "")
+      trimmed !== (activeSession.name ?? "")
     ) {
-      nameSession(
-        session.clientId,
+      setActiveSessionName(
+        activeSession.clientId,
         trimmed
       );
     }
@@ -115,7 +121,7 @@ export function Status() {
         <div className="flex flex-col rounded-xl border border-amber-400 ring-4 ring-orange-100 p-4 gap-4">
           <div className="flex items-center justify-between">
             <div className="flex gap-x-2 items-center">
-            {session && session.captureState === "recording" ? (
+            {activeSession?.captureState === "recording" ? (
               <>
                 <CircleFill color='red'/>
                 <p className="font-medium">Recording</p>
@@ -134,12 +140,12 @@ export function Status() {
           </div>
 
           <div className="flex gap-4 items-center">
-            {session && session.captureState === "recording" ? (
+            {activeSession?.captureState === "recording" ? (
               <Button
                 className="border border-amber-400 text-amber-700 font-medium"
                 variant="bordered"
                 startContent={<PauseFill/>}
-                onPress={pause}
+                onPress={pauseSession}
               >
                 Pause
               </Button>
@@ -148,7 +154,7 @@ export function Status() {
                 className="border border-amber-400 text-amber-700 font-medium"
                 variant="bordered"
                 startContent={<PlayFill/>}
-                onPress={resume}
+                onPress={resumeSession}
               >
                 Resume
               </Button>
@@ -157,12 +163,12 @@ export function Status() {
               className="border border-rose-200 text-red-600 font-medium"
               variant="bordered"
               startContent={<SquareFill />}
-              onPress={stop}
+              onPress={requestSessionEnd}
             >
               Stop & upload
             </Button>
           </div>
-          {(!session || session.captureState === "paused") && (
+          {(!activeSession || activeSession.captureState === "paused") && (
             <h2 className="text-sm text-amber-700">
               Capture suspended — no events recorded while paused.
             </h2>
@@ -194,7 +200,7 @@ export function Status() {
                   title={tab.title}
                   recordingScope={tab.recordingScope}
                   connected={tab.connected}
-                  captureState={session?.captureState??"paused"}
+                  captureState={activeSession?.captureState??"paused"}
                   onIncludeTab={includeTab}
                   onExcludeTab={excludeTab}
                   onRequestPermission={requestTabPermission}
@@ -203,7 +209,7 @@ export function Status() {
           </div>
         </div>
       )
-    case "alert":
+    case "exit":
       return (
         <Card
           shadow="sm"
@@ -224,7 +230,7 @@ export function Status() {
               <Button
                 className="border font-medium"
                 variant="bordered"
-                onPress={cancelStop}
+                onPress={cancelSessionExitRequest}
               >
                 Cancel
               </Button>
@@ -233,7 +239,7 @@ export function Status() {
                 className="border border-rose-200 text-red-600 font-medium"
                 variant="bordered"
                 startContent={<SquareFill />}
-                onPress={exit}
+                onPress={exitSession}
               >
                 Turn off &amp; Upload
               </Button>
@@ -241,7 +247,7 @@ export function Status() {
           </CardBody>
         </Card>
       )
-    case "confirm":
+    case "end":
       return (
         <Card
           shadow="sm"
@@ -262,7 +268,7 @@ export function Status() {
               <Button
                 className="border font-medium"
                 variant="bordered"
-                onPress={cancelStop}
+                onPress={cancelSessionEndRequest}
               >
                 Cancel
               </Button>
@@ -301,7 +307,7 @@ export function Status() {
               <Button
                 className="border font-medium"
                 variant="bordered"
-                onPress={finishUploaded}
+                onPress={completeUploadedSession}
               >
                 Done
               </Button>
@@ -309,7 +315,7 @@ export function Status() {
           </CardBody>
         </Card>
       )
-    case "uploadFailed":
+    case "failed":
       return (
         <Card
           shadow="sm"
@@ -332,7 +338,7 @@ export function Status() {
                 variant="bordered"
                 color="danger"
                 className="font-medium"
-                onPress={finishFailed}
+                onPress={completeUploadFailedSession}
               >
                 Done
               </Button>
@@ -343,7 +349,7 @@ export function Status() {
     default:
       return (
         <div className="p-2 border-default border-medium">
-          <span>Unknown Status</span>
+          <span>Loading content...</span>
         </div>
       )
   }

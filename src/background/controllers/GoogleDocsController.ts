@@ -2,19 +2,19 @@ import { getDocumentId } from "../services/GoogleDocsService/GoogleDocsUtils";
 
 import type { GoogleDocsMeta } from "@/shared/types";
 import type { GoogleDocsService } from "../services/GoogleDocsService";
-import type { TabService } from "../services/TabService";
+import type { TabsService } from "../services/TabsService";
 
 export class GoogleDocsController {
 
   private googleDocsService: GoogleDocsService;
-  private tabService: TabService;
+  private tabsService: TabsService;
 
   constructor(
     googleDocsService: GoogleDocsService,
-    tabService: TabService,
+    tabsService: TabsService,
   ) {
     this.googleDocsService = googleDocsService;
-    this.tabService = tabService;
+    this.tabsService = tabsService;
   }
 
   async initialize(
@@ -47,7 +47,7 @@ export class GoogleDocsController {
   }
 
   async replaceAll(): Promise<void> {
-    const tabs = this.tabService.getTabs();
+    const tabs = this.tabsService.getTabs();
 
     await Promise.all(
       tabs

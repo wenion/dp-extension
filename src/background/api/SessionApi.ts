@@ -1,6 +1,7 @@
 import type { ListSessionsResponse } from "@/shared/api";
 import type { Session } from "@/shared/types";
 
+import { HttpError } from "../network/errors/HttpError";
 import type { AuthenticatedClient } from "../network/AuthenticatedClient";
 
 
@@ -15,8 +16,21 @@ export class SessionApi {
     return this.http.post("/api/v1/sessions", session);
   }
 
-  get(clientId: string): Promise<Session> {
-    return this.http.get(`/api/v1/sessions/${clientId}`);
+  async get(clientId: string): Promise<Session | undefined> {
+    try {
+      return await this.http.get(
+        `/api/v1/sessions/${clientId}`
+      );
+    } catch (error) {
+      if (
+        error instanceof HttpError &&
+        error.status === 404
+      ) {
+        return undefined;
+      }
+
+      throw error;
+    }
   }
 
   list(limit = 5): Promise<ListSessionsResponse> {

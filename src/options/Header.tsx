@@ -3,20 +3,19 @@ import { Rectangles4 } from '@gravity-ui/icons';
 
 import { useAppContext } from "./context/context";
 import type {
-  PageState,
+  PanelPage,
   Session,
 } from "@/shared/types";
 
-
 export function getHeaderStatus(
   mounted: boolean,
-  page: PageState,
-  session: Session | null,
+  page: PanelPage,
+  session?: Session,
 ) {
 
   if (!mounted) return "inactive";
 
-  if (page === "uploadFailed") return "uploadFailed";
+  if (page === "failed") return "uploadFailed";
   if (page === "uploaded") return "uploaded";
   if (page === "uploading") return "uploading";
 
@@ -27,9 +26,13 @@ export function getHeaderStatus(
 }
 
 export default function Header() {
-  const { mounted, page, session } = useAppContext();
+  const {
+    activeSession,
+    mounted,
+    page,
+  } = useAppContext();
 
-  const status = getHeaderStatus(mounted, page, session);
+  const status = getHeaderStatus(mounted, page, activeSession);
 
   return (
     <header className="flex items-start justify-between px-8 pt-8">

@@ -10,11 +10,11 @@ import { PauseFill } from '@gravity-ui/icons';
 import { SquareFill } from '@gravity-ui/icons';
 
 import {
-  cancelStop,
-  exit,
+  cancelSessionExitRequest,
+  exitSession,
  } from "../message/BackgroundClient";
  
-export function Alert() {
+export function ExitConfirmation() {
   return (
     <div className="flex gap-4 items-center">
       <Card className='border-default border-medium w-80' shadow="none">
@@ -30,7 +30,7 @@ export function Alert() {
               className="w-full border font-medium"
               variant="bordered"
               startContent={<PauseFill/>}
-              onPress={cancelStop}
+              onPress={cancelSessionExitRequest}
             >
               Cancel
             </Button>
@@ -38,7 +38,7 @@ export function Alert() {
               className="w-full border text-red-600 font-medium"
               variant="bordered"
               startContent={<SquareFill />}
-              onPress={exit}
+              onPress={exitSession}
             >
               Turn off & upload
             </Button>

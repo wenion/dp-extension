@@ -31,20 +31,10 @@ export class NotificationRepository {
       notification.id,
       notification,
     );
-
-    this.currentId = notification.id;
   }
 
-  setCurrent(
-    id: string,
-  ): boolean {
-    if (!this.notifications.has(id)) {
-      return false;
-    }
-
+  setCurrent(id: string): void {
     this.currentId = id;
-
-    return true;
   }
 
   clearCurrent() {
