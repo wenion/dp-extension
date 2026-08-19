@@ -1,5 +1,10 @@
 import { Button } from "@heroui/button";
-import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card";
+import {
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+} from "@heroui/card";
 import { Divider } from "@heroui/divider";
 
 import {
@@ -15,12 +20,15 @@ import {
 } from "@gravity-ui/icons";
 
 import { useAppContext } from "../context/context";
+
 import {
+  addToAllowlist,
   collapsePanel,
   excludeTab,
   includeTab,
   openOptionsPage,
   pauseSession,
+  promptHostPermission,
   resumeSession,
   requestSessionEnd,
 } from "../message/BackgroundClient";
@@ -30,39 +38,81 @@ export function Expanded() {
     activeSession,
     currentTab,
     numberOfRecordingTabs,
+    showDialog,
+    hideDialog,
   } = useAppContext();
+
+  const promptTemporaryPermission = async() => {
+    if (!currentTab?.url) {
+      return;
+    }
+
+    const domain = new URL(currentTab.url).hostname;
+
+    await includeTab();
+
+    showDialog({
+      message: `Capturing ${domain} this session. Save to your defaults for next time?`,
+      confirmText: "Save",
+      cancelText: "Not now",
+
+      onConfirm: async () => {
+        await addToAllowlist();
+        hideDialog();
+      },
+
+      onCancel: hideDialog,
+    });
+  }
+
   const action =
     currentTab?.recordingScope === "recording"
       ? {
           icon: <Eye />,
           onPress: excludeTab,
-          text: activeSession?.captureState === "recording"? "Recording" : "Paused",
-          className: activeSession?.captureState === "recording"? "text-red-600":" text-amber-700",
+          text:
+            activeSession?.captureState === "recording"
+              ? "recording"
+              : "paused",
+          className:
+            activeSession?.captureState === "recording"
+              ? "text-red-600"
+              :" text-amber-700",
         }
       : currentTab?.recordingScope === "excluded"
       ? {
           icon: <EyeSlash />,
           onPress: includeTab,
-          text: "Excluded",
+          text: "excluded",
           className: "text-default-500",
         }
       : currentTab?.recordingScope === "not_in_scope"
       ? {
           icon: <EyeClosed />,
-          text: "Permission required",
+          onPress: promptTemporaryPermission,
+          text: "not in scope",
+          className: "text-default-500",
+        }
+      : currentTab?.recordingScope === "no_permission"
+      ? {
+          icon: <EyeClosed />,
+          onPress: promptHostPermission,
+          text: "not in scope",
           className: "text-default-500",
         }
       : {
           icon: <EyeClosed />,
-          text: "Please reload the page",
+          text: "this URL is not supported",
           className: "text-default-500",
       };
 
   return (
     <div className="flex items-center">
-      <Card className='border-default border-medium w-80' shadow="none">
+      <Card 
+        className='border-default border-medium w-80'
+        shadow="none"
+      >
         <CardHeader className="flex py-2 justify-between items-center">
-          {/* <div className="flex gap-x-2 items-center"> */}
           {activeSession?.captureState === "recording" ? (
             <div className="flex gap-x-2 items-center text-red-600">
               <CircleFill />
@@ -75,7 +125,7 @@ export function Expanded() {
             </div>
             )
           }
-          {/* </div> */}
+
           <div className="flex gap-x-2 items-center">
             <Button
               color="default"
@@ -145,7 +195,12 @@ export function Expanded() {
                 </Button>
 
                 <span>
-                  This tab · <span className={`${action.className} font-medium`}>{action.text}</span>
+                  This tab ·{" "}
+                  <span
+                    className={`${action.className} font-medium`}
+                  >
+                    {action.text}
+                  </span>
                 </span>
               </>
             )}

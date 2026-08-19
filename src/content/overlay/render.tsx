@@ -20,9 +20,7 @@ export function render(
   
   reactRoot.render(
     <Providers initialState={initialState}>
-      <div className="fixed bottom-6 right-6 pointer-events-auto">
-        <App />
-      </div>
+      <App />
     </Providers>
   );
 }

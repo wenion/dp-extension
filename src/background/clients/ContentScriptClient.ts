@@ -30,17 +30,21 @@ export class ContentScriptClient {
   }
 
   /**
-   * Broadcasts a message to all registered content scripts.
+   * Broadcasts a message to all registered tabs.
    *
-   * Delivery failures for individual tabs are ignored so that
-   * one unavailable content script does not prevent others
-   * from receiving the message.
+   * Do not filter by `connected` state here. Some messages are used
+   * to establish or restore the content-script connection itself,
+   * so tabs marked as disconnected must still be reachable.
+   *
+   * Delivery failures are ignored so that an unavailable tab does
+   * not prevent messages from reaching other tabs.
    */
   async broadcast(
     message: BackgroundEvent
   ): Promise<void> {
     const tabs =
-      this.tabsRepository.getTabs();
+      this.tabsRepository
+        .getTabs();
 
     await Promise.allSettled(
       tabs.map(tab =>

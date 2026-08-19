@@ -13,6 +13,10 @@ const controller = new ContentController(store);
 registerMessageListener(controller);
 
 const capture = new SiteCapture();
-registerContentEffects(store, capture);
+const disposeEffects =
+  registerContentEffects(
+    store,
+    capture,
+  );
 
 connect();

@@ -5,8 +5,8 @@ import {
 } from "@/shared/icons";
 
 import type {
-  TabState,
   ActiveSession,
+  TabState,
 } from "@/shared/types";
 
 export class BadgeService {
@@ -16,20 +16,12 @@ export class BadgeService {
     mounted?: boolean,
     activeSession?: ActiveSession,
   ): Promise<void> {
-
-    console.log("BadgeService tabs", tabs, mounted, activeSession)
-
     if (mounted && activeSession) {
       const paused =
         activeSession.captureState === "paused";
 
-      await Promise.all(
+      await Promise.allSettled(
         tabs.map(async tab => {
-          // if (!tab.connected) {
-          //   await this.setExcluded(tab.tabId);
-          //   return;
-          // }
-
           if (tab.recordingScope === "excluded") {
             await this.setExcluded(tab.tabId);
             return;
@@ -77,23 +69,45 @@ export class BadgeService {
     await this.show(BadgeState.Ready);
   }
 
+  async setUnauthenticatedWithTabs(
+    tabs: readonly TabState[],
+  ): Promise<void> {
+    return this.showWithTabs(
+      BadgeState.Unauthenticated,
+      tabs,
+    );
+  }
+
   private async setDisabledWithTabs(
     tabs: readonly TabState[],
   ): Promise<void> {
-    await Promise.all(
-      tabs.map(tab =>
-        this.show(BadgeState.Disabled, tab.tabId),
-      ),
+    return this.showWithTabs(
+      BadgeState.Disabled,
+      tabs,
     );
   }
 
   private async setReadyWithTabs(
     tabs: readonly TabState[],
   ): Promise<void> {
-    await Promise.all(
+    return this.showWithTabs(
+      BadgeState.Ready,
+      tabs,
+    );
+  }
+
+  private async showWithTabs(
+    state: BadgeState,
+    tabs: readonly TabState[],
+  ): Promise<void> {
+    await Promise.allSettled(
       tabs.map(tab =>
-        this.show(BadgeState.Ready, tab.tabId),
+        this.show(state, tab.tabId),
       ),
+    );
+
+    await this.show(
+      state,
     );
   }
 

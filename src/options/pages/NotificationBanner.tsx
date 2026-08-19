@@ -51,8 +51,6 @@ export function NotificationBanner() {
           t => t.tabId === currentNotification.action?.tabId,
         );
 
-  console.log("currentNotification", currentNotification)
-
   const openTab = async () => {
     if (!tab) {
       return;

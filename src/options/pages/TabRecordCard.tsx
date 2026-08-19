@@ -50,6 +50,7 @@ export function TabRecordCard({
     paused: "text-amber-700",
     excluded: "text-default-700",
     not_in_scope: "text-default-500",
+    no_permission: "text-default-500",
     unsupported: "text-default-500",
   } as const;
 
@@ -58,6 +59,7 @@ export function TabRecordCard({
     paused: "PAUSED",
     excluded: "EXCLUDED",
     not_in_scope: "NOT IN SCOPE",
+    no_permission: "NOT IN SCOPE",
     unsupported: "NOT IN SCOPE",
   } as const;
 

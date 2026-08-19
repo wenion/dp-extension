@@ -14,15 +14,20 @@
   "action": {},
   "permissions": {{{permissions}}},
   "host_permissions": {{{host_permissions}}},
-  "optional_permissions": {{{optional_permissions}}},
-  "optional_host_permissions": {{{optional_host_permissions}}},
   "oauth2": {
     "client_id": "581953841566-98h7ul8o8jjn5th11cruft4vel9t9007.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/documents.readonly"
     ]
   },
-   "options_ui": {
+  "content_scripts": [
+    {
+      "matches": {{{content_script_matches}}},
+      "js": ["content-script.js"],
+      "all_frames": true
+    }
+  ],
+  "options_ui": {
     "page": "options.html",
     "open_in_tab": true
   },

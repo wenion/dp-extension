@@ -29,10 +29,10 @@ export default function Header() {
   const {
     activeSession,
     mounted,
-    page,
+    panelPage,
   } = useAppContext();
 
-  const status = getHeaderStatus(mounted, page, activeSession);
+  const status = getHeaderStatus(mounted, panelPage, activeSession);
 
   return (
     <header className="flex items-start justify-between px-8 pt-8">

@@ -14,16 +14,13 @@ import type { TraceProcessorService } from "../services/TraceProcessorService";
 import { MissingAccessTokenError } from "../network/errors/MissingAccessTokenError";
 import { NotificationDefinitions } from "../services/NotificationService/NotificationDefinitions";
 
-import {  
-  InjectionPermission,
-  InjectionResult,
-} from "@/shared/content-script";
 import type {
   ActiveSession,
   ContentState,
   OptionsState,
-  Trace,
 } from "@/shared/types";
+
+const SIGN_IN_MENU_ID = "sign-in";
 
 export class ExtensionController {
   private activeSessionService: ActiveSessionService;
@@ -61,17 +58,41 @@ export class ExtensionController {
     this.traceProcessorService = traceProcessorService;
   }
 
+  /**
+   * Restores extension state when the background service worker starts.
+   *
+   * Removes stale tabs, restores content-script connections,
+   * synchronizes remote sessions, and updates the extension badge.
+   */
   async onBackgroundStartup() {
+    // Remove tabs that no longer exist.
+    await this.tabsService.removeStaleTabs();
+    await this.tabsService.resetRecordingScopesFromAllowlist();
+
+    // Restore content-script connection state.
+    const tabs =
+      this.tabsService.getTabs();
+
+    await Promise.all(
+      tabs.map(async tab => {
+        const connected =
+          await this.contentScriptService
+            .isInjected(tab.tabId);
+
+        await this.tabsService.setConnected(
+          tab.tabId,
+          connected,
+        );
+      }),
+    );
+
+    // Sync remote sessions.
     try {
       await this.sessionsService.fetchSessions();
 
       await this.badgeService.setDisabled();
     } catch (error) {
       if (error instanceof MissingAccessTokenError) {
-        await this.notificationService.notify(
-          NotificationDefinitions.NotLoggedIn,
-        );
-
         await this.badgeService.setUnauthenticated();
         return;
       }
@@ -79,11 +100,8 @@ export class ExtensionController {
       throw error;
     }
 
-    const currentMountState =
-      this.extensionService.isMountEnabled();
-    if (currentMountState) {
-      await this.badgeService.setReady();
-    }
+    // Restore badge state.
+    await this.updateCurrentBadge();
   }
 
   async onContentConnected(tabId: number) {
@@ -97,7 +115,7 @@ export class ExtensionController {
     this.extensionService.notifyContent(state);
   }
 
-  async onOptionsConnected() {
+  async onOptionsConnected(): Promise<void> {
     const state: OptionsState = {
       mount: this.extensionService.isMountEnabled(),
       activeSession: this.activeSessionService.getActiveSession(),
@@ -105,6 +123,9 @@ export class ExtensionController {
       sessions: this.sessionsService.getSessions(),
       currentNotification: this.notificationService.getCurrentNotification(),
       notifications: this.notificationService.getNotifications(),
+
+      page: this.extensionService.getOptionsPage(),
+      allowlist: this.tabsService.getAllowlist(),
     }
 
     await this.extensionService.notifyOptions(state);
@@ -113,11 +134,7 @@ export class ExtensionController {
   private async mount() {
     await this.extensionService.mount();
 
-    await this.badgeService.updateBadge(
-      this.tabsService.getTabs(),
-      this.extensionService.isMountEnabled(),
-      this.activeSessionService.getActiveSession(),
-    );
+    await this.updateCurrentBadge();
   }
 
   private async unmount() {
@@ -131,11 +148,7 @@ export class ExtensionController {
 
     await this.extensionService.unmount();
 
-    await this.badgeService.updateBadge(
-      this.tabsService.getTabs(),
-      this.extensionService.isMountEnabled(),
-      this.activeSessionService.getActiveSession(),
-    );
+    await this.updateCurrentBadge();
   }
 
   async startRecording(): Promise<void> {
@@ -143,16 +156,12 @@ export class ExtensionController {
       return;
     }
 
-    const created =
-      await this.activeSessionService.start();
+    await this.removeStaleTabs();
+    await this.tabsService.resetRecordingScopesFromAllowlist();
 
-    await this.tabsService.setExcludedTabsToRecording();
+    await this.activeSessionService.start();
 
-    await this.badgeService.updateBadge(
-      this.tabsService.getTabs(),
-      this.extensionService.isMountEnabled(),
-      this.activeSessionService.getActiveSession(),
-    );
+    await this.updateCurrentBadge();
   }
 
   async endRecording(): Promise<void> {
@@ -167,14 +176,22 @@ export class ExtensionController {
       return;
     }
 
-    await this.badgeService.updateBadge(
-      this.tabsService.getTabs(),
-      this.extensionService.isMountEnabled(),
-      this.activeSessionService.getActiveSession(),
-    );
+    await this.updateCurrentBadge();
 
     // upload Recording
-    void this.uploadRecording(activeSession);
+    void this.uploadRecording(activeSession)
+    .catch(async error => {
+      console.error(
+        "Failed to upload recording",
+        error,
+      );
+
+      if (error instanceof MissingAccessTokenError) {
+        await this.badgeService.setUnauthenticatedWithTabs(
+          this.tabsService.getTabs(),
+        );
+      }
+    });
   }
 
   async exitRecording(): Promise<void> {
@@ -191,41 +208,38 @@ export class ExtensionController {
 
     try {
       await this.uploadRecording(activeSession);
+
       await this.finalizeRecording();
-    } catch {
-      // Todo
+
+      await this.updateCurrentBadge();
     }
+    catch (error) {
+      console.error(
+        "Failed to upload recording",
+        error,
+      );
 
-    // show dialog
-
-    // unmount
-    await this.unmount();
-
-    await this.badgeService.updateBadge(
-      this.tabsService.getTabs(),
-      this.extensionService.isMountEnabled(),
-      this.activeSessionService.getActiveSession(),
-    );
+      if (error instanceof MissingAccessTokenError) {
+        await this.badgeService.setUnauthenticatedWithTabs(
+          this.tabsService.getTabs(),
+        );
+      }
+    }
+    finally {
+      await this.unmount();
+    }
   }
 
   async pauseRecording(): Promise<void> {
     await this.activeSessionService.pause();
 
-    await this.badgeService.updateBadge(
-      this.tabsService.getTabs(),
-      this.extensionService.isMountEnabled(),
-      this.activeSessionService.getActiveSession(),
-    );
+    await this.updateCurrentBadge();
   }
 
   async resumeRecording(): Promise<void> {
     await this.activeSessionService.resume();
 
-    await this.badgeService.updateBadge(
-      this.tabsService.getTabs(),
-      this.extensionService.isMountEnabled(),
-      this.activeSessionService.getActiveSession(),
-    );
+    await this.updateCurrentBadge();
   }
 
   async finalizeRecording(): Promise<void> {
@@ -233,13 +247,13 @@ export class ExtensionController {
 
     await this.traceService.clearTraces();
 
-    await this.updateBadge();
+    await this.updateCurrentBadge();
   }
 
   async finalizeRecordingFailed(): Promise<void> {
     await this.activeSessionService.finalize();
 
-    await this.updateBadge();
+    await this.updateCurrentBadge();
   }
 
   async collapse() {
@@ -261,21 +275,13 @@ export class ExtensionController {
   async setTabRecording(tabId: number) {
     await this.tabsService.setRecording(tabId);
 
-    await this.badgeService.updateBadge(
-      this.tabsService.getTabs(),
-      this.extensionService.isMountEnabled(),
-      this.activeSessionService.getActiveSession(),
-    );
+    await this.updateCurrentBadge();
   }
 
   async setTabExcluded(tabId: number) {
     await this.tabsService.setExcluded(tabId);
 
-    await this.badgeService.updateBadge(
-      this.tabsService.getTabs(),
-      this.extensionService.isMountEnabled(),
-      this.activeSessionService.getActiveSession(),
-    );
+    await this.updateCurrentBadge();
   }
 
   async setActiveSessionName(
@@ -305,44 +311,59 @@ export class ExtensionController {
   ): Promise<ActiveSession | undefined> {
     const session =
       this.sessionsService.getSession(sessionId);
-    
+
     if (!session) {
       return;
     }
 
     const traces =
-      await this.traceService.getTracesById(session.clientId);
+      await this.traceService.getTracesById(
+        session.clientId,
+      );
 
     const filtered =
-        this.traceProcessorService.prepareTraces(traces);
+      this.traceProcessorService.prepareTraces(
+        traces,
+      );
 
     const uploadSession: ActiveSession = {
       ...session,
-      urls: this.traceProcessorService.getDomains(filtered),
+      urls:
+        this.traceProcessorService.getDomains(
+          filtered,
+        ),
       eventCount: filtered.length,
       uploadStatus: "uploaded",
     }
 
     try {
-      await this.sessionsService.createSession(uploadSession);
+      const created =
+        await this.sessionsService.createSession(
+          uploadSession,
+        );
 
-      await this.traceService.uploadTraces(traces);
+      await this.traceService.uploadTraces(filtered);
 
-      await this.sessionsService.deleteSession(sessionId);
-      await this.traceService.clearTracesById(sessionId);
+      // delete it from local storage
+      await this.sessionsService.replaceSession(
+        created,
+      );
 
-      return uploadSession;
-    } catch (error) {
+      await this.traceService.clearTracesById(
+        sessionId,
+      );
+
+      return created;
+    }
+    catch (error) {
 
       if (error instanceof MissingAccessTokenError) {
-        await this.notificationService.notify(
-          NotificationDefinitions.NotLoggedIn,
+        this.badgeService.setUnauthenticatedWithTabs(
+          this.tabsService.getTabs(),
         );
-        return;
       }
 
       return undefined;
-      // throw error;
     }
   }
 
@@ -350,7 +371,9 @@ export class ExtensionController {
     session: ActiveSession,
   ): Promise<void> {
     const traces =
-      await this.traceService.getTracesById(session.clientId);
+      await this.traceService.getTracesById(
+        session.clientId,
+      );
 
     const filtered =
         this.traceProcessorService.prepareTraces(traces);
@@ -360,32 +383,63 @@ export class ExtensionController {
       urls: this.traceProcessorService.getDomains(filtered),
       eventCount: filtered.length,
       uploadStatus: "uploaded",
-    }
+    };
 
     try {
-      await this.sessionsService.createSession(uploadSession);
+      const created =
+        await this.sessionsService.createSession(
+          uploadSession,
+        );
 
-      await this.traceService.uploadTraces(traces);
+      await this.traceService.uploadTraces(filtered);
 
       await this.activeSessionService.markUploaded();
-    } catch (error) {
+    }
+    catch (error) {
 
       // upload failed
-      await this.sessionsService.saveFailedSession({
-        ...uploadSession,
-        uploadStatus: "failed",
-      });
+      await this.sessionsService.setSession(
+        {
+          ...uploadSession,
+          uploadStatus: "failed",
+        },
+        true,
+      );
 
       await this.activeSessionService.markUploadFailed();
 
       if (error instanceof MissingAccessTokenError) {
-        await this.notificationService.notify(
-          NotificationDefinitions.NotLoggedIn,
+        this.badgeService.setUnauthenticatedWithTabs(
+          this.tabsService.getTabs(),
         );
-        return;
       }
+
       throw error;
     }
+  }
+
+  async handleInstalled(
+    details: chrome.runtime.InstalledDetails,
+  ): Promise<void> {
+    if (details.reason === "install") {
+      await chrome.tabs.create({
+        url: env.apiUrl
+      });
+    }
+
+    await chrome.contextMenus.removeAll();
+
+    await this.createContextMenus();
+  }
+
+  private async createContextMenus(): Promise<void> {
+    await chrome.contextMenus.removeAll();
+
+    chrome.contextMenus.create({
+      id: SIGN_IN_MENU_ID,
+      title: "Sign in",
+      contexts: ["action"],
+    });
   }
 
   async handleLoginMessage(
@@ -413,6 +467,8 @@ export class ExtensionController {
       await this.authService.completeLogin(
         msg.code,
       );
+
+      this.updateCurrentBadge();
 
       sendResponse({ ok: true });
     } catch (err) {
@@ -443,26 +499,22 @@ export class ExtensionController {
   async handleActionClick(
     tabId: number
   ): Promise<void> {
-    const result =
-      await this.contentScriptService.inject(tabId);
-
-    if (result !== InjectionResult.Success) {
-      await this.tabsService.setConnected(tabId, false);
-
-      if (result === InjectionResult.NoPermission) {
-        await this.notificationService.notify(
-          NotificationDefinitions.HostPermissionRequired,
-          {
-            tabId,
-          }
-        )
-        await chrome.runtime.openOptionsPage();
-      }
-    }
-
     await this.toggleMount();
   }
 
+  async promptHostPermission(
+    tabId: number,
+  ): Promise<void> {
+    await this.notificationService.notify(
+      NotificationDefinitions.HostPermissionRequired,
+      {
+        tabId,
+      },
+    );
+
+    await this.extensionService.setOptionsPage();
+    await chrome.runtime.openOptionsPage();
+  }
 
   async handleTabNavigated(
     tabId: number,
@@ -470,42 +522,26 @@ export class ExtensionController {
   ) {
     const url = new URL(urlString);
 
-    const permission =
-      await this.contentScriptService.checkInjectionPermission(url);
-
-    const recordingScope =
-      permission === InjectionPermission.Allowed
-        ? "recording"
-        : permission === InjectionPermission.UnsupportedUrl
-          ? "unsupported"
-          : "not_in_scope";
+    const isAllowlisted =
+      this.tabsService.isAllowlisted(url.origin);
 
     await this.tabsService.addTab(
       tabId,
       urlString,
       url.origin,
-      recordingScope,
+      isAllowlisted
+        ? "recording"
+        : "not_in_scope",
       false,
     );
 
-    if (recordingScope === "recording") {
-      const result =
-        await this.contentScriptService.executeInjection(tabId);
-      if (result === InjectionResult.Success) {
-        await this.tabsService.setConnected(
-          tabId,
-          true,
-        );
-      }
-    }
-
-    await this.updateBadge();
+    await this.updateCurrentBadge();
   }
 
   async handleTabRemoved(tabId: number) {
     await this.tabsService.removeTab(tabId);
 
-    await this.updateBadge();
+    await this.updateCurrentBadge();
   }
 
   async handleTabUpdated(
@@ -513,96 +549,122 @@ export class ExtensionController {
     title?: string,
   ) {
     await this.tabsService.updateTitle(tabId, title);
+
+    const connected =
+      await this.contentScriptService.isInjected(
+        tabId,
+      );
+
+    await this.tabsService.setConnected(
+      tabId,
+      connected,
+    );
+
+    await this.updateCurrentBadge();
   }
 
-  async handleTabActivated(tabId: number) {
-    const tab = this.tabsService.getTab(tabId);
+  /**
+   * Restores an activated tab if it is not
+   * currently tracked locally.
+   */
+  async handleTabActivated(
+    tabId: number,
+  ): Promise<void> {
+    const tab =
+      this.tabsService.getTab(tabId);
 
     if (tab) {
       return;
     }
 
-    try {
-      const chromeTab = await chrome.tabs.get(tabId);
+    const chromeTab =
+      await chrome.tabs.get(tabId);
 
-      if (!chromeTab.url) {
-        return;
-      }
-
-      const url = new URL(chromeTab.url);
-
-      // const permission =
-      //   await this.contentScriptService.hasHostPermission(url);
-      const permission =
-        await this.contentScriptService.checkInjectionPermission(url);
-
-      const recordingScope =
-        permission === InjectionPermission.Allowed
-          ? "recording"
-          : permission === InjectionPermission.UnsupportedUrl
-            ? "unsupported"
-            : "not_in_scope";
-
-      if (!tab) {
-        await this.tabsService.addTab(
-          tabId,
-          chromeTab.url,
-          url.origin,
-          recordingScope,
-          false,
-          chromeTab.title,
-        );
-      }
-    } catch {
-      // Tab no longer exists.
+    if (!chromeTab.url) {
+      return;
     }
 
-    await this.updateBadge();
-  }
+    const url =
+      new URL(chromeTab.url);
 
-  async onHostPermissionsAdded(
-    origins: readonly string[],
-  ): Promise<void> {
-    const added =
-      await this.tabsService.setRecordingScopeByOrigins(
-        origins,
-        "recording",
+    const isAllowlisted =
+      this.tabsService.isAllowlisted(
+        url.origin,
       );
 
-    await Promise.all(
-      added.map(tab =>
-        this.contentScriptService.inject(tab.tabId)
-      ),
+    await this.tabsService.addTab(
+      tabId,
+      chromeTab.url,
+      url.origin,
+      isAllowlisted
+        ? "recording"
+        : "not_in_scope",
+      false,
+      chromeTab.title,
+    );
+
+    await this.updateCurrentBadge();
+  }
+
+  async handleContextMenuClicked(
+    info: chrome.contextMenus.OnClickData,
+    tab?: chrome.tabs.Tab,
+  ): Promise<void> {
+    switch (info.menuItemId) {
+      case SIGN_IN_MENU_ID: {
+        await this.authService.openLogin();
+        break;
+      }
+    }
+  }
+
+  async addToAllowlist(
+    tabId: number,
+  ): Promise<void> {
+    const tab = this.tabsService.getTab(tabId);
+
+    if (!tab) {
+      return;
+    }
+
+    await this.tabsService.addToAllowlist(
+      tab.origin,
     );
   }
 
-  async onHostPermissionsRemoved(
-    origins: readonly string[],
-  ): Promise<void> {
-    const removed =
-      await this.tabsService.setRecordingScopeByOrigins(
-        origins,
-        "not_in_scope",
-      );
-  }
+  private async removeStaleTabs(): Promise<void> {
+    const chromeTabs = await chrome.tabs.query({});
 
-  async injectContentScriptsByOrigin(origin: string) {
-    const tabs = this.tabsService.getTabsByOrigin(origin);
+    const activeTabIds = new Set(
+      chromeTabs
+        .map(tab => tab.id)
+        .filter(
+          (id): id is number =>
+            id !== undefined,
+        ),
+    );
 
-    await Promise.all(
-      tabs.map(async tab => {
-        const result =
-          await this.contentScriptService.executeInjection(tab.tabId);
+    const staleTabIds =
+      this.tabsService
+        .getTabs()
+        .filter(tab =>
+          !activeTabIds.has(tab.tabId),
+        )
+        .map(tab => tab.tabId);
 
-        this.tabsService.setConnected(
-          tab.tabId,
-          result === InjectionResult.Success,
-        );
-      }),
+    if (staleTabIds.length === 0) {
+      return;
+    }
+
+    await this.tabsService.removeTabs(
+      staleTabIds,
     );
   }
 
-  private async updateBadge(): Promise<void> {
+  private async updateCurrentBadge(): Promise<void> {
+    if (this.authService.isAccessTokenMissing()) {
+      return;
+    }
     await this.badgeService.updateBadge(
       this.tabsService.getTabs(),
       this.extensionService.isMountEnabled(),

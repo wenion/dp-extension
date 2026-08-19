@@ -8,6 +8,7 @@ import { TraceApi } from "./api/TraceApi";
 
 import { ActiveSessionRepository } from "./repositories/ActiveSessionRepository";
 import { AuthRepository } from "./repositories/AuthRepository";
+import { AllowlistRepository } from "./repositories/AllowlistRepository";
 import { ExtensionSettingsRepository } from "./repositories/ExtensionSettingsRepository";
 import { NotificationRepository } from "./repositories/NotificationRepository";
 import { SessionsRepository } from "./repositories/SessionsRepository";
@@ -48,6 +49,7 @@ class Application {
   // ------------------------
   readonly activeSessionRepository = new ActiveSessionRepository();
   readonly authRepository = new AuthRepository();
+  readonly allowlistRepository = new AllowlistRepository();
   readonly extensionSettingsRepository = new ExtensionSettingsRepository();
   readonly notificationRepository = new NotificationRepository();
   readonly sessionsRepository = new SessionsRepository();
@@ -121,6 +123,7 @@ class Application {
 
   readonly tabsService =
     new TabsService(
+      this.allowlistRepository,
       this.tabsRepository,
       this.contentScriptClient,
     );
@@ -190,7 +193,9 @@ class Application {
 
   readonly optionsController =
     new OptionsController(
+      this.extensionService,
       this.sessionsService,
+      this.tabsService,
     );
 
   // ------------------------
@@ -228,6 +233,7 @@ class Application {
   private async initializeRepositories() {
     await Promise.all([
       this.activeSessionRepository.initialize(),
+      this.allowlistRepository.initialize(),
       this.authRepository.initialize(),
       this.extensionSettingsRepository.initialize(),
       this.sessionsRepository.initialize(),

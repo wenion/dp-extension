@@ -8,9 +8,9 @@ import type { Session } from "@/shared/types";
 /**
  * Manages session data.
  *
- * Keeps the local session cache synchronized with
- * the backend and notifies connected pages when
- * the cached sessions change.
+ * Keeps the session cache synchronized with
+ * local persistence and the backend, and notifies
+ * connected pages when sessions change.
  */
 export class SessionsService {
   private readonly sessionApi: SessionApi;
@@ -23,16 +23,22 @@ export class SessionsService {
     contentScriptClient: ContentScriptClient,
   ) {
     this.sessionApi = sessionApi;
-    this.sessionsRepository = sessionsRepository;
-    this.contentScriptClient = contentScriptClient;
+    this.sessionsRepository =
+      sessionsRepository;
+    this.contentScriptClient =
+      contentScriptClient;
   }
 
   async fetchSessions(
     limit: number = 5,
   ): Promise<readonly Session[]> {
-    const { items, } = await this.sessionApi.list(limit);
+    const { items } =
+      await this.sessionApi.list(limit);
 
-    this.sessionsRepository.setSessions(items);
+    await this.sessionsRepository.setSessions(
+      items
+    );
+
     await this.notifySessionsUpdated();
 
     return items;
@@ -41,77 +47,166 @@ export class SessionsService {
   async fetchSession(
     sessionId: string,
   ): Promise<Session | undefined> {
-    const session = await this.sessionApi.get(sessionId);
+    const session =
+      await this.sessionApi.get(
+        sessionId,
+      );
 
-    if (session) {
-      this.sessionsRepository.setSession(session);
-      await this.notifySessionsUpdated();
+    if (!session) {
+      return undefined;
     }
+
+    await this.sessionsRepository.setSession(
+      session,
+    );
+
+    await this.notifySessionsUpdated();
 
     return session;
   }
 
   /**
-   * Persists a session in the backend.
-   *
-   * If the session already exists, it is updated instead.
+   * Creates a session in the backend
+   * and stores the returned session
+   * in memory.
    */
   async createSession(
     session: Session
-  ): Promise<void> {
-    const created =
-      await this.sessionApi.create(session);
-
-    this.sessionsRepository.setSession(created);
-
-    await this.notifySessionsUpdated();
-  }
-
-  async renameSession(
-    sessionId: string,
-    name: string,
   ): Promise<Session> {
-    const updated =
-      await this.sessionApi.update(
-        sessionId,
-        { name },
+    const created =
+      await this.sessionApi.create(
+        session,
       );
 
+    this.sessionsRepository.setSession(
+      created,
+    );
+
     await this.notifySessionsUpdated();
 
-    return updated;
+    return created;
   }
 
-  async saveFailedSession(
+  /**
+   * Stores a session in memory and,
+   * optionally, persists it locally.
+   */
+  async setSession(
+    session: Session,
+    persistLocal = false,
+  ): Promise<void> {
+    await this.sessionsRepository.setSession(
+      session,
+      persistLocal,
+    );
+
+    await this.notifySessionsUpdated();
+  }
+
+  /**
+   * Updates either a locally persisted
+   * session or a backend session.
+   */
+  async updateSession(
+    clientId: string,
+    updates: Partial<Session>,
+  ): Promise<void> {
+    const session =
+      this.sessionsRepository.get(
+        clientId,
+      );
+
+    if (!session) {
+      return;
+    }
+
+    const localSession =
+      await this.sessionsRepository.getLocal(
+        clientId,
+      );
+
+    if (localSession) {
+      await this.sessionsRepository.setSession(
+        {
+          ...localSession,
+          ...updates,
+        },
+        true,
+      );
+
+      await this.notifySessionsUpdated();
+      return;
+    }
+
+    const updated =
+      await this.sessionApi.update(
+        clientId,
+        updates,
+      );
+
+    await this.sessionsRepository.setSession(
+      updated,
+    );
+
+    await this.notifySessionsUpdated();
+  }
+
+  /**
+   * Removes a session from memory and,
+   * optionally, from local persistence.
+   */
+  async deleteSession(
+    clientId: string,
+    deleteLocal = false,
+  ): Promise<void> {
+    await this.sessionsRepository.deleteSession(
+      clientId,
+      deleteLocal,
+    );
+
+    await this.notifySessionsUpdated();
+  }
+
+  /**
+   * Replaces a local session with the
+   * backend-created version.
+   */
+  async replaceSession(
     session: Session,
   ): Promise<void> {
-    await this.sessionsRepository.setLocal(session);
+    await this.sessionsRepository.deleteSession(
+      session.clientId,
+      true,
+    );
 
-    await this.notifySessionsUpdated();
-  }
+    await this.sessionsRepository.setSession(
+      session,
+    );
 
-  async deleteSession(
-    sessionId: string,
-  ): Promise<void> {
-    await this.sessionsRepository.deleteLocal(sessionId);
     await this.notifySessionsUpdated();
   }
 
   getSessions(): readonly Session[] {
-    return this.sessionsRepository.getAll()
-      .sort((a, b) => b.startedAt - a.startedAt);
+    return this.sessionsRepository
+      .getAll()
+      .sort(
+        (a, b) =>
+          b.startedAt - a.startedAt,
+      );
   }
   
   getSession(
     sessionId: string,
   ): Session | undefined {
-    return this.sessionsRepository.get(sessionId);
+    return this.sessionsRepository.get(
+      sessionId,
+    );
   }
 
   private async notifySessionsUpdated() {
     await this.contentScriptClient.broadcast({
       type: "SESSIONS/UPDATED",
-      payload: this.sessionsRepository.getAll(),
+      payload: this.getSessions(),
     });
   }
 }

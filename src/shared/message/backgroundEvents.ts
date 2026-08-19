@@ -1,6 +1,7 @@
 import type {
   ContentState,
   Notification,
+  OptionsPage,
   OptionsState,
   Session,
   TabState,
@@ -39,7 +40,7 @@ export interface SessionUpdatedEvent {
 
 export interface SessionsUpdatedEvent {
   type: "SESSIONS/UPDATED";
-  payload: Session[];
+  payload: readonly Session[];
 }
 
 
@@ -67,6 +68,27 @@ export interface NoticeUpdatedEvent {
 }
 
 
+// ===== Options =====
+
+export interface AllowlistUpdatedEvent {
+  type: "ALLOWLIST/UPDATED";
+  payload: {
+    allowlist: readonly string[];
+  };
+}
+
+export interface ExitDialogRequestedEvent {
+  type: "EXIT_DIALOG/REQUESTED";
+}
+
+export interface OptionsPageUpdatedEvent {
+  type: "OPTIONS_PAGE/UPDATED";
+  payload: {
+    page?: OptionsPage;
+  };
+}
+
+
 // ===== System =====
 
 export interface PingEvent {
@@ -80,6 +102,9 @@ export type BackgroundEvent =
   | ContentStateInitializedEvent
   | OptionsStateInitializedEvent
   | PageMountUpdatedEvent
+  | OptionsPageUpdatedEvent
+  | AllowlistUpdatedEvent
+  | ExitDialogRequestedEvent
   | SessionUpdatedEvent
   | SessionsUpdatedEvent
   | TabsUpdatedEvent

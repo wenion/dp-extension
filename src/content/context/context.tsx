@@ -6,7 +6,10 @@ import {
   useState,
 } from "react";
 
-import type { OverlayState } from "../types";
+import type {
+  DialogState,
+  OverlayState,
+} from "../types";
 
 import type {
   ActiveSession,
@@ -28,6 +31,12 @@ type ContextType = {
   currentTab?: TabState,
 
   numberOfRecordingTabs: number,
+
+  dialog?: DialogState;
+  showDialog: (
+    dialog: DialogState,
+  ) => void;
+  hideDialog: () => void;
 };
 
 const Context =
@@ -68,6 +77,21 @@ export function ContextProvider({
 
   const [notice, setNotice] =
     useState<string>();
+
+  const [
+    dialog,
+    setDialog,
+  ] = useState<DialogState>();
+
+  const showDialog = (
+    dialog: DialogState,
+  ) => {
+    setDialog(dialog);
+  };
+
+  const hideDialog = () => {
+    setDialog(undefined);
+  };
 
   useEffect(() => {
     const listener = (message: BackgroundEvent) => {
@@ -130,6 +154,10 @@ export function ContextProvider({
       tabs,
       currentTab,
       numberOfRecordingTabs,
+
+      dialog,
+      showDialog,
+      hideDialog,
     }),
     [
       page,
@@ -138,6 +166,7 @@ export function ContextProvider({
       tabs,
       currentTab,
       numberOfRecordingTabs,
+      dialog,
     ],
   );
   

@@ -12,6 +12,7 @@ import type { BackgroundEvent } from "@/shared/message/backgroundEvents";
 import type {
   ActiveSession,
   Notification,
+  OptionsPage,
   PanelPage,
   Session,
   TabState,
@@ -19,7 +20,9 @@ import type {
 
 type ContextType = {
   mounted: boolean;
-  page: PanelPage;
+
+  panelPage: PanelPage;
+  optionsPage?: OptionsPage;
 
   activeSession?: ActiveSession;
   sessions: readonly Session[];
@@ -28,6 +31,7 @@ type ContextType = {
   notifications: readonly Notification[];
 
   tabs: readonly TabState[];
+  allowlist: readonly string[];
 
   numberOfRecordingTabs: number;
 };
@@ -56,6 +60,12 @@ export function ContextProvider({
   const [activeSession, setActiveSession] =
     useState<ActiveSession | undefined>();
 
+  const [optionsPage, setOptionsPage] =
+    useState<OptionsPage | undefined>();
+
+  const [allowlist, setAllowlist] =
+    useState<readonly string[]>([]);
+
   const [tabs, setTabs] =
     useState<readonly TabState[]>([]);
 
@@ -70,7 +80,7 @@ export function ContextProvider({
     setCurrentNotification,
   ] = useState<Notification | undefined>();
 
-  const page: PanelPage = useMemo(() => {
+  const panelPage: PanelPage = useMemo(() => {
     if (activeSession?.endedAt) {
       return activeSession.uploadStatus;
     }
@@ -93,15 +103,21 @@ export function ContextProvider({
             sessions,
             notifications,
             currentNotification,
+            page,
+            allowlist,
           } = message.payload;
 
           setMounted(mount);
+
           setActiveSession(activeSession);
           setTabs(tabs);
           setSessions(sessions);
 
           setNotifications(notifications);
           setCurrentNotification(currentNotification);
+
+          setOptionsPage(page);
+          setAllowlist(allowlist);
 
           break;
         }
@@ -120,6 +136,14 @@ export function ContextProvider({
 
         case "TABS/UPDATED":
           setTabs(message.payload);
+          break;
+
+        case "OPTIONS_PAGE/UPDATED":
+          setOptionsPage(message.payload.page);
+          break;
+
+        case "ALLOWLIST/UPDATED":
+          setAllowlist(message.payload.allowlist);
           break;
 
         case "NOTIFICATIONS/UPDATED":
@@ -160,7 +184,8 @@ export function ContextProvider({
     () => ({
       mounted,
 
-      page,
+      panelPage,
+      optionsPage,
 
       activeSession,
       sessions,
@@ -169,13 +194,15 @@ export function ContextProvider({
       notifications,
 
       tabs,
+      allowlist,
 
       numberOfRecordingTabs,
     }),
     [
       mounted,
 
-      page,
+      panelPage,
+      optionsPage,
 
       activeSession,
       sessions,
@@ -184,6 +211,7 @@ export function ContextProvider({
       notifications,
 
       tabs,
+      allowlist,
 
       numberOfRecordingTabs,
     ],

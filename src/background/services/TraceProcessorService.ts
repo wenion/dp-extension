@@ -33,16 +33,27 @@ export class TraceProcessorService {
   prepareTraces(
     traces: Trace[],
   ): Trace[] {
-    const ordered =
-      this.assignSequence(traces);
+    const traced =
+      this.assignSourceSequence(traces);
 
-    const filtered =
-      this.process(ordered);
+    const processed =
+      this.process(traced);
 
-    return filtered;
+    return this.assignSequence(processed);
   }
 
-  private assignSequence(traces: Trace[]): Trace[] {
+  private assignSourceSequence(
+    traces: Trace[],
+  ): Trace[] {
+    return traces.map((trace, index) => ({
+      ...trace,
+      sourceSequence: index + 1,
+    }));
+  }
+
+  private assignSequence(
+    traces: Trace[],
+  ): Trace[] {
     return traces.map((trace, index) => ({
       ...trace,
       sequence: index + 1,
@@ -558,24 +569,21 @@ export class TraceProcessorService {
               const remove = pre.state.slice(pre.startPosition, pre.startPosition! + diff + 1);
               const remain = pre.state.slice(0, pre.startPosition) + pre.state.slice(pre.startPosition! + diff + 1);
 
-              // const data = {} as Trace;
-              trace.eventType = "keystroke";
-              trace.key = remove;
-              trace.code = remove;
-              trace.eventValue = remove;
-              trace.eventState = remain;
-              trace.startPosition = pre.startPosition;
-              trace.endPosition = pre.startPosition! + diff + 1;
-              // data.url = trace.url;
-              // data.timestamp = trace.timestamp;
-              // data.sessionId = trace.sessionId;
-              // data.source = "UserEvent";
-              trace.author = "human";
-              trace.textContent = pre.text;
-              // data.tag = trace.tag;
-              trace.elementType = type;
+              const deleteTrace: Trace = {
+                ...trace,
+                eventType: "keystroke",
+                key: remove,
+                code: remove,
+                eventValue: remove,
+                eventState: remain,
+                startPosition: pre.startPosition,
+                endPosition: pre.startPosition! + diff + 1,
+                author: "human",
+                textContent: pre.text,
+                elementType: type,
+              };
 
-              results.push(trace);
+              results.push(deleteTrace);
             }
 
             start = pre.startPosition;

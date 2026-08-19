@@ -10,38 +10,55 @@ import { Uploading } from "../pages/Uploading";
 import { UploadCompleted } from "../pages/UploadCompleted";
 import { UploadFailed } from "../pages/UploadFailed";
 
+import { Dialog } from "./Dialog";
+
 export default function App() {
   const {
     notice,
     page,
+    dialog,
   } = useAppContext();
 
-  switch (page) {
-    case "idle":
-      return <Idle />;
+  const renderPage = () => {
+    switch (page) {
+      case "idle":
+        return <Idle />;
 
-    case "notice":
-      return <Notice message={notice} />;
+      case "notice":
+        return <Notice message={notice} />;
 
-    case "collapsed":
-      return <Collapsed />;
+      case "collapsed":
+        return <Collapsed />;
 
-    case "expanded":
-      return <Expanded />;
+      case "expanded":
+        return <Expanded />;
 
-    case "end":
-      return <EndConfirmation />;
+      case "end":
+        return <EndConfirmation />;
 
-    case "exit":
-      return <ExitConfirmation />;
+      case "exit":
+        return <ExitConfirmation />;
 
-    case "uploading":
-      return <Uploading />;
+      case "uploading":
+        return <Uploading />;
 
-    case "uploaded":
-      return <UploadCompleted />;
+      case "uploaded":
+        return <UploadCompleted />;
 
-    case "failed":
-      return <UploadFailed />;
-  }
+      case "failed":
+        return <UploadFailed />;
+    }
+  };
+
+  return (
+    <>
+      <div className="fixed bottom-6 right-6 pointer-events-auto">
+        {renderPage()}
+      </div>
+
+      {dialog && (
+        <Dialog {...dialog} />
+      )}
+    </>
+  );
 }

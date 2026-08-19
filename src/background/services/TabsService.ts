@@ -1,5 +1,6 @@
 import { getDocumentId } from "./GoogleDocsService/GoogleDocsUtils";
 import type { ContentScriptClient } from "../clients/ContentScriptClient";
+import type { AllowlistRepository } from "../repositories/AllowlistRepository";
 import type { TabsRepository } from "../repositories/TabsRepository";
 
 import type {
@@ -8,14 +9,17 @@ import type {
 } from "@/shared/types";
 
 export class TabsService {
-  private readonly repository: TabsRepository;
+  private readonly allowlistRepository: AllowlistRepository;
+  private readonly tabsRepository: TabsRepository;
   private readonly contentScriptClient: ContentScriptClient;
 
   constructor(
-    repository: TabsRepository,
+    allowlistRepository: AllowlistRepository,
+    tabsRepository: TabsRepository,
     contentScriptClient: ContentScriptClient,
   ) {
-    this.repository = repository;
+    this.allowlistRepository = allowlistRepository;
+    this.tabsRepository = tabsRepository;
     this.contentScriptClient = contentScriptClient;
   }
 
@@ -48,10 +52,59 @@ export class TabsService {
     tab: number
   ): Promise<boolean> {
     const result =
-      this.repository.removeTab(tab);
+      await this.tabsRepository.removeTab(tab);
     await this.notifyTabsUpdated();
 
     return result;
+  }
+
+  async removeTabs(
+    tabIds: readonly number[],
+  ): Promise<void> {
+    const tabIdSet = new Set(tabIds);
+
+    const tabs = this.tabsRepository
+      .getTabs()
+      .filter(tab =>
+        !tabIdSet.has(tab.tabId),
+      );
+
+    await this.tabsRepository.setTabs(tabs);
+
+    await this.notifyTabsUpdated();
+  }
+
+  async addToAllowlist(
+    origin: string,
+  ): Promise<void> {
+    await this.allowlistRepository.addOrigin(
+      origin,
+    );
+
+    await this.setRecordingScopeByOrigins(
+      [origin],
+      "recording",
+    );
+
+    await this.notifyAllowlistUpdated();
+  }
+
+  async removeFromAllowlist(
+    origin: string,
+  ): Promise<TabState[]> {
+    await this.allowlistRepository.removeOrigin(
+      origin,
+    );
+
+    const updatedTabs =
+      await this.setRecordingScopeByOrigins(
+        [origin],
+        "not_in_scope",
+      );
+
+    await this.notifyAllowlistUpdated();
+
+    return updatedTabs;
   }
 
   async updateTitle(
@@ -116,12 +169,14 @@ export class TabsService {
     );
   }
 
-  async setExcludedTabsToRecording(): Promise<TabState[]> {
+  async resetRecordingScopesFromAllowlist(): Promise<TabState[]> {
     return this.updateTabs(
-      tab => tab.recordingScope === "excluded",
+      () => true,
       tab => ({
         ...tab,
-        recordingScope: "recording",
+        recordingScope: this.isAllowlisted(tab.origin)
+          ? "recording"
+          : "not_in_scope",
         updatedAt: Date.now(),
       }),
     );
@@ -134,7 +189,7 @@ export class TabsService {
     const originSet = new Set(origins);
 
     return this.updateTabs(
-      tab => originSet.has(`${tab.origin}/*`),
+      tab => originSet.has(tab.origin),
       tab => ({
         ...tab,
         recordingScope,
@@ -144,40 +199,68 @@ export class TabsService {
   }
 
   getTabIds(): number[] {
-    return this.repository
+    return this.tabsRepository
       .getTabs()
       .map(tab => tab.tabId);
   }
 
   getTab(tabId: number): TabState | undefined {
-    return this.repository.getTab(tabId);
+    return this.tabsRepository.getTab(tabId);
   }
 
   getTabs(): readonly TabState[] {
-    return this.repository.getTabs();
+    return this.tabsRepository.getTabs();
   }
 
   getTabsByOrigin(origin: string): TabState[] {
-    return this.repository
+    return this.tabsRepository
       .getTabs()
       .filter(tab => tab.origin === origin);
   }
 
   hasTab(tabId: number): boolean {
-    return this.repository.getTab(tabId) !== undefined;
+    return this.tabsRepository.getTab(tabId) !== undefined;
   }
 
-  isRecordable(tabId: number): boolean {
-    return (
-      this.repository.getTab(tabId)?.recordingScope ===
-      "recording"
+  getAllowlist(): readonly string[] {
+    return this.allowlistRepository.getOrigins();
+  }
+
+  isAllowlisted(
+    origin: string,
+  ): boolean {
+    return this.allowlistRepository.hasOrigin(origin);
+  }
+
+  async removeStaleTabs(): Promise<void> {
+    const chromeTabs =
+      await chrome.tabs.query({});
+
+    const existingTabIds = new Set(
+      chromeTabs
+        .map(tab => tab.id)
+        .filter(
+          (id): id is number =>
+            id !== undefined,
+        ),
     );
+
+    const validTabs =
+      this.tabsRepository
+        .getTabs()
+        .filter(tab =>
+          existingTabIds.has(tab.tabId),
+        );
+
+    await this.tabsRepository.setTabs(validTabs);
+
+    await this.notifyTabsUpdated();
   }
 
   private async createTab(
     tab: TabState,
   ): Promise<TabState> {
-    this.repository.setTab(tab);
+    await this.tabsRepository.setTab(tab);
     await this.notifyTabsUpdated();
 
     return tab;
@@ -188,7 +271,7 @@ export class TabsService {
     patch: Partial<TabState>,
   ): Promise<TabState | undefined> {
     const updated =
-      this.repository.updateTab(
+      await this.tabsRepository.updateTab(
         tabId,
         tab => ({
           ...tab,
@@ -203,10 +286,11 @@ export class TabsService {
     predicate: (tab: TabState) => boolean,
     updater: (tab: TabState) => TabState,
   ): Promise<TabState[]> {
-    const updatedTabs = this.repository.updateTabs(
-      predicate,
-      updater,
-    );
+    const updatedTabs =
+      await this.tabsRepository.updateTabs(
+        predicate,
+        updater,
+      );
 
     await this.notifyTabsUpdated();
 
@@ -217,6 +301,15 @@ export class TabsService {
     await this.contentScriptClient.broadcast({
       type: "TABS/UPDATED",
       payload: this.getTabs(),
+    });
+  }
+
+  private async notifyAllowlistUpdated(): Promise<void> {
+    await this.contentScriptClient.broadcast({
+      type: "ALLOWLIST/UPDATED",
+      payload: {
+        allowlist: this.getAllowlist(),
+      },
     });
   }
 }

@@ -16,56 +16,32 @@ export function registerContentEffects(
     },
   );
 
-  const unsubscribeSession = store.subscribe(
-    store => store.getActiveSession(),
-    (session, previousSession) => {
-      if (!previousSession && session && store.getTab()?.recordingScope === "recording") {
-        const tab = store.getTab();
-        if (tab) {
-          siteCapture.start(tab.url);
-          return;
-        }
-      }
+  const unsubscribeCapture = store.subscribe(
+    store => {
+      const session = store.getActiveSession();
+      const tab = store.getTab();
 
-      if (previousSession && !session && store.getTab()?.recordingScope === "recording") {
-        siteCapture.stop();
-        return;
-      }
+      return session &&
+        tab?.recordingScope === "recording"
+          ? `recording:${tab.url}`
+          : "stopped";
     },
-  );
-
-  const unsubscribeTab = store.subscribe(
-    store => store.getTab()?.recordingScope,
-    (recordingScope, previousRecordingScope) => {
-      if (!store.getActiveSession()) {
-        return;
-      }
-      
-      if (
-        previousRecordingScope !== "recording" &&
-        recordingScope === "recording"
-      ) {
-        const tab = store.getTab();
-
-        if (tab) {
-          siteCapture.start(tab.url);
-        }
-
-        return;
-      }
-
-      if (
-        previousRecordingScope === "recording" &&
-        recordingScope !== "recording"
-      ) {
+    state => {
+      if (state === "stopped") {
         siteCapture.stop();
+        return;
+      }
+
+      const tab = store.getTab();
+
+      if (tab) {
+        siteCapture.start(tab.url);
       }
     },
   );
 
   return () => {
     unsubscribeMount();
-    unsubscribeSession();
-    unsubscribeTab();
+    unsubscribeCapture();
   };
 }

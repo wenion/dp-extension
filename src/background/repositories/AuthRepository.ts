@@ -20,10 +20,6 @@ export class AuthRepository {
     return this.tokens?.refreshToken;
   }
 
-  getTokens(): Readonly<AuthTokens> | undefined {
-    return this.tokens;
-  }
-
   async setTokens(tokens: AuthTokens) {
     this.tokens = tokens;
 

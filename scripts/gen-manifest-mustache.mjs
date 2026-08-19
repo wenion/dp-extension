@@ -29,11 +29,7 @@ async function main() {
     .split(",")
     .map(s => s.trim())
     .filter(Boolean);
-  const optional_permissions = (process.env.OPTIONAL_PERMISSIONS ?? "")
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean);
-  const optional_host_permissions = (process.env.OPTIONAL_HOST_PERMISSIONS ?? "")
+  const contentScriptMatches = (process.env.CONTENT_SCRIPT_MATCHES ?? "")
     .split(",")
     .map(s => s.trim())
     .filter(Boolean);
@@ -48,8 +44,7 @@ async function main() {
     web_accessible_matches: JSON.stringify(web_accessible_matches),
     host_permissions: JSON.stringify(host_permissions),
     permissions: JSON.stringify(permissions),
-    optional_permissions: JSON.stringify(optional_permissions),
-    optional_host_permissions: JSON.stringify(optional_host_permissions),
+    content_script_matches: JSON.stringify(contentScriptMatches),
   };
 
   const rendered = Mustache.render(template, data);

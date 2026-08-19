@@ -48,7 +48,7 @@ export function Status() {
   const {
     activeSession,
     numberOfRecordingTabs,
-    page,
+    panelPage,
     tabs,
   } = useAppContext();
   const [name, setName] = useState<string>("");
@@ -99,7 +99,7 @@ export function Status() {
     }
   }
 
-  switch (page) {
+  switch (panelPage) {
     case "idle":
       return (
         <div className="flex rounded-xl border-default border-medium border-dashed p-4 items-center justify-between gap-4">

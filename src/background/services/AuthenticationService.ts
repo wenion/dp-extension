@@ -31,7 +31,7 @@ export class AuthenticationService {
     await this.authRepository.setTokens(tokens);
   }
 
-  async signOut() {
-    await this.authRepository.clear();
+  isAccessTokenMissing(): boolean {
+    return this.authRepository.getAccessToken() === undefined;
   }
 }

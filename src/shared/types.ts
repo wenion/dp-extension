@@ -62,7 +62,10 @@ export type TraceContext = {
 
   tabId: number;
   windowId?: number;
+  // Final order after trace processing.
   sequence?: number;
+  // Original order before trace processing.
+  sourceSequence?: number;
 
   url: string;
 };
@@ -232,6 +235,7 @@ export type RecordingScope =
   | "recording"
   | "excluded"
   | "not_in_scope"
+  | "no_permission"
   | "unsupported";
 
 export interface TabState {
@@ -296,13 +300,19 @@ export interface BackgroundState {
 
 export interface ContentState extends BackgroundState {
   tabId: number;
-};
+}
+
+export type OptionsPage =
+  | "allowlist";
 
 export interface OptionsState extends BackgroundState {  
   sessions: readonly Session[];
   notifications: readonly Notification[];
   currentNotification?: Notification;
-};
+
+  page?: OptionsPage;
+  allowlist: readonly string[];
+}
 
 export type PanelPage =
   | "idle"
@@ -317,3 +327,4 @@ export type PanelPage =
 export interface ActiveSession extends Session {
   page?: PanelPage;
 };
+

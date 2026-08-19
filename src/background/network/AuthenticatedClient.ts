@@ -49,7 +49,8 @@ export class AuthenticatedClient extends HttpClient {
   ): Promise<T> {
     try {
       return await super.request<T>(options);
-    } catch (error) {
+    }
+    catch (error) {
       if (
         !(error instanceof HttpError) ||
         error.status !== 401
@@ -59,10 +60,14 @@ export class AuthenticatedClient extends HttpClient {
 
       try {
         await this.oauthService.refresh();
-      } catch (e) {
-        console.error(e)
+      }
+      catch (e) {
+        console.error(
+          "Failed to refresh authentication",
+          error,
+        );
         await this.oauthService.clearTokens();
-        throw e;
+        throw new MissingAccessTokenError();
       }
 
       return super.request<T>(options);

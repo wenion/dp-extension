@@ -83,7 +83,7 @@ export function SessionCard({
                 <div
                   key={site.name}
                   title={site.name}
-                  className="flex h-8 w-8 items-center justify-center rounded text-sm font-semibold text-white"
+                  className="flex h-8 w-8 items-center justify-center rounded cursor-pointer text-sm font-semibold text-white"
                   style={{
                     backgroundColor: site.color,
                   }}
