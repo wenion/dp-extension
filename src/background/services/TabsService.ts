@@ -1,4 +1,5 @@
-import { getDocumentId } from "./GoogleDocsService/GoogleDocsUtils";
+import { extractGoogleDocsId } from "@/shared/utils";
+
 import type { ContentScriptClient } from "../clients/ContentScriptClient";
 import type { AllowlistRepository } from "../repositories/AllowlistRepository";
 import type { TabsRepository } from "../repositories/TabsRepository";
@@ -38,7 +39,7 @@ export class TabsService {
       url,
       origin,
       title,
-      googleDocId: getDocumentId(url),
+      googleDocId: extractGoogleDocsId(url),
       recordingScope,
       connected,
       createdAt: now,

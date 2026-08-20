@@ -1,3 +1,8 @@
+import { 
+  captureStarted,
+  captureStopped,
+} from "../message/BackgroundClient";
+
 import { ContentStore } from "../ContentState";
 import { overlay } from "../overlay/overlay";
 
@@ -29,6 +34,8 @@ export function registerContentEffects(
     state => {
       if (state === "stopped") {
         siteCapture.stop();
+
+        captureStopped();
         return;
       }
 
@@ -36,6 +43,8 @@ export function registerContentEffects(
 
       if (tab) {
         siteCapture.start(tab.url);
+
+        captureStarted();
       }
     },
   );

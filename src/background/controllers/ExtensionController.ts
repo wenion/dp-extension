@@ -290,16 +290,6 @@ export class ExtensionController {
     return this.activeSessionService.setName(name);
   }
 
-  async showNotice(
-    tabId: number,
-    message?: string,
-  ): Promise<void> {
-    await this.activeSessionService.showNotice(
-      tabId,
-      message,
-    );
-  }
-
   async dismissNotification(
     id: string,
   ): Promise<void> {

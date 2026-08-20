@@ -37,7 +37,6 @@ export type DocState = {
   requestId: number;
   index: number;
   acc: number;
-  url: string;
   type: string;
   docId: string;
 };

@@ -10,7 +10,21 @@ function sendContentEvent(
 
 export async function connect() {
   return sendContentEvent({
-    type: "CONTENT/CONNECT",    
+    type: "CONTENT/CONNECT",
+    source: "CONTENT",
+  });
+}
+
+export async function captureStarted() {
+  return sendContentEvent({
+    type: "CAPTURE/STARTED",
+    source: "CONTENT",
+  });
+}
+
+export async function captureStopped() {
+  return sendContentEvent({
+    type: "CAPTURE/STOPPED",
     source: "CONTENT",
   });
 }

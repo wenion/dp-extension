@@ -33,13 +33,12 @@ import { TabsService } from "./services/TabsService";
 import { TraceService } from "./services/TraceService";
 import { TraceProcessorService } from "./services/TraceProcessorService";
 
-import { GoogleDocumentEngine } from "./services/GoogleDocsService/GoogleDocumentEngine";
-import { GoogleDocsApiClient } from "./services/GoogleDocsService/GoogleDocsApiClient";
 import { GoogleDocsService } from "./services/GoogleDocsService/index";
+import { GoogleDocsApiClient } from "./services/GoogleDocsService/GoogleDocsApiClient";
+import { GoogleDocumentEngine } from "./services/GoogleDocsService/GoogleDocumentEngine";
 import { GoogleDocumentStore } from "./services/GoogleDocsService/GoogleDocumentStore";
 
 import { CaptureController } from "./controllers/CaptureController";
-import { GoogleDocsController } from "./controllers/GoogleDocsController";
 import { ExtensionController } from "./controllers/ExtensionController";
 import { OptionsController } from "./controllers/OptionsController";
 
@@ -169,12 +168,7 @@ class Application {
       this.activeSessionService,
       this.tabsService,
       this.traceService,
-    );
-
-  readonly googleDocsController=
-    new GoogleDocsController(
       this.googleDocsService,
-      this.tabsService,
     );
 
   readonly extensionController=
@@ -215,14 +209,12 @@ class Application {
     startContentListener(
       this.captureController,
       this.extensionController,
-      this.googleDocsController,
       this.optionsController,
     );
 
     startTabListener(
       this.captureController,
       this.extensionController,
-      this.googleDocsController,
     );
 
     startExtensionListener(

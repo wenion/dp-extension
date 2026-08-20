@@ -1,23 +1,76 @@
 import type { ActiveSessionService } from "../services/ActiveSessionService";
+import type { GoogleDocsService } from "../services/GoogleDocsService";
 import type { TabsService } from "../services/TabsService";
 import type { TraceService } from "../services/TraceService";
 
-import type { UserEvent } from "@/shared/types";
+import type {
+  GoogleDocsMeta,
+  UserEvent,
+} from "@/shared/types";
 
 export class CaptureController {
 
-  private activeSessionService: ActiveSessionService;
-  private tabsService: TabsService;
-  private traceService: TraceService;
+  private readonly activeSessionService: ActiveSessionService;
+  private readonly tabsService: TabsService;
+  private readonly traceService: TraceService;
+  private readonly googleDocsService: GoogleDocsService;
 
   constructor(
     activeSessionService: ActiveSessionService,
     tabsService: TabsService,
     traceService: TraceService,
+    googleDocsService: GoogleDocsService,
   ) {
-    this.activeSessionService = activeSessionService;
-    this.tabsService = tabsService;
-    this.traceService = traceService;
+    this.activeSessionService =
+      activeSessionService;
+    this.tabsService =
+      tabsService;
+    this.traceService =
+      traceService;
+    this.googleDocsService =
+      googleDocsService;
+  }
+
+  async onCaptureStarted(
+    tabId: number,
+  ): Promise<void> {
+    const tab =
+      this.tabsService.getTab(
+        tabId,
+    );
+
+    if (tab && tab.googleDocId) {
+      await this.googleDocsService.init(
+        tabId,
+        tab.googleDocId,
+      );
+    }
+  }
+
+  async onCaptureStopped(
+    tabId: number,
+  ): Promise<void> {
+    const tab = this.tabsService.getTab(tabId);
+
+    await this.googleDocsService.remove(
+      tabId,
+    );
+  }
+
+  async captureGoogleDocs(
+    trace: GoogleDocsMeta,
+    tabId: number,
+  ): Promise<void> {
+    const traces =
+      await this.googleDocsService.update(
+        tabId,
+        trace,
+      );
+
+    await this.captureMany(
+      traces,
+      tabId,
+    );
   }
 
   async capture(
@@ -26,7 +79,7 @@ export class CaptureController {
     options?: {
       ignoreRecordingScope?: boolean;
     },
-  ) {
+  ): Promise<void> {
     const session =
       this.activeSessionService.getActiveSession();
 
@@ -63,7 +116,10 @@ export class CaptureController {
     });
   }
 
-  async captureMany(traces: UserEvent[], tabId: number) {
+  async captureMany(
+    traces: UserEvent[],
+    tabId: number,
+  ): Promise<void> {
     const session =
       this.activeSessionService.getActiveSession();
 

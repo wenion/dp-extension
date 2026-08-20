@@ -1,4 +1,8 @@
-import { Card, CardHeader, CardBody } from "@heroui/card";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+} from "@heroui/card";
 import { Spinner } from "@heroui/spinner";
 
 type Props = {
@@ -11,20 +15,21 @@ export function Notice({
   loading = false,
 }: Props) {
   return (
-    <div className="flex gap-4 items-center">
-      <Card className='p-2 border-default border-medium'>
-        {loading && (
-          <CardHeader className="flex gap-x-4 justify-center">
-            <Spinner />
-          </CardHeader>
-        )}
+    <Card
+      className="w-80 min-h-[169px] border-default border-medium"
+      shadow="none"
+    >
+      {loading && (
+        <CardHeader className="flex justify-center py-2">
+          <Spinner />
+        </CardHeader>
+      )}
 
-        <CardBody className="items-center">
-          <p className="text-center font-medium">
-            {message}
-          </p>
-        </CardBody>
-      </Card>
-    </div>
+      <CardBody className="flex items-center justify-center px-4 py-4">
+        <p className="text-center text-lg font-medium">
+          {message}
+        </p>
+      </CardBody>
+    </Card>
   );
 }

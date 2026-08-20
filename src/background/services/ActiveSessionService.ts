@@ -275,19 +275,6 @@ export class ActiveSessionService {
     return updated;
   }
 
-  async showNotice(
-    tabId: number,
-    message?: string,
-  ): Promise<void> {
-    await this.contentScriptClient.send(
-      tabId,
-      {
-        type: "NOTICE/SHOW",
-        payload: message,
-      },
-    );
-  }
-
   private async createNewActiveSession(): Promise<ActiveSession> {
     const active: ActiveSession = {
       clientId: crypto.randomUUID(),

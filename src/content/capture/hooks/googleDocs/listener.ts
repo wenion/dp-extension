@@ -48,7 +48,6 @@ function parseSaveBundle(msg: any): GoogleDocsMeta[] {
       const data: GoogleDocsMeta = {
         api: "save",
         requestId: reqId,
-        url: window.location.href,
         type: "insert",
         startPosition: ibi,
         timestamp: Date.now(),
@@ -67,7 +66,6 @@ function parseSaveBundle(msg: any): GoogleDocsMeta[] {
       const data: GoogleDocsMeta = {
         api: "save",
         requestId: reqId,
-        url: window.location.href,
         type: "delete",
         startPosition: si,
         endPosition: ei,
@@ -94,7 +92,6 @@ function parseSaveBundle(msg: any): GoogleDocsMeta[] {
       const data: GoogleDocsMeta = {
         api: "save",
         requestId: reqId,
-        url: window.location.href,
         type: "spellcheck",
         startPosition: si,
         endPosition: ei,
@@ -138,7 +135,6 @@ function parseAssistWriting(msg: any): GoogleDocsMeta | null {
     const data: GoogleDocsMeta = {
       api: "assistwriting",
       requestId: 0,
-      url: window.location.href,
       type: "assistwriting",
       content: suggestionText,
       timestamp: Date.now(),
@@ -147,7 +143,7 @@ function parseAssistWriting(msg: any): GoogleDocsMeta | null {
     }
     return data;
   } catch (e) {
-    console.log("assistwriting exception:", e);
+    console.error("assistwriting exception:", e);
     return null;
   }
 }

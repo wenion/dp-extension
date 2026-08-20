@@ -8,6 +8,16 @@ export interface ContentConnectEvent {
   source: "CONTENT";
 }
 
+export interface CaptureStartedEvent {
+  type: "CAPTURE/STARTED";
+  source: "CONTENT";
+}
+
+export interface CaptureStoppedEvent {
+  type: "CAPTURE/STOPPED";
+  source: "CONTENT";
+}
+
 export interface SessionStartEvent {
   type: "SESSION/START";
   source: "CONTENT";
@@ -111,6 +121,8 @@ export interface TraceGoogleEvent {
 
 export type ContentEvent =
   | ContentConnectEvent
+  | CaptureStartedEvent
+  | CaptureStoppedEvent
   | SessionStartEvent
   | PanelExpandEvent
   | PanelCollapseEvent

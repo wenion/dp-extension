@@ -5,7 +5,10 @@ import type { GoogleDocumentStore } from "./GoogleDocumentStore";
 import type { GoogleDocumentEngine } from "./GoogleDocumentEngine";
 import type { ContentScriptClient } from "../../clients/ContentScriptClient";
 
-import type { UserEvent, GoogleDocsMeta } from "@/shared/types";
+import type {
+  GoogleDocsMeta,
+  UserEvent,
+} from "@/shared/types";
 
 export class GoogleDocsService {
   private readonly api: GoogleDocsApiClient;
@@ -25,21 +28,31 @@ export class GoogleDocsService {
     this.contentScriptClient = contentScriptClient;
   }
 
-  async create(
+  async init(
     tabId: number,
-    url: string,
     docId: string,
-  ): Promise<string> {
-    const current = this.store.get(tabId);
-
-    if (current?.docId === docId) {
-      return current.state;
-    }
-
-    return this.loadDocument(
+  ): Promise<void> {
+    await this.showNotice(
       tabId,
-      url,
-      docId,
+      "Google Docs is preparing for recording...",
+    );
+
+    const content =
+      await this.api.fetchDocumentText(docId);
+
+    const state =
+      this.engine.createInitialState(
+        docId,
+        content,
+      );
+
+    this.store.set(
+      tabId,
+      state,
+    );
+
+    await this.showNotice(
+      tabId,
     );
   }
 
@@ -80,50 +93,16 @@ export class GoogleDocsService {
     return this.store.remove(tabId);
   }
 
-  async reload(
+  private async showNotice(
     tabId: number,
-    url: string,
-    docId: string,
-  ): Promise<string> {
-    return this.loadDocument(
-      tabId,
-      url,
-      docId,
-    );
-  }
-
-  private async loadDocument(
-    tabId: number,
-    url: string,
-    docId: string,
-  ): Promise<string> {
-
+    message?: string,
+  ): Promise<void> {
     await this.contentScriptClient.send(
       tabId,
       {
         type: "NOTICE/SHOW",
-        payload: "Google Docs is preparing for recording..."
-      },
+        payload: message,
+      }
     );
-
-    const text =
-      await this.api.fetchDocumentText(docId);
-
-    this.store.initialize(
-      tabId,
-      url,
-      docId,
-      text,
-    );
-
-    await this.contentScriptClient.send(
-      tabId,
-      {
-        type: "NOTICE/SHOW",
-
-      },
-    );
-
-    return text;
   }
 }

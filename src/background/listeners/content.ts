@@ -1,6 +1,5 @@
 import type { CaptureController } from "../controllers/CaptureController";
 import type { ExtensionController } from "../controllers/ExtensionController";
-import type { GoogleDocsController } from "../controllers/GoogleDocsController";
 import type { OptionsController } from "../controllers/OptionsController";
 
 import type {
@@ -142,7 +141,6 @@ async function routeContentEvent(
   sender: chrome.runtime.MessageSender,
   captureController: CaptureController,
   extensionController: ExtensionController,
-  googleDocsController: GoogleDocsController,
 ): Promise<void> {
   if (
     !sender.tab ||
@@ -156,7 +154,19 @@ async function routeContentEvent(
 
   switch (message.type) {
     case "CONTENT/CONNECT":
-      extensionController.onContentConnected(
+      await extensionController.onContentConnected(
+        tabId,
+      );
+      break;
+
+    case "CAPTURE/STARTED":
+      await captureController.onCaptureStarted(
+        tabId,
+      );
+      break;
+
+    case "CAPTURE/STOPPED":
+      await captureController.onCaptureStopped(
         tabId,
       );
       break;
@@ -245,14 +255,8 @@ async function routeContentEvent(
       break;
 
     case "TRACE/GOOGLE":
-      const traces =
-        await googleDocsController.updateDocument(
-          tabId,
-          message.payload.trace,
-        );
-
-      await captureController.captureMany(
-        traces,
+      await captureController.captureGoogleDocs(
+        message.payload.trace,
         tabId,
       );
       break;
@@ -263,7 +267,6 @@ async function routeContentEvent(
 export function startContentListener(
   captureController: CaptureController,
   extensionController: ExtensionController,
-  googleDocsController: GoogleDocsController,
   optionsController: OptionsController,
 ) {
   chrome.runtime.onMessage.addListener(
@@ -289,7 +292,6 @@ export function startContentListener(
           sender,
           captureController,
           extensionController,
-          googleDocsController,
         );
 
         return;
