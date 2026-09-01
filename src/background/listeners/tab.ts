@@ -11,17 +11,23 @@ export function startTabListener(
     await extensionController.handleTabRemoved(tabId);
   });
 
-  chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    if (!tab.url) {
-      return;
-    }
+  chrome.tabs.onUpdated.addListener(
+    async (tabId, changeInfo, tab) => {
+      if (!tab.url) {
+        return;
+      }
 
-    if (changeInfo.status !== "complete") {
-      return;
-    }
+      if (changeInfo.status !== "complete") {
+        return;
+      }
 
-    await extensionController.handleTabUpdated(tabId, tab.title);
-  });
+      await extensionController.handleTabUpdated(
+        tabId,
+        tab.windowId,
+        tab.title,
+      );
+    },
+  );
 
   chrome.webNavigation.onCommitted.addListener(async (details) => {
     if (

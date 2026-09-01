@@ -24,18 +24,28 @@ export class TabsService {
     this.contentScriptClient = contentScriptClient;
   }
 
-  async addTab(
-    tabId: number,
-    url: string,
-    origin: string,
-    recordingScope: RecordingScope,
-    connected: boolean,
-    title?: string,
-  ): Promise<TabState> {
+  async addTab({
+    tabId,
+    windowId,
+    url,
+    origin,
+    title,
+    recordingScope,
+    connected,
+  }: {
+    tabId: number;
+    windowId?: number;
+    url: string;
+    origin: string;
+    title?: string;
+    recordingScope: RecordingScope;
+    connected: boolean;
+  }): Promise<TabState> {
     const now = Date.now();
 
     const tabState: TabState = {
-      tabId: tabId,
+      tabId,
+      windowId,
       url,
       origin,
       title,
@@ -79,6 +89,25 @@ export class TabsService {
     await this.notifyTabsUpdated();
   }
 
+  async addOriginsToAllowlist(
+    origins: readonly string[],
+  ): Promise<void> {
+    if (origins.length === 0) {
+      return;
+    }
+
+    await this.allowlistRepository.addOrigins(
+      origins,
+    );
+
+    await this.setRecordingScopeByOrigins(
+      origins,
+      "recording",
+    );
+
+    await this.notifyAllowlistUpdated();
+  }
+
   async addToAllowlist(
     origin: string,
   ): Promise<void> {
@@ -112,17 +141,22 @@ export class TabsService {
     return updatedTabs;
   }
 
-  async updateTitle(
+  async updateTab(
     tabId: number,
-    title?: string,
+    patch: Partial<TabState>,
   ): Promise<TabState | undefined> {
-    return this.updateTab(
-      tabId,
-      {
-        title,
-        updatedAt: Date.now(),
-      },
-    );
+    const updated =
+      await this.tabsRepository.updateTab(
+        tabId,
+        tab => ({
+          ...tab,
+          ...patch,
+        })
+      );
+
+    await this.notifyTabsUpdated();
+
+    return updated;
   }
 
   async setRecording(
@@ -244,22 +278,6 @@ export class TabsService {
     await this.notifyTabsUpdated();
 
     return tab;
-  }
-
-  private async updateTab(
-    tabId: number,
-    patch: Partial<TabState>,
-  ): Promise<TabState | undefined> {
-    const updated =
-      await this.tabsRepository.updateTab(
-        tabId,
-        tab => ({
-          ...tab,
-          ...patch,
-        })
-      );
-    await this.notifyTabsUpdated();
-    return updated;
   }
 
   private async updateTabs(

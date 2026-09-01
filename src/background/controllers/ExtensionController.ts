@@ -22,6 +22,14 @@ import type {
 
 const SIGN_IN_MENU_ID = "sign-in";
 
+const DEFAULT_ORIGINS = [
+  "https://docs.google.com",
+  "https://chatgpt.com",
+  "https://claude.ai",
+  "https://gemini.google.com",
+  "https://www.overleaf.com",
+] as const;
+
 export class ExtensionController {
   private activeSessionService: ActiveSessionService;
   private authService: AuthenticationService;
@@ -66,25 +74,7 @@ export class ExtensionController {
    */
   async onBackgroundStartup() {
     // Restore tabs from storage.
-    await this.removeStaleTabs();
-
-    const tabs =
-      this.tabsService.getTabs();
-
-    // Restore content-script connection state.
-    await Promise.allSettled(
-      tabs.map(async tab => {
-        const connected =
-          await this.contentScriptService.isInjected(
-            tab.tabId,
-          );
-
-        await this.tabsService.setConnected(
-          tab.tabId,
-          connected,
-        );
-      }),
-    );
+    await this.restoreTabs();
 
     // Sync remote sessions.
     try {
@@ -123,7 +113,9 @@ export class ExtensionController {
     await this.updateCurrentBadge();
   }
 
-  getContentState(tabId: number): ContentState {
+  getContentState(
+    tabId: number,
+  ): ContentState {
     return {
       mount: this.extensionService.isMountEnabled(),
       activeSession: this.activeSessionService.getActiveSession(),
@@ -171,7 +163,7 @@ export class ExtensionController {
       return;
     }
 
-    await this.removeStaleTabs();
+    await this.restoreTabs();
     await this.tabsService.resetRecordingScopesFromAllowlist();
 
     await this.activeSessionService.start();
@@ -427,6 +419,10 @@ export class ExtensionController {
     details: chrome.runtime.InstalledDetails,
   ): Promise<void> {
     if (details.reason === "install") {
+      await this.tabsService.addOriginsToAllowlist(
+        DEFAULT_ORIGINS,
+      );
+
       await chrome.tabs.create({
         url: env.apiUrl
       });
@@ -530,15 +526,15 @@ export class ExtensionController {
     const isAllowlisted =
       this.tabsService.isAllowlisted(url.origin);
 
-    await this.tabsService.addTab(
+    await this.tabsService.addTab({
       tabId,
-      urlString,
-      url.origin,
-      isAllowlisted
+      url: urlString,
+      origin: url.origin,
+      recordingScope: isAllowlisted
         ? "recording"
         : "not_in_scope",
-      false,
-    );
+      connected: false,
+    });
 
     await this.updateCurrentBadge();
   }
@@ -551,9 +547,16 @@ export class ExtensionController {
 
   async handleTabUpdated(
     tabId: number,
+    windowId: number,
     title?: string,
   ) {
-    await this.tabsService.updateTitle(tabId, title);
+    await this.tabsService.updateTab(
+      tabId,
+      {
+        windowId,
+        title,
+      },
+    );
 
     const connected =
       await this.contentScriptService.isInjected(
@@ -597,16 +600,16 @@ export class ExtensionController {
         url.origin,
       );
 
-    await this.tabsService.addTab(
+    await this.tabsService.addTab({
       tabId,
-      chromeTab.url,
-      url.origin,
-      isAllowlisted
+      url: chromeTab.url,
+      origin: url.origin,
+      recordingScope: isAllowlisted
         ? "recording"
         : "not_in_scope",
-      false,
-      chromeTab.title,
-    );
+      connected: false,
+      title: chromeTab.title,
+    });
 
     await this.updateCurrentBadge();
   }
@@ -634,6 +637,27 @@ export class ExtensionController {
 
     await this.tabsService.addToAllowlist(
       tab.origin,
+    );
+  }
+
+  private async restoreTabs() {
+    await this.removeStaleTabs();
+
+    const tabs =
+      this.tabsService.getTabs();
+
+    await Promise.allSettled(
+      tabs.map(async tab => {
+        const connected =
+          await this.contentScriptService.isInjected(
+            tab.tabId,
+          );
+
+        await this.tabsService.setConnected(
+          tab.tabId,
+          connected,
+        );
+      }),
     );
   }
 
