@@ -1,4 +1,4 @@
-import "@/styles/globals.css";
+import "@/styles/content.css";
 
 const HOST_ID = "trace-capture-overlay";
 const STYLE_ID = "trace-capture-style";

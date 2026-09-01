@@ -3,7 +3,7 @@ import { HeroUIProvider } from "@heroui/system";
 
 import { Providers } from "./context/providers";
 
-import "@/styles/globals.css";
+import "@/styles/options.css";
 
 import App from "./App";
 import Header from "./Header";

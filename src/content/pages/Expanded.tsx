@@ -1,11 +1,11 @@
-import { Button } from "@heroui/button";
+import { Button } from "@/components/Button";
 import {
   Card,
   CardBody,
   CardFooter,
   CardHeader,
-} from "@heroui/card";
-import { Divider } from "@heroui/divider";
+} from "@/components/Card";
+import { Divider } from "@/components/Divider";
 
 import {
   ChevronDown,
@@ -211,32 +211,32 @@ export function Expanded() {
           icon: <EyeSlash />,
           onPress: handleIncludeTab,
           text: "excluded",
-          className: "text-default-500",
+          className: "text-gray-500",
         }
       : currentTab?.recordingScope === "not_in_scope"
       ? {
           icon: <EyeClosed />,
           onPress: promptTemporaryPermission,
           text: "not in scope",
-          className: "text-default-500",
+          className: "text-gray-500",
         }
       : currentTab?.recordingScope === "no_permission"
       ? {
           icon: <EyeClosed />,
           onPress: handlePromptHostPermission,
           text: "not in scope",
-          className: "text-default-500",
+          className: "text-gray-500",
         }
       : {
           icon: <EyeClosed />,
           text: "this URL is not supported",
-          className: "text-default-500",
+          className: "text-gray-500",
       };
 
   return (
     <div className="flex items-center">
       <Card 
-        className='border-default border-medium w-80'
+        className='border-2 border-gray-300 w-80'
         shadow="none"
       >
         <CardHeader className="flex py-2 justify-between items-center">
@@ -255,8 +255,6 @@ export function Expanded() {
 
           <div className="flex gap-x-2 items-center">
             <Button
-              color="default"
-              variant="bordered"
               size="sm"
               startContent={<LayoutHeader/>}
               onPress={handleOpenOptionsPage}
@@ -265,7 +263,6 @@ export function Expanded() {
             </Button>
             <Button
               isIconOnly
-              variant="bordered"
               size="sm"
               onPress={handleCollapsePanel}
             >
@@ -278,7 +275,6 @@ export function Expanded() {
             {activeSession?.captureState === "recording" ? (
               <Button
                 className="w-full border border-amber-400 text-amber-700 font-medium"
-                variant="bordered"
                 startContent={<PauseFill/>}
                 onPress={handlePauseSession}
               >
@@ -287,7 +283,6 @@ export function Expanded() {
             ): (
               <Button
                 className="w-full border border-amber-400 text-amber-700 font-medium"
-                variant="bordered"
                 startContent={<PlayFill/>}
                 onPress={handleResumeSession}
               >
@@ -296,7 +291,6 @@ export function Expanded() {
             )}
             <Button
               className="w-full border border-rose-200 text-red-600 font-medium"
-              variant="bordered"
               startContent={<SquareFill />}
               onPress={handleRequestEndSession}
             >
@@ -313,7 +307,6 @@ export function Expanded() {
               <>
                 <Button
                   isIconOnly
-                  variant="bordered"
                   size="sm"
                   className={`${action.className} border`}
                   onPress={action.onPress}

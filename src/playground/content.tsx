@@ -1,6 +1,6 @@
 import { render } from "@/content/overlay/render";
 
-import "@/styles/globals.css";
+import "@/styles/content.css";
 
 render(
   document.getElementById("content-root")!,

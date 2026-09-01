@@ -1,10 +1,10 @@
-import { Button } from '@heroui/button';
+import { Button } from "@/components/Button";
 import {
   Card,
   CardBody,
   CardHeader,
   CardFooter,
-} from "@heroui/card";
+} from "@/components/Card";
 
 import { CircleCheck } from '@gravity-ui/icons';
 
@@ -31,10 +31,10 @@ export function UploadCompleted() {
 
   return (
     <div className="flex gap-4 items-center">
-      <Card className='border-default border-medium w-80'>
-        <CardHeader className="flex flex-col gap-x-4  py-1 justify-center">
+      <Card className="border-2 border-gray-300 w-80">
+        <CardHeader className="flex flex-col items-center justify-center gap-2 py-3 text-green-600">
           <CircleCheck width={80} height={80} color="green"/>
-          <p className="font-bold ">Session uploaded</p>
+          <p className="font-bold">Session uploaded</p>
         </CardHeader>
         <CardBody className="py-1 px-4">
           <p className="text-sm text-center">
@@ -44,8 +44,6 @@ export function UploadCompleted() {
         <CardFooter className="flex justify-center">
           <Button
             className="w-full"
-            color="default"
-            variant="bordered"
             onPress={handleCompleteUploadedSession}
           >
             Done

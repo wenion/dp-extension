@@ -1,10 +1,10 @@
-import { Button } from '@heroui/button';
+import { Button } from "@/components/Button";
 import {
   Card,
   CardHeader,
   CardBody,
   CardFooter,
-} from "@heroui/card";
+} from "@/components/Card";
 
 import { TriangleExclamation } from '@gravity-ui/icons';
 
@@ -31,10 +31,10 @@ export function UploadFailed() {
 
   return (
     <div className="flex gap-4 items-center">
-      <Card className='border-default border-medium w-80'>
-        <CardHeader className="flex flex-col gap-x-4  py-1 justify-center">
+      <Card className="border-2 border-gray-300 w-80">
+        <CardHeader className="flex flex-col items-center justify-center gap-2 py-3">
           <TriangleExclamation width={80} height={80} color="yellow"/>
-          <p className="font-bold ">Upload failed</p>
+          <p className="font-bold">Upload failed</p>
         </CardHeader>
 
         <CardBody className="py-1 px-4">
@@ -47,8 +47,6 @@ export function UploadFailed() {
         <CardFooter className="flex justify-center">
           <Button
             className="w-full"
-            color="default"
-            variant="bordered"
             onPress={handleCompleteUploadFailedSession}
           >
             Done

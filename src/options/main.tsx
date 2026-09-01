@@ -1,4 +1,4 @@
-import "@/styles/globals.css";
+import "@/styles/options.css";
 
 import { render } from "./render";
 

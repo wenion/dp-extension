@@ -2,8 +2,8 @@ import {
   Card,
   CardBody,
   CardHeader,
-} from "@heroui/card";
-import { Spinner } from "@heroui/spinner";
+} from "@/components/Card";
+import { Spinner } from "@/components/Spinner";
 
 type Props = {
   message?: string;
@@ -16,7 +16,7 @@ export function Notice({
 }: Props) {
   return (
     <Card
-      className="w-80 min-h-[169px] border-default border-medium"
+      className="w-80 min-h-[169px] border-2 border-gray-300"
       shadow="none"
     >
       {loading && (

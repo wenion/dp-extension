@@ -1,4 +1,5 @@
-import { Button } from '@heroui/button';
+import { Button } from "@/components/Button";
+
 import { TriangleRightFill } from '@gravity-ui/icons';
 
 import { startSession } from "../message/backgroundClient";
@@ -25,9 +26,7 @@ export function Idle() {
   return (
     <div className="flex gap-4 items-center">
       <Button
-        className="border-default border-medium"
-        color="default"
-        variant="bordered"
+        className="border-2 border-gray-300"
         startContent={<TriangleRightFill />}
         onPress={handleStartSession}
       >

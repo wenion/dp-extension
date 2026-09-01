@@ -1,4 +1,4 @@
-import { Button } from "@heroui/button";
+import { Button } from "@/components/Button";
 
 import {
   CircleFill,
@@ -48,8 +48,6 @@ export function Collapsed() {
     <div className="flex items-center justify-center">
       <Button
         className='gap-4'
-        color="default"
-        variant="bordered"
         startContent={
           activeSession?.captureState === "recording" ? (
             <CircleFill className='text-red-600'/>

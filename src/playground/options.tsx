@@ -1,5 +1,5 @@
 import { render } from "@/options/render";
 
-import "@/styles/globals.css";
+import "@/styles/options.css";
 
 render(document.getElementById("options-root")!);
