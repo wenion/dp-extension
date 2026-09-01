@@ -213,7 +213,6 @@ class Application {
     );
 
     startTabListener(
-      this.captureController,
       this.extensionController,
     );
 

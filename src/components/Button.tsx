@@ -44,7 +44,7 @@ export function Button({
         justify-center
         gap-2
         cursor-pointer
-        rounded-lg
+        rounded-xl
         border
         border-gray-200
         bg-transparent
