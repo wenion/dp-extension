@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { Button } from "@heroui/button";
 import { Card, CardBody } from "@heroui/card";
 import { addToast } from "@heroui/toast";
@@ -9,17 +11,14 @@ import {
   LinkSlash,
 } from "@gravity-ui/icons";
 
-import type { RecordingScope } from "@/shared/types"
+import {
+  promptTemporaryPermission,
+} from "../message/BackgroundClient";
+
+import type { TabState } from "@/shared/types"
 
 type TabRecordCardProps = {
-  tabId: number;
-
-  origin: string;
-  title?: string;
-
-  recordingScope: RecordingScope;
-  connected: boolean;
-
+  tab: TabState;
   favicon?: string;
   captureState: "recording" | "paused";
 
@@ -29,21 +28,20 @@ type TabRecordCardProps = {
 };
 
 export function TabRecordCard({
-  tabId,
-  title,
-  origin,
+  tab,
   favicon,
-  connected,
   captureState,
-  recordingScope,
   onIncludeTab,
   onExcludeTab,
   onRequestPermission,
 }: TabRecordCardProps) {
+  const [permissionExpanded, setPermissionExpanded] =
+    useState(false);
+
   const displayStatus =
-    recordingScope === "recording"
+    tab.recordingScope === "recording"
       ? captureState
-      : recordingScope;
+      : tab.recordingScope;
 
   const statusTextColor = {
     recording: "text-red-600",
@@ -63,31 +61,15 @@ export function TabRecordCard({
     unsupported: "NOT IN SCOPE",
   } as const;
 
-  const action =
-    recordingScope === "recording"
-      ? {
-          icon: <Eye />,
-          onPress: onExcludeTab,
-        }
-      : recordingScope === "excluded"
-      ? {
-          icon: <EyeSlash />,
-          onPress: onIncludeTab,
-        }
-      : {
-          icon: <EyeClosed />,
-          onPress: onRequestPermission,
-        };
-
-  const openTab = async (tabId: number) => {
+  const openTab = async () => {
     try {
-      const tab = await chrome.tabs.get(tabId);
+      if (tab.windowId) {
+        await chrome.windows.update(tab.windowId, {
+          focused: true,
+        });
+      }
 
-      await chrome.windows.update(tab.windowId, {
-        focused: true,
-      });
-
-      await chrome.tabs.update(tabId, {
+      await chrome.tabs.update(tab.tabId, {
         active: true,
       });
     } catch {
@@ -97,65 +79,164 @@ export function TabRecordCard({
         color: "danger",
       });
     }
-  }
+  };
+
+  const handleAction = async () => {
+    if (tab.recordingScope === "recording") {
+      onExcludeTab?.(tab.tabId);
+      return;
+    }
+
+    if (tab.recordingScope === "excluded") {
+      onIncludeTab?.(tab.tabId);
+      return;
+    }
+
+    // Don't request permission yet.
+    // Expand the card first.
+    onIncludeTab?.(tab.tabId);
+    await promptTemporaryPermission(tab.tabId);
+    setPermissionExpanded(true);
+  };
+
+  const handlePermissionConfirm = () => {
+    setPermissionExpanded(false);
+    onRequestPermission?.(tab.tabId);
+  };
+
+  const handlePermissionCancel = () => {
+    setPermissionExpanded(false);
+  };
+
+  const actionIcon =
+    tab.recordingScope === "recording"
+      ? <Eye />
+      : tab.recordingScope === "excluded"
+        ? <EyeSlash />
+        : <EyeClosed />;
+
+  const domain = new URL(tab.url).hostname;
 
   return (
-    <Card shadow="sm" className="border border-default-200">
-      <CardBody className="flex flex-row items-center gap-4 p-4">
-        {/* Favicon */}
-        <div className="shrink-0">
-          {favicon ? (
-            <img
-              src={favicon}
-              alt={title ?? origin}
-              className="h-11 w-11 rounded-xl object-cover"
-            />
-          ) : (
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-success text-lg font-semibold text-white">
-              {title?.charAt(0)?.toUpperCase() ?? ""}
-            </div>
-          )}
-        </div>
-
-        {/* Title */}
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 min-w-0 text-base font-semibold">
-            <span
-              className="truncate cursor-pointer text-primary hover:underline"
-              onClick={() => openTab(tabId)}
-            >
-              {title}
-            </span>
-
-            {!connected && (
-              <span
-                className="inline-flex items-center gap-1 text-warning text-xs "
-                title="Extension is not connected to this page. Reload the page to reconnect."
-              >
-                <LinkSlash />
-                Disconnected · Need to reload the page
-              </span>
+    <Card
+      shadow="sm"
+      className="border border-default-200"
+    >
+      <CardBody className="p-4">
+        {/* Main row */}
+        <div className="flex flex-row items-center gap-4">
+          {/* Favicon */}
+          <div className="shrink-0">
+            {favicon ? (
+              <img
+                src={favicon}
+                alt={tab.title ?? tab.origin}
+                className="h-11 w-11 rounded-xl object-cover"
+              />
+            ) : (
+              <div className="
+                flex h-11 w-11 items-center justify-center
+                rounded-xl bg-success
+                text-lg font-semibold text-white
+              ">
+                {tab.title?.charAt(0)?.toUpperCase() ?? ""}
+              </div>
             )}
-          </p>
-          <p className="truncate text-sm text-default-500">{origin}</p>
+          </div>
+
+          {/* Title */}
+          <div className="min-w-0 flex-1">
+            <p className="
+              flex min-w-0 items-center gap-2
+              text-base font-semibold
+            ">
+              <span
+                className="
+                  cursor-pointer truncate
+                  text-primary hover:underline
+                "
+                onClick={openTab}
+              >
+                {tab.title}
+              </span>
+
+              {!tab.connected && (
+                <span
+                  className="
+                    inline-flex items-center gap-1
+                    text-xs text-warning
+                  "
+                  title="
+                    Extension is not connected to this page.
+                    Reload the page to reconnect.
+                  "
+                >
+                  <LinkSlash />
+                  Disconnected · Need to reload the page
+                </span>
+              )}
+            </p>
+
+            <p className="truncate text-sm text-default-500">
+              {tab.origin}
+            </p>
+          </div>
+
+          {/* Status */}
+          <div
+            className={`
+              text-sm font-medium
+              ${statusTextColor[displayStatus]}
+            `}
+          >
+            {statusLabel[displayStatus]}
+          </div>
+
+          {/* Toggle */}
+          <Button
+            className={statusTextColor[displayStatus]}
+            isIconOnly
+            variant="bordered"
+            onPress={handleAction}
+          >
+            {actionIcon}
+          </Button>
         </div>
 
-        {/* Status */}
-        <div
-          className={`text-sm font-medium ${statusTextColor[displayStatus]}`}
-        >
-          {statusLabel[displayStatus]}
-        </div>
+        {/* Permission confirmation */}
+        {permissionExpanded && (
+          <div className="
+            mt-4
+            border-t border-default-200
+            pt-4
+          ">
+            <p className="mb-3 text-sm text-default-600">
+              Capturing{" "}
+              <span className="font-semibold text-default-800">
+                {domain}
+              </span>{" "}
+              this session. Save to your defaults for next time?
+            </p>
 
-        {/* Toggle */}
-        <Button
-          className={statusTextColor[displayStatus]}
-          isIconOnly
-          variant="bordered"
-          onPress={() => action.onPress?.(tabId)}
-        >
-          {action.icon}
-        </Button>
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="light"
+                onPress={handlePermissionCancel}
+              >
+                Not now
+              </Button>
+
+              <Button
+                size="sm"
+                color="primary"
+                onPress={handlePermissionConfirm}
+              >
+                Allow
+              </Button>
+            </div>
+          </div>
+        )}
       </CardBody>
     </Card>
   );

@@ -4,134 +4,111 @@ import type { OptionsController } from "../controllers/OptionsController";
 
 import type {
   ContentEvent,
-} from "@/shared/message/contentEvents";
+} from "@/shared/messaging/contentProtocol";
 import type {
   OptionsEvent,
-} from "@/shared/message/optionsEvents";
+} from "@/shared/messaging/optionsProtocol";
 
 async function routeOptionsEvent(
   message: OptionsEvent,
-  sendResponse: (response?: any) => void,
   extensionController: ExtensionController,
   optionsController: OptionsController,
-): Promise<void> {
+) {
   switch (message.type) {
     case "OPTIONS/CONNECT":
-      await extensionController.onOptionsConnected();
-      break;
+      return extensionController.getOptionsState();
 
     case "SESSION/START":
       await extensionController.startRecording();
-      break;
+      return;
 
     case "SESSION/PAUSE":
       await extensionController.pauseRecording();
-      break;
+      return;
 
     case "SESSION/RESUME":
       await extensionController.resumeRecording();
-      break;
+      return;
 
     case "SESSION/END_REQUEST":
       await extensionController.endRequested();
-      break;
+      return;
 
     case "SESSION/END":
       await extensionController.endRecording();
-      break;
+      return;
 
     case "SESSION/END_REQUEST_CANCELLED":
       await extensionController.expand();
-      break;
+      return;
 
     case "SESSION/EXIT":
       await extensionController.exitRecording();
-      break;
+      return;
 
     case "SESSION/EXIT_REQUEST_CANCELLED":
       await extensionController.expand();
-      break;
+      return;
 
     case "SESSION/UPLOADED_DONE":
       await extensionController.finalizeRecording();
-      break;
+      return;
 
     case "SESSION/UPLOAD_FAILED_DONE":
       await extensionController.finalizeRecordingFailed();
-      break;
+      return;
 
     case "TAB/INCLUDE":
       await extensionController.setTabRecording(
         message.payload.tabId,
       );
-      break;
+      return;
 
     case "TAB/EXCLUDE":
       await extensionController.setTabExcluded(
         message.payload.tabId,
       );
-      break;
-
-    // case "TABS/GRANTED":
-    //   await extensionController.injectContentScriptsByOrigin(
-    //     message.payload.origin,
-    //   );
-    //   break;
+      return;
 
     case "OPTIONS/TOGGLE_MOUNT":
       await extensionController.toggleMount();
-      break;
+      return;
 
-    case "OPTIONS/NAME_SESSION":
-      await extensionController.setActiveSessionName(
-        message.payload.name,
-      );
-      break;
+    case "OPTIONS/NAME_SESSION": {
+      const session =
+        await extensionController.setActiveSessionName(
+          message.payload.name,
+        );
 
+      return session;
+    }
     case "OPTIONS/RETRY_SESSION": {
       const result =
         await extensionController.reuploadRecording(
           message.payload.sessionId,
         );
 
-      sendResponse({
-        success: result !== undefined,
-      });
-
-      break;
+      return result !== undefined;
     }
 
     case "OPTIONS/DISMISS_NOTIFICATION":
       extensionController.dismissNotification(
         message.payload.notificationId,
       );
-      break;
+      return;
 
+    case "OPTIONS/PROMPT_TEMPORARY_PERMISSION":
+      return;
+
+    case "OPTIONS/ALLOWLIST_ADD":
     case "OPTIONS/ALLOWLIST_REMOVE":
     case "OPTIONS/OPEN_SESSION":
     case "OPTIONS/RENAME_SESSION":
     case "OPTIONS/SET_PAGE": {
-      try {
-        await optionsController.handleOptionsEvent(
-          message,
-        );
-
-        sendResponse({
-          success: true,
-        });
-      }
-      catch (error) {
-        console.error(
-          "Failed to handle options event:",
-          error,
-        );
-
-        sendResponse({
-          success: false,
-        });
-      }
-
-      break;
+      await optionsController.handleOptionsEvent(
+        message,
+      );
+      return;
     }
   }
 }
@@ -141,127 +118,125 @@ async function routeContentEvent(
   sender: chrome.runtime.MessageSender,
   captureController: CaptureController,
   extensionController: ExtensionController,
-): Promise<void> {
-  if (
-    !sender.tab ||
-    sender.tab.id == null ||
-    !sender.tab.url
-  ) {
-    return;
+) {
+  const tab = sender.tab;
+
+  if (tab?.id == null || !tab.url) {
+    throw new Error("Invalid sender tab");
   }
 
-  const tabId = sender.tab.id;
+  const tabId = tab.id;
 
   switch (message.type) {
     case "CONTENT/CONNECT":
-      await extensionController.onContentConnected(
+      return extensionController.getContentState(
         tabId,
       );
-      break;
 
     case "CAPTURE/STARTED":
       await captureController.onCaptureStarted(
         tabId,
       );
-      break;
+      return;
 
     case "CAPTURE/STOPPED":
       await captureController.onCaptureStopped(
         tabId,
       );
-      break;
+      return;
 
     case "SESSION/START":
       await extensionController.startRecording();
-      break;
+      return;
 
     case "PANEL/EXPAND":
       await extensionController.expand();
-      break;
+      return;
 
     case "PANEL/COLLAPSE":
       await extensionController.collapse();
-      break;
+      return;
 
     case "SESSION/PAUSE":
       await extensionController.pauseRecording();
-      break;
+      return;
 
     case "SESSION/RESUME":
       await extensionController.resumeRecording();
-      break;
+      return;
 
     case "SESSION/END_REQUEST":
       await extensionController.endRequested();
-      break;
+      return;
 
     case "SESSION/END":
       await extensionController.endRecording();
-      break;
+      return;
 
     case "SESSION/END_REQUEST_CANCELLED":
       await extensionController.expand();
-      break;
+      return;
 
     case "SESSION/EXIT":
       await extensionController.exitRecording();
-      break;
+      return;
 
     case "SESSION/EXIT_REQUEST_CANCELLED":
       await extensionController.expand();
-      break;
+      return;
 
     case "SESSION/UPLOADED_DONE":
       await extensionController.finalizeRecording();
-      break;
+      return;
 
     case "SESSION/UPLOAD_FAILED_DONE":
       await extensionController.finalizeRecordingFailed();
-      break;
+      return;
 
     case "TAB/INCLUDE":
       await extensionController.setTabRecording(
         tabId,
       );
-      break;
+      return;
 
     case "TAB/EXCLUDE":
       await extensionController.setTabExcluded(
         tabId,
       );
-      break;
+      return;
 
     case "TAB/OPEN_OPTIONS":
       await chrome.runtime.openOptionsPage();
-      break;
+      return;
 
     case "TAB/ADD_TO_ALLOWLIST":
       await extensionController.addToAllowlist(
         tabId,
       );
-      break;
+      return;
 
     case "TAB/PROMPT_HOST_PERMISSION":
       await extensionController.promptHostPermission(
         tabId,
       );
-      break;
+      return;
 
     case "TRACE/USER":
       await captureController.capture(
         message.payload.trace,
         tabId,
       );
-      break;
+      return;
 
     case "TRACE/GOOGLE":
       await captureController.captureGoogleDocs(
         message.payload.trace,
         tabId,
       );
-      break;
-
+      return;
   }
+
+  return;
 }
 
 export function startContentListener(
@@ -270,32 +245,26 @@ export function startContentListener(
   optionsController: OptionsController,
 ) {
   chrome.runtime.onMessage.addListener(
-    async (
+    (
       message: any,
       sender: chrome.runtime.MessageSender,
-      sendResponse: (response?: any) => void,
     ) => {
       if (message.source === "OPTIONS") {
-        await routeOptionsEvent(
+        return routeOptionsEvent(
           message as OptionsEvent,
-          sendResponse,
           extensionController,
           optionsController,
         );
-
-        return;
       }
 
       if (message.source === "CONTENT") {
-        await routeContentEvent(
+        return routeContentEvent(
           message as ContentEvent,
           sender,
           captureController,
           extensionController,
         );
-
-        return;
       }
-    }
-  )
+    },
+  );
 }

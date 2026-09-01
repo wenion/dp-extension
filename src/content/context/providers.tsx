@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { OverlayState } from "../types";
 
 type Props = {
-  initialState: OverlayState;
+  initialState?: OverlayState;
   children: ReactNode;
 };
 

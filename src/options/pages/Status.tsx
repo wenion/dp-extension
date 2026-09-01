@@ -24,6 +24,7 @@ import { useAppContext } from "../context/context";
 
 // Background actions
 import {
+  addToAllowlist,
   cancelSessionEndRequest,
   cancelSessionExitRequest,
   completeUploadedSession,
@@ -33,7 +34,6 @@ import {
   excludeTab,
   includeTab,
   pauseSession,
-  permissionGranted,
   resumeSession,
   startSession,
   requestSessionEnd,
@@ -77,17 +77,9 @@ export function Status() {
 
     if (!tab) return;
 
-    const url = new URL(tab.url);
-    const originPattern = `${url.origin}/*`;
+    const origin = new URL(tab.url).origin;
 
-    const granted = await chrome.permissions.request({
-      permissions: ["scripting"],
-      origins: [originPattern],
-    });
-
-    if (granted) {
-      await permissionGranted(url.origin);
-    }
+    await addToAllowlist(origin);
   }
 
   const isHttpTab = (tab: TabState) => {
@@ -195,11 +187,7 @@ export function Status() {
               .map(tab => (
                 <TabRecordCard
                   key={tab.tabId}
-                  tabId={tab.tabId}
-                  origin={tab.origin}
-                  title={tab.title}
-                  recordingScope={tab.recordingScope}
-                  connected={tab.connected}
+                  tab={tab}
                   captureState={activeSession?.captureState??"paused"}
                   onIncludeTab={includeTab}
                   onExcludeTab={excludeTab}

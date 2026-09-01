@@ -8,9 +8,27 @@ import {
 
 import { CircleCheck } from '@gravity-ui/icons';
 
-import { completeUploadedSession } from "../message/BackgroundClient";
+import { completeUploadedSession } from "../message/backgroundClient";
+import { useAppContext } from "../context/context";
+
 
 export function UploadCompleted() {
+  const { showNotice } = useAppContext();
+
+  const handleCompleteUploadedSession = async () => {
+    try {
+      await completeUploadedSession();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
   return (
     <div className="flex gap-4 items-center">
       <Card className='border-default border-medium w-80'>
@@ -28,7 +46,7 @@ export function UploadCompleted() {
             className="w-full"
             color="default"
             variant="bordered"
-            onPress={completeUploadedSession}
+            onPress={handleCompleteUploadedSession}
           >
             Done
           </Button>

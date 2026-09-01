@@ -10,7 +10,7 @@ let reactRoot: Root | null = null;
 
 export function render(
   container: HTMLElement,
-  initialState: OverlayState,
+  initialState?: OverlayState,
 ) {
   if (reactRoot) {
     return;

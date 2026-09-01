@@ -19,8 +19,6 @@ import {
   SquareFill,
 } from "@gravity-ui/icons";
 
-import { useAppContext } from "../context/context";
-
 import {
   addToAllowlist,
   collapsePanel,
@@ -31,7 +29,9 @@ import {
   promptHostPermission,
   resumeSession,
   requestSessionEnd,
-} from "../message/BackgroundClient";
+} from "../message/backgroundClient";
+import { useAppContext } from "../context/context";
+
 
 export function Expanded() {
   const {
@@ -40,16 +40,143 @@ export function Expanded() {
     numberOfRecordingTabs,
     showDialog,
     hideDialog,
+    showNotice,
   } = useAppContext();
 
-  const promptTemporaryPermission = async() => {
+  const handleAddToAllowlist = async () => {
+    try {
+      await addToAllowlist();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
+  const handleCollapsePanel = async () => {
+    try {
+      await collapsePanel();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
+  const handleExcludeTab = async () => {
+    try {
+      await excludeTab();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
+  const handleIncludeTab = async () => {
+    try {
+      await includeTab();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
+  const handleOpenOptionsPage = async () => {
+    try {
+      await openOptionsPage();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
+  const handlePauseSession = async () => {
+    try {
+      await pauseSession();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
+  const handlePromptHostPermission = async () => {
+    try {
+      await promptHostPermission();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
+  const handleResumeSession = async () => {
+    try {
+      await resumeSession();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
+  const handleRequestEndSession = async () => {
+    try {
+      await requestSessionEnd();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
+  const promptTemporaryPermission = async () => {
     if (!currentTab?.url) {
       return;
     }
 
     const domain = new URL(currentTab.url).hostname;
 
-    await includeTab();
+    await handleIncludeTab();
 
     showDialog({
       message: `Capturing ${domain} this session. Save to your defaults for next time?`,
@@ -57,7 +184,7 @@ export function Expanded() {
       cancelText: "Not now",
 
       onConfirm: async () => {
-        await addToAllowlist();
+        await handleAddToAllowlist();
         hideDialog();
       },
 
@@ -69,7 +196,7 @@ export function Expanded() {
     currentTab?.recordingScope === "recording"
       ? {
           icon: <Eye />,
-          onPress: excludeTab,
+          onPress: handleExcludeTab,
           text:
             activeSession?.captureState === "recording"
               ? "recording"
@@ -82,7 +209,7 @@ export function Expanded() {
       : currentTab?.recordingScope === "excluded"
       ? {
           icon: <EyeSlash />,
-          onPress: includeTab,
+          onPress: handleIncludeTab,
           text: "excluded",
           className: "text-default-500",
         }
@@ -96,7 +223,7 @@ export function Expanded() {
       : currentTab?.recordingScope === "no_permission"
       ? {
           icon: <EyeClosed />,
-          onPress: promptHostPermission,
+          onPress: handlePromptHostPermission,
           text: "not in scope",
           className: "text-default-500",
         }
@@ -132,7 +259,7 @@ export function Expanded() {
               variant="bordered"
               size="sm"
               startContent={<LayoutHeader/>}
-              onPress={openOptionsPage}
+              onPress={handleOpenOptionsPage}
             >
               {numberOfRecordingTabs}
             </Button>
@@ -140,7 +267,7 @@ export function Expanded() {
               isIconOnly
               variant="bordered"
               size="sm"
-              onPress={collapsePanel}
+              onPress={handleCollapsePanel}
             >
               <ChevronDown />
             </Button>
@@ -153,7 +280,7 @@ export function Expanded() {
                 className="w-full border border-amber-400 text-amber-700 font-medium"
                 variant="bordered"
                 startContent={<PauseFill/>}
-                onPress={pauseSession}
+                onPress={handlePauseSession}
               >
                 Pause
               </Button>
@@ -162,7 +289,7 @@ export function Expanded() {
                 className="w-full border border-amber-400 text-amber-700 font-medium"
                 variant="bordered"
                 startContent={<PlayFill/>}
-                onPress={resumeSession}
+                onPress={handleResumeSession}
               >
                 Resume
               </Button>
@@ -171,7 +298,7 @@ export function Expanded() {
               className="w-full border border-rose-200 text-red-600 font-medium"
               variant="bordered"
               startContent={<SquareFill />}
-              onPress={requestSessionEnd}
+              onPress={handleRequestEndSession}
             >
               Stop
             </Button>

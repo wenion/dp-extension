@@ -65,19 +65,19 @@ export class ExtensionController {
    * synchronizes remote sessions, and updates the extension badge.
    */
   async onBackgroundStartup() {
-    // Remove tabs that no longer exist.
-    await this.tabsService.removeStaleTabs();
-    await this.tabsService.resetRecordingScopesFromAllowlist();
+    // Restore tabs from storage.
+    await this.removeStaleTabs();
 
-    // Restore content-script connection state.
     const tabs =
       this.tabsService.getTabs();
 
-    await Promise.all(
+    // Restore content-script connection state.
+    await Promise.allSettled(
       tabs.map(async tab => {
         const connected =
-          await this.contentScriptService
-            .isInjected(tab.tabId);
+          await this.contentScriptService.isInjected(
+            tab.tabId,
+          );
 
         await this.tabsService.setConnected(
           tab.tabId,
@@ -90,7 +90,6 @@ export class ExtensionController {
     try {
       await this.sessionsService.fetchSessions();
 
-      await this.badgeService.setDisabled();
     } catch (error) {
       if (error instanceof MissingAccessTokenError) {
         await this.badgeService.setUnauthenticated();
@@ -100,23 +99,41 @@ export class ExtensionController {
       throw error;
     }
 
+    // Sync connected content scripts.
+    const connectedTabs =
+      this.tabsService
+        .getTabs()
+        .filter(tab => tab.connected);
+
+    await Promise.allSettled(
+      connectedTabs.map(async tab => {
+        const contentState =
+          this.getContentState(
+            tab.tabId,
+          );
+
+        await this.extensionService.notifyContent(
+          tab.tabId,
+          contentState,
+        );
+      }),
+    );
+
     // Restore badge state.
     await this.updateCurrentBadge();
   }
 
-  async onContentConnected(tabId: number) {
-    const state: ContentState = {
+  getContentState(tabId: number): ContentState {
+    return {
       mount: this.extensionService.isMountEnabled(),
       activeSession: this.activeSessionService.getActiveSession(),
       tabs: this.tabsService.getTabs(),
       tabId,
     }
-
-    this.extensionService.notifyContent(state);
   }
 
-  async onOptionsConnected(): Promise<void> {
-    const state: OptionsState = {
+  getOptionsState(): OptionsState {
+    return {
       mount: this.extensionService.isMountEnabled(),
       activeSession: this.activeSessionService.getActiveSession(),
       tabs: this.tabsService.getTabs(),
@@ -127,8 +144,6 @@ export class ExtensionController {
       page: this.extensionService.getOptionsPage(),
       allowlist: this.tabsService.getAllowlist(),
     }
-
-    await this.extensionService.notifyOptions(state);
   }
 
   private async mount() {
@@ -623,9 +638,10 @@ export class ExtensionController {
   }
 
   private async removeStaleTabs(): Promise<void> {
-    const chromeTabs = await chrome.tabs.query({});
+    const chromeTabs =
+      await chrome.tabs.query({});
 
-    const activeTabIds = new Set(
+    const existingTabIds = new Set(
       chromeTabs
         .map(tab => tab.id)
         .filter(
@@ -638,13 +654,9 @@ export class ExtensionController {
       this.tabsService
         .getTabs()
         .filter(tab =>
-          !activeTabIds.has(tab.tabId),
+          !existingTabIds.has(tab.tabId),
         )
         .map(tab => tab.tabId);
-
-    if (staleTabIds.length === 0) {
-      return;
-    }
 
     await this.tabsService.removeTabs(
       staleTabIds,

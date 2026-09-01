@@ -1,16 +1,16 @@
-import type { BackgroundEvent } from "@/shared/message/backgroundEvents";
 import type { TabsRepository } from "../repositories/TabsRepository";
+
+import type {
+  BackgroundEvent,
+  BackgroundMessageType,
+} from "@/shared/messaging/backgroundProtocol";
+
 
 /**
  * Sends messages to content scripts.
  *
- * Responsible for delivering messages to a specific tab
- * or broadcasting them to all registered content scripts.
- *
- * Does not manage content script lifecycle or tab state.
  */
 export class ContentScriptClient {
-
   private readonly tabsRepository: TabsRepository;
 
   constructor(
@@ -19,10 +19,12 @@ export class ContentScriptClient {
     this.tabsRepository = tabsRepository;
   }
 
-  async send<T = void>(
+  async send<
+    T extends BackgroundMessageType,
+  >(
     tabId: number,
-    message: BackgroundEvent,
-  ): Promise<T> {
+    message: BackgroundEvent<T>,
+  ): Promise<void> {
     return chrome.tabs.sendMessage(
       tabId,
       message,
@@ -36,15 +38,16 @@ export class ContentScriptClient {
    * to establish or restore the content-script connection itself,
    * so tabs marked as disconnected must still be reachable.
    *
-   * Delivery failures are ignored so that an unavailable tab does
-   * not prevent messages from reaching other tabs.
+   * Delivery failures do not interrupt delivery to other tabs.
+   * Results are collected and returned to the caller for handling.
    */
-  async broadcast(
-    message: BackgroundEvent
+  async broadcast<
+    T extends BackgroundMessageType,
+  >(
+    message: BackgroundEvent<T>,
   ): Promise<void> {
     const tabs =
-      this.tabsRepository
-        .getTabs();
+      this.tabsRepository.getTabs();
 
     await Promise.allSettled(
       tabs.map(tab =>

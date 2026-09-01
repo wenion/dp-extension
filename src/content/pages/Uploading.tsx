@@ -1,5 +1,9 @@
 import { Spinner } from "@heroui/spinner";
-import { Card, CardHeader, CardBody } from "@heroui/card";
+import {
+  Card,
+  CardHeader,
+  CardBody
+} from "@heroui/card";
 
 
 export function Uploading() {

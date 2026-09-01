@@ -56,12 +56,20 @@ export class ExtensionService {
   }
 
   async notifyContent(
+    tabId: number,
     contentState: ContentState,
   ) {
-    await this.contentScriptClient.broadcast({
-      type: "CONTENT/INITIALIZED",
-      payload: contentState,
-    });
+    try {
+      await this.contentScriptClient.send(
+        tabId,
+        {
+          type: "CONTENT/INITIALIZED",
+          payload: contentState,
+        },
+      );
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   async notifyOptions(

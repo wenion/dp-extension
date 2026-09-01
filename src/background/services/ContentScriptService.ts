@@ -116,17 +116,14 @@ export class ContentScriptService {
     tabId: number,
   ): Promise<boolean> {
     try {
-      const response =
-        await this.contentScriptClient.send<{
-          injected: boolean;
-        }>(
-          tabId,
-          {
-            type: "PING",
-          },
-        );
+      await this.contentScriptClient.send(
+        tabId,
+        {
+          type: "PING",
+        },
+      );
 
-      return response?.injected === true;
+      return true;
     } catch {
       return false;
     }

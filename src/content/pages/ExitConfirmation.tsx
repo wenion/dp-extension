@@ -12,9 +12,41 @@ import { SquareFill } from '@gravity-ui/icons';
 import {
   cancelSessionExitRequest,
   exitSession,
- } from "../message/BackgroundClient";
+ } from "../message/backgroundClient";
+import { useAppContext } from "../context/context";
+
  
 export function ExitConfirmation() {
+  const { showNotice } = useAppContext();
+
+  const handleCancelSessionExitRequest = async () => {
+    try {
+      await cancelSessionExitRequest();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
+  const handleExitSession = async () => {
+    try {
+      await exitSession();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
   return (
     <div className="flex gap-4 items-center">
       <Card className='border-default border-medium w-80' shadow="none">
@@ -25,24 +57,22 @@ export function ExitConfirmation() {
           <p className="text-sm">Your active session will stop and upload first, then the puck is removed.</p>
         </CardBody>
         <CardFooter className="flex gap-4 justify-between items-center">
-          {/* <div className='flex gap-4'> */}
-            <Button
-              className="w-full border font-medium"
-              variant="bordered"
-              startContent={<PauseFill/>}
-              onPress={cancelSessionExitRequest}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="w-full border text-red-600 font-medium"
-              variant="bordered"
-              startContent={<SquareFill />}
-              onPress={exitSession}
-            >
-              Turn off & upload
-            </Button>
-          {/* </div> */}
+          <Button
+            className="w-full border font-medium"
+            variant="bordered"
+            startContent={<PauseFill/>}
+            onPress={handleCancelSessionExitRequest}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="w-full border text-red-600 font-medium"
+            variant="bordered"
+            startContent={<SquareFill />}
+            onPress={handleExitSession}
+          >
+            Turn off & upload
+          </Button>
         </CardFooter>
       </Card>
     </div>

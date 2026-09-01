@@ -1,94 +1,94 @@
 import type {
-  InjectionResult,
-} from "@/shared/content-script";
-import type {
   OptionsPage,
   Session,
 } from "@/shared/types";
+
 import type {
   OptionsEvent,
-} from "@/shared/message/optionsEvents";
+  OptionsMessageType,
+  OptionsResponse,
+} from "@/shared/messaging/optionsProtocol";
 
-function sendOptionsEvent(
-  event: OptionsEvent,
-) {
-  return chrome.runtime.sendMessage(
-    event,
-  );
+async function sendOptionsMessage<
+  T extends OptionsMessageType,
+>(
+  event: OptionsEvent<T>,
+): Promise<OptionsResponse<T>> {
+  return chrome.runtime.sendMessage(event);
 }
 
 export async function connect() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "OPTIONS/CONNECT",
     source: "OPTIONS",
   });
 }
 
 export function startSession() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "SESSION/START",
     source: "OPTIONS",
   });
 }
 
 export function pauseSession() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "SESSION/PAUSE",
     source: "OPTIONS",
   });
 }
 
 export function resumeSession() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "SESSION/RESUME",
     source: "OPTIONS",
   });
 }
 
 export function requestSessionEnd() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "SESSION/END_REQUEST",
     source: "OPTIONS",
   });
 }
 
 export function endSession() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "SESSION/END",
     source: "OPTIONS",
   });
 }
 
 export function cancelSessionEndRequest() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "SESSION/END_REQUEST_CANCELLED",
     source: "OPTIONS",
   });
 }
 
 export function exitSession() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "SESSION/EXIT",
     source: "OPTIONS",
   });
 }
 
 export function cancelSessionExitRequest() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "SESSION/EXIT_REQUEST_CANCELLED",
     source: "OPTIONS",
   });
 }
 
 export function completeUploadedSession() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "SESSION/UPLOADED_DONE",
     source: "OPTIONS",
   });
 }
 
 export function completeUploadFailedSession() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "SESSION/UPLOAD_FAILED_DONE",
     source: "OPTIONS",
   });
@@ -97,7 +97,7 @@ export function completeUploadFailedSession() {
 export function includeTab(
   tabId: number,
 ) {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "TAB/INCLUDE",
     source: "OPTIONS",
     payload: {
@@ -109,7 +109,7 @@ export function includeTab(
 export function excludeTab(
   tabId: number,
 ) {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "TAB/EXCLUDE",
     source: "OPTIONS",
     payload: {
@@ -118,24 +118,29 @@ export function excludeTab(
   });
 }
 
-export function permissionGranted(
-  origin: string,
-): Promise<InjectionResult> {
-  return sendOptionsEvent({
-    type: "TABS/GRANTED",
-    source: "OPTIONS",
-    payload: {
-      origin,
-    },
-  });
-}
-
-export function setActiveSessionName(
+export async function setActiveSessionName(
   sessionId: string,
   name: string,
 ): Promise<Session | undefined> {
-  return sendOptionsEvent({
-    type: "OPTIONS/NAME_SESSION",
+  const response =
+    await sendOptionsMessage({
+      type: "OPTIONS/NAME_SESSION",
+      source: "OPTIONS",
+      payload: {
+        sessionId,
+        name,
+      },
+    });
+
+  return response;
+}
+
+export async function renameSession(
+  sessionId: string,
+  name: string,
+): Promise<boolean> {
+  return sendOptionsMessage({
+    type: "OPTIONS/RENAME_SESSION",
     source: "OPTIONS",
     payload: {
       sessionId,
@@ -144,42 +149,22 @@ export function setActiveSessionName(
   });
 }
 
-export async function renameSession(
-  sessionId: string,
-  name: string,
-): Promise<boolean> {
-  const response =
-    await sendOptionsEvent({
-      type: "OPTIONS/RENAME_SESSION",
-      source: "OPTIONS",
-      payload: {
-        sessionId,
-        name,
-      },
-    });
-
-  return response?.success === true;
-}
-
 export async function retryUpload(
   sessionId: string,
 ): Promise<boolean> {
-  const response =
-    await sendOptionsEvent({
-      type: "OPTIONS/RETRY_SESSION",
-      source: "OPTIONS",
-      payload: {
-        sessionId,
-      },
-    });
-
-  return response?.success === true;
+  return sendOptionsMessage({
+    type: "OPTIONS/RETRY_SESSION",
+    source: "OPTIONS",
+    payload: {
+      sessionId,
+    },
+  });
 }
 
 export function openSession(
   sessionId: string,
 ) {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "OPTIONS/OPEN_SESSION",
     source: "OPTIONS",
     payload: {
@@ -191,7 +176,7 @@ export function openSession(
 export async function dismissNotification(
   notificationId: string,
 ) {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "OPTIONS/DISMISS_NOTIFICATION",
     source: "OPTIONS",
     payload: {
@@ -201,7 +186,7 @@ export async function dismissNotification(
 }
 
 export async function toggleMount() {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "OPTIONS/TOGGLE_MOUNT",
     source: "OPTIONS",
   });
@@ -210,7 +195,7 @@ export async function toggleMount() {
 export async function setOptionsPage(
   page?: OptionsPage,
 ) {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "OPTIONS/SET_PAGE",
     source: "OPTIONS",
     payload: {
@@ -219,10 +204,34 @@ export async function setOptionsPage(
   });
 }
 
+export async function promptTemporaryPermission(
+  tabId: number,
+) {
+  return sendOptionsMessage({
+    type: "OPTIONS/PROMPT_TEMPORARY_PERMISSION",
+    source: "OPTIONS",
+    payload: {
+      tabId,
+    },
+  });
+}
+
+export async function addToAllowlist(
+  origin: string,
+) {
+  return sendOptionsMessage({
+    type: "OPTIONS/ALLOWLIST_ADD",
+    source: "OPTIONS",
+    payload: {
+      origin,
+    },
+  });
+}
+
 export async function removeFromAllowlist(
   origin: string,
 ) {
-  return sendOptionsEvent({
+  return sendOptionsMessage({
     type: "OPTIONS/ALLOWLIST_REMOVE",
     source: "OPTIONS",
     payload: {

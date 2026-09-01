@@ -62,6 +62,10 @@ export class TabsService {
   async removeTabs(
     tabIds: readonly number[],
   ): Promise<void> {
+    if (tabIds.length === 0) {
+      return;
+    }
+
     const tabIdSet = new Set(tabIds);
 
     const tabs = this.tabsRepository
@@ -231,31 +235,6 @@ export class TabsService {
     origin: string,
   ): boolean {
     return this.allowlistRepository.hasOrigin(origin);
-  }
-
-  async removeStaleTabs(): Promise<void> {
-    const chromeTabs =
-      await chrome.tabs.query({});
-
-    const existingTabIds = new Set(
-      chromeTabs
-        .map(tab => tab.id)
-        .filter(
-          (id): id is number =>
-            id !== undefined,
-        ),
-    );
-
-    const validTabs =
-      this.tabsRepository
-        .getTabs()
-        .filter(tab =>
-          existingTabIds.has(tab.tabId),
-        );
-
-    await this.tabsRepository.setTabs(validTabs);
-
-    await this.notifyTabsUpdated();
   }
 
   private async createTab(

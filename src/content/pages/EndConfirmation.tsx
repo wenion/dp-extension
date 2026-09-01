@@ -1,16 +1,51 @@
 import { Button } from '@heroui/button';
-import { Card, CardHeader, CardBody, CardFooter } from "@heroui/card";
+import {
+  Card,
+  CardHeader,
+  CardBody,
+  CardFooter
+} from "@heroui/card";
 
-import { PauseFill } from '@gravity-ui/icons';
 import { SquareFill } from '@gravity-ui/icons';
 
 import {
   cancelSessionEndRequest,
   endSession,
- } from "../message/BackgroundClient";
+ } from "../message/backgroundClient";
+import { useAppContext } from "../context/context";
 
 
 export function EndConfirmation() {
+  const { showNotice } = useAppContext();
+
+  const handleCancelSessionEndRequest = async () => {
+    try {
+      await cancelSessionEndRequest();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
+  const handleEndSession = async () => {
+    try {
+      await endSession();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
   return (
     <div className="flex gap-4 items-center">
       <Card className='border-default border-medium w-80' shadow="none">
@@ -24,7 +59,7 @@ export function EndConfirmation() {
           <Button
             className="w-full border font-medium"
             variant="bordered"
-            onPress={cancelSessionEndRequest}
+            onPress={handleCancelSessionEndRequest}
           >
             Cancel
           </Button>
@@ -32,7 +67,7 @@ export function EndConfirmation() {
             className="w-full border border-rose-200 text-red-600 font-medium"
             variant="bordered"
             startContent={<SquareFill />}
-            onPress={endSession}
+            onPress={handleEndSession}
           >
             End & upload
           </Button>

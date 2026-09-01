@@ -97,12 +97,16 @@ export class GoogleDocsService {
     tabId: number,
     message?: string,
   ): Promise<void> {
-    await this.contentScriptClient.send(
-      tabId,
-      {
-        type: "NOTICE/SHOW",
-        payload: message,
-      }
-    );
+    try {
+      await this.contentScriptClient.send(
+        tabId,
+        {
+          type: "NOTICE/SHOW",
+          payload: message,
+        }
+      );
+    } catch (error) {
+      console.error(error);
+    }
   }
 }

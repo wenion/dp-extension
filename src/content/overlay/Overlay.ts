@@ -14,7 +14,7 @@ export class Overlay {
   private host: HTMLDivElement | null = null;
   private style: HTMLLinkElement | null = null;
 
-  show(initialState: OverlayState) {
+  show(initialState?: OverlayState) {
     if (this.isVisible()) {
       return;
     }
@@ -43,5 +43,3 @@ export class Overlay {
     return this.host !== null;
   }
 }
-
-export const overlay = new Overlay();

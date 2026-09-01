@@ -8,7 +8,9 @@ import {
 
 import { connect } from "../message/BackgroundClient";
 
-import type { BackgroundEvent } from "@/shared/message/backgroundEvents";
+import type {
+  BackgroundEvent,
+} from "@/shared/messaging/backgroundProtocol";
 import type {
   ActiveSession,
   Notification,
@@ -161,7 +163,32 @@ export function ContextProvider({
       listener,
     );
 
-    connect();
+    const initialize = async() => {
+      try {
+        const state = await connect();
+
+        setMounted(state.mount);
+
+        setActiveSession(state.activeSession);
+        setTabs(state.tabs);
+        setSessions(state.sessions);
+
+        setNotifications(state.notifications);
+        setCurrentNotification(
+          state.currentNotification,
+        );
+
+        setOptionsPage(state.page);
+        setAllowlist(state.allowlist);
+      } catch (error) {
+        console.error(
+          "Failed to initialize options page:",
+          error,
+        );
+      }
+    }
+
+    initialize();
 
     return () => {
       chrome.runtime.onMessage.removeListener(listener);

@@ -1,149 +1,189 @@
 import type {
   ContentEvent,
-} from "@/shared/message/contentEvents";
+  ContentMessageType,
+  ContentResponse,
+} from "@/shared/messaging/contentProtocol";
 
-function sendContentEvent(
-  event: ContentEvent,
-) {
+import type {
+  GoogleDocsMeta,
+  UserEvent,
+} from "@/shared/types";
+
+async function sendContentMessage<
+  T extends ContentMessageType,
+>(
+  event: ContentEvent<T>,
+): Promise<ContentResponse<T>> {
   return chrome.runtime.sendMessage(event);
 }
 
-export async function connect() {
-  return sendContentEvent({
+export function connect() {
+  return sendContentMessage({
     type: "CONTENT/CONNECT",
     source: "CONTENT",
   });
 }
 
-export async function captureStarted() {
-  return sendContentEvent({
+export function captureStarted() {
+  return sendContentMessage({
     type: "CAPTURE/STARTED",
     source: "CONTENT",
   });
 }
 
-export async function captureStopped() {
-  return sendContentEvent({
+export function captureStopped() {
+  return sendContentMessage({
     type: "CAPTURE/STOPPED",
     source: "CONTENT",
   });
 }
 
 export function startSession() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "SESSION/START",
     source: "CONTENT",
-  })
+  });
 }
 
 export function expandPanel() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "PANEL/EXPAND",
     source: "CONTENT",
-  })
+  });
 }
 
 export function collapsePanel() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "PANEL/COLLAPSE",
     source: "CONTENT",
-  })
+  });
 }
 
 export function pauseSession() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "SESSION/PAUSE",
     source: "CONTENT",
-  })
+  });
 }
 
 export function resumeSession() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "SESSION/RESUME",
     source: "CONTENT",
-  })
+  });
 }
 
 export function requestSessionEnd() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "SESSION/END_REQUEST",
     source: "CONTENT",
-  })
+  });
 }
 
 export function endSession() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "SESSION/END",
     source: "CONTENT",
-  })
+  });
 }
 
 export function cancelSessionEndRequest() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "SESSION/END_REQUEST_CANCELLED",
     source: "CONTENT",
-  })
+  });
 }
 
 export function exitSession() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "SESSION/EXIT",
     source: "CONTENT",
   });
 }
 
 export function cancelSessionExitRequest() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "SESSION/EXIT_REQUEST_CANCELLED",
     source: "CONTENT",
-  })
+  });
 }
 
 export function completeUploadedSession() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "SESSION/UPLOADED_DONE",
     source: "CONTENT",
-  })
+  });
 }
 
 export function completeUploadFailedSession() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "SESSION/UPLOAD_FAILED_DONE",
     source: "CONTENT",
-  })
+  });
 }
 
 export function includeTab() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "TAB/INCLUDE",
     source: "CONTENT",
-  })
+  });
 }
 
 export function excludeTab() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "TAB/EXCLUDE",
     source: "CONTENT",
-  })
+  });
 }
 
 export function openOptionsPage() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "TAB/OPEN_OPTIONS",
     source: "CONTENT",
-  })
+  });
 }
 
 export function addToAllowlist() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "TAB/ADD_TO_ALLOWLIST",
     source: "CONTENT",
   });
 }
 
+export function promptTemporaryPermission() {
+  return sendContentMessage({
+    type: "TAB/PROMPT_TEMPORARY_PERMISSION",
+    source: "CONTENT",
+  });
+}
+
 export function promptHostPermission() {
-  return sendContentEvent({
+  return sendContentMessage({
     type: "TAB/PROMPT_HOST_PERMISSION",
     source: "CONTENT",
+  });
+}
+
+export function sendUserTrace(
+  trace: UserEvent,
+) {
+  return sendContentMessage({
+    type: "TRACE/USER",
+    source: "CONTENT",
+    payload: {
+      trace,
+    },
+  });
+}
+
+export function sendGoogleDocsTrace(
+  trace: GoogleDocsMeta,
+) {
+  return sendContentMessage({
+    type: "TRACE/GOOGLE",
+    source: "CONTENT",
+    payload: {
+      trace,
+    },
   });
 }

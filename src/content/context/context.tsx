@@ -19,15 +19,17 @@ import type {
 
 import type {
   BackgroundEvent,
-} from "@/shared/message/backgroundEvents";
+} from "@/shared/messaging/backgroundProtocol";
 
 type ContextType = {
   page: PanelPage;
   notice?: string;
 
+  showNotice: (notice: string) => void;
+
   activeSession?: ActiveSession;
 
-  tabs: readonly TabState[];
+  tabs?: readonly TabState[];
   currentTab?: TabState,
 
   numberOfRecordingTabs: number,
@@ -55,7 +57,7 @@ export function useAppContext() {
 }
 
 type Props = {
-  contentState: OverlayState;
+  contentState?: OverlayState;
   children: React.ReactNode;
 };
 
@@ -63,20 +65,30 @@ export function ContextProvider({
   contentState,
   children
 }: Props) {
-  const { tabId } = contentState;
+
+  const [tabId, setTabId] =
+    useState<number | undefined>(
+      contentState?.tabId,
+    );
 
   const [activeSession, setActiveSession] =
     useState<ActiveSession | undefined>(
-      contentState.activeSession,
+      contentState?.activeSession,
     );
 
   const [tabs, setTabs] =
-    useState<readonly TabState[]>(
-      contentState.tabs,
+    useState<readonly TabState[] | undefined>(
+      contentState?.tabs,
     );
 
   const [notice, setNotice] =
-    useState<string>();
+    useState<string | undefined>(
+      contentState?.notice,
+    );
+
+  const showNotice = (notice: string) => {
+    setNotice(notice);
+  };
 
   const [
     dialog,
@@ -94,7 +106,9 @@ export function ContextProvider({
   };
 
   useEffect(() => {
-    const listener = (message: BackgroundEvent) => {
+    const listener = (
+      message: BackgroundEvent
+    ) => {
       switch (message.type) {
         case "SESSION/UPDATED":
           setActiveSession(message.payload);
@@ -110,16 +124,20 @@ export function ContextProvider({
       }
     };
 
-    chrome.runtime.onMessage.addListener(listener);
+    chrome.runtime.onMessage.addListener(
+      listener
+    );
 
     return () => {
-      chrome.runtime.onMessage.removeListener(listener);
+      chrome.runtime.onMessage.removeListener(
+        listener
+      );
     };
   }, []);
 
   const currentTab = useMemo(
     () =>
-      tabs.find(
+      tabs?.find(
         tab => tab.tabId === tabId,
       ),
     [tabs, tabId],
@@ -127,29 +145,34 @@ export function ContextProvider({
 
   const numberOfRecordingTabs = useMemo(
     () =>
-      tabs.filter(
+      tabs?.filter(
         tab => tab.recordingScope === "recording",
-      ).length,
+      ).length ?? 0,
     [tabs],
   );
 
-  const page = useMemo<PanelPage>(() => {
-    if (notice) {
-      return "notice";
-    }
-    if (activeSession?.endedAt) {
-      return activeSession.uploadStatus;
-    }
-    else if (activeSession?.page) {
-      return activeSession?.page;
-    }
-    return "idle";
-  }, [activeSession, notice]);
+  const page = useMemo<PanelPage>(
+    () => {
+      if (notice) {
+        return "notice";
+      }
+      if (activeSession?.endedAt) {
+        return activeSession.uploadStatus;
+      }
+      else if (activeSession?.page) {
+        return activeSession?.page;
+      }
+      return "idle";
+    },
+    [activeSession, notice]
+  );
 
   const value = useMemo<ContextType>(
     () => ({
       page,
       notice,
+      showNotice,
+
       activeSession,
       tabs,
       currentTab,

@@ -4,48 +4,40 @@ import type {
   TabState,
 } from "@/shared/types";
 
-type Selector<T> = (store: ContentStore) => T;
-
-type Listener<T> = (
-  value: T,
-  previousValue: T | undefined,
-) => void;
-
-interface Subscription<T> {
-  selector: Selector<T>;
-  listener: Listener<T>;
-  value: T | undefined;
-  initialized: boolean;
-}
+import type { ContentStoreState } from "./types";
 
 export class ContentStore {
   private mount?: boolean;
   private activeSession?: Session;
-  private tabs: readonly TabState[] = [];
+  private tabs?: readonly TabState[];
   private tabId?: number;
-
-  private subscriptions = new Set<Subscription<any>>();
 
   initialize(state: ContentState) {
     this.mount = state.mount;
     this.activeSession = state.activeSession;
     this.tabs = state.tabs;
     this.tabId = state.tabId;
-
-    this.notify();
   }
 
-  getAll() {
+  getState(): ContentStoreState {
     return {
       mount: this.mount,
       activeSession: this.activeSession,
       tabs: this.tabs,
       tabId: this.tabId,
-    }
+    };
   }
 
-  isMounted(): boolean {
-    return this.mount ?? false;
+  isMounted(): boolean | undefined {
+    return this.mount;
+  }
+
+  getActiveSession(): Session | undefined {
+    return this.activeSession;
+  }
+
+  getTabs(): readonly TabState[] | undefined {
+    return this.tabs;
   }
 
   getTab(): TabState | undefined {
@@ -54,65 +46,23 @@ export class ContentStore {
     );
   }
 
-  getActiveSession(): Session | undefined {
-    return this.activeSession;
+  getTabId(): number | undefined {
+    return this.tabId;
   }
 
   setMount(mount: boolean) {
     this.mount = mount;
-    this.notify();
   }
 
-  setActiveSession(activeSession?: Session) {
-    this.activeSession = activeSession;
-    this.notify();
+  setActiveSession(
+    session?: Session,
+  ) {
+    this.activeSession = session;
   }
 
-  setTabs(tabs: readonly TabState[]) {
+  setTabs(
+    tabs: readonly TabState[],
+  ) {
     this.tabs = tabs;
-    this.notify();
-  }
-
-  subscribe<T>(
-    selector: Selector<T>,
-    listener: Listener<T>,
-  ): () => void {
-    const subscription: Subscription<T> = {
-      selector,
-      listener,
-      value: undefined,
-      initialized: false,
-    };
-
-    this.subscriptions.add(subscription);
-
-    return () => {
-      this.subscriptions.delete(subscription);
-    };
-  }
-
-  private notify() {
-    for (const subscription of this.subscriptions) {
-      const value =
-        subscription.selector(this);
-
-      if (
-        subscription.initialized &&
-        Object.is(subscription.value, value)
-      ) {
-        continue;
-      }
-
-      const previousValue =
-        subscription.value;
-
-      subscription.value = value;
-      subscription.initialized = true;
-
-      subscription.listener(
-        value,
-        previousValue,
-      );
-    }
   }
 }

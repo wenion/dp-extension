@@ -21,7 +21,6 @@ import {
 import { useAppContext } from "../context/context";
 import {
   dismissNotification,
-  permissionGranted,
 } from "../message/BackgroundClient";
 
 const alertColors: Record<
@@ -91,19 +90,19 @@ export function NotificationBanner() {
         try {
           const url = new URL(tab.url);
 
-          const granted =
-            await chrome.permissions.request({
-              permissions: ["scripting"],
-              origins: [`${url.origin}/*`],
-            });
+          // const granted =
+          //   await chrome.permissions.request({
+          //     permissions: ["scripting"],
+          //     origins: [`${url.origin}/*`],
+          //   });
 
-          if (granted) {
-            const result =
-              await permissionGranted(url.origin);
-            await dismissNotification(
-              currentNotification.id,
-            );
-          }
+          // if (granted) {
+          //   const result =
+          //     await permissionGranted(url.origin);
+          //   await dismissNotification(
+          //     currentNotification.id,
+          //   );
+          // }
         } catch (error) {
           console.error(error);
         }

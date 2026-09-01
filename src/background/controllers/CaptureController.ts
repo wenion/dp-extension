@@ -50,8 +50,6 @@ export class CaptureController {
   async onCaptureStopped(
     tabId: number,
   ): Promise<void> {
-    const tab = this.tabsService.getTab(tabId);
-
     await this.googleDocsService.remove(
       tabId,
     );

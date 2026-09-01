@@ -10,14 +10,30 @@ import {
 } from "@gravity-ui/icons";
 
 import { useAppContext } from "../context/context";
-import { expandPanel } from "../message/BackgroundClient";
+import { expandPanel } from "../message/backgroundClient";
+
 
 export function Collapsed() {
   const {
     currentTab,
     numberOfRecordingTabs,
     activeSession,
+    showNotice,
   } = useAppContext();
+
+  const handleExpandPanel = async () => {
+    try {
+      await expandPanel();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
 
   const scopeIcon =
     currentTab?.recordingScope === "recording" ? (
@@ -47,7 +63,7 @@ export function Collapsed() {
             <span>{numberOfRecordingTabs}</span>
           </div>
         }
-        onPress={expandPanel}
+        onPress={handleExpandPanel}
       >
         {scopeIcon}
       </Button>

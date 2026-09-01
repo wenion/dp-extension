@@ -4,7 +4,9 @@ import type { ExtensionService } from "../services/ExtensionService";
 import type { SessionsService } from "../services/SessionsService";
 import type { TabsService } from "../services/TabsService";
 
-import type { OptionsEvent } from "@/shared/message/optionsEvents";
+import type {
+  OptionsEvent,
+} from "@/shared/messaging/optionsProtocol";
 
 export class OptionsController {
 
@@ -26,17 +28,23 @@ export class OptionsController {
     event: OptionsEvent,
   ): Promise<void> {
     switch (event.type) {
+      case "OPTIONS/ALLOWLIST_ADD":
+        await this.tabsService.addToAllowlist(
+          event.payload.origin,
+        );
+        return;
+
       case "OPTIONS/ALLOWLIST_REMOVE":
         await this.tabsService.removeFromAllowlist(
           event.payload.origin,
         );
-        break;
+        return;
 
       case "OPTIONS/SET_PAGE":
         await this.extensionService.setOptionsPage(
           event.payload.page,
         );
-        break;
+        return;
 
       case "OPTIONS/RENAME_SESSION":
         await this.sessionsService.updateSession(
@@ -45,12 +53,13 @@ export class OptionsController {
             name: event.payload.name,
           },
         );
-        break;
+        return;
+
       case "OPTIONS/OPEN_SESSION":
         await this.openSession(
           event.payload.sessionId,
         )
-        break;
+        return;
     }
   }
 

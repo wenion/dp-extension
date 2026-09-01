@@ -8,9 +8,27 @@ import {
 
 import { TriangleExclamation } from '@gravity-ui/icons';
 
-import { completeUploadFailedSession } from "../message/BackgroundClient";
+import { completeUploadFailedSession } from "../message/backgroundClient";
+import { useAppContext } from "../context/context";
+
 
 export function UploadFailed() {
+  const { showNotice } = useAppContext();
+
+  const handleCompleteUploadFailedSession = async () => {
+    try {
+      await completeUploadFailedSession();
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      showNotice(
+        `${error.message} Please reload the page.`,
+      );
+    }
+  };
+
   return (
     <div className="flex gap-4 items-center">
       <Card className='border-default border-medium w-80'>
@@ -31,7 +49,7 @@ export function UploadFailed() {
             className="w-full"
             color="default"
             variant="bordered"
-            onPress={completeUploadFailedSession}
+            onPress={handleCompleteUploadFailedSession}
           >
             Done
           </Button>

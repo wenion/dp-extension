@@ -13,8 +13,14 @@ export type DialogState = {
   onCancel?: () => void;
 };
 
-export type OverlayState = {
+export interface OverlayState {
   activeSession?: ActiveSession;
-  tabs: readonly TabState[];
+  tabs?: readonly TabState[];
   tabId?: number;
+  notice?: string;
 }
+
+export interface ContentStoreState
+  extends OverlayState {
+    mount?: boolean;
+  }
