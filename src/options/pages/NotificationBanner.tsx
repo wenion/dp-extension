@@ -21,7 +21,7 @@ import {
 import { useAppContext } from "../context/context";
 import {
   dismissNotification,
-} from "../message/BackgroundClient";
+} from "../message/backgroundClient";
 
 const alertColors: Record<
   NotificationLevelType,

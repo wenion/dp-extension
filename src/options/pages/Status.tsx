@@ -38,7 +38,7 @@ import {
   startSession,
   requestSessionEnd,
   setActiveSessionName,
-} from "../message/BackgroundClient";
+} from "../message/backgroundClient";
 
 import { TabRecordCard } from "./TabRecordCard";
 

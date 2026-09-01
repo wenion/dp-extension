@@ -17,7 +17,7 @@ import {
   renameSession,
   retryUpload,
   toggleMount,
-} from "../message/BackgroundClient";
+} from "../message/backgroundClient";
 import { buildSites } from "../utils/buildSites";
 import { formatSessionTime } from "../utils/formatSessionTime";
 

@@ -6,7 +6,7 @@ import { useAppContext } from "../context/context";
 import {
   removeFromAllowlist,
   setOptionsPage,
-} from "../message/BackgroundClient";
+} from "../message/backgroundClient";
 
 export function Allowlist() {
   const {

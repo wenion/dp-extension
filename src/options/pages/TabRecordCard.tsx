@@ -13,7 +13,7 @@ import {
 
 import {
   promptTemporaryPermission,
-} from "../message/BackgroundClient";
+} from "../message/backgroundClient";
 
 import type { TabState } from "@/shared/types"
 

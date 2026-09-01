@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 
-import { connect } from "../message/BackgroundClient";
+import { connect } from "../message/backgroundClient";
 
 import type {
   BackgroundEvent,
