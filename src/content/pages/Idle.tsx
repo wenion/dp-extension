@@ -26,7 +26,7 @@ export function Idle() {
   return (
     <div className="flex gap-4 items-center">
       <Button
-        className="border-2 border-gray-300"
+        className="bg-white hover:bg-gray-50 active:bg-gray-100 shadow-md"
         startContent={<TriangleRightFill />}
         onPress={handleStartSession}
       >

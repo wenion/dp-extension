@@ -11,6 +11,7 @@ import { UploadCompleted } from "../pages/UploadCompleted";
 import { UploadFailed } from "../pages/UploadFailed";
 
 import { Dialog } from "./Dialog";
+import { Draggable } from "./Draggable";
 
 export default function App() {
   const {
@@ -52,9 +53,9 @@ export default function App() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-6 pointer-events-auto">
+      <Draggable>
         {renderPage()}
-      </div>
+      </Draggable>
 
       {dialog && (
         <Dialog {...dialog} />

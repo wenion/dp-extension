@@ -236,7 +236,7 @@ export function Expanded() {
   return (
     <div className="flex items-center">
       <Card 
-        className='border-2 border-gray-300 w-80'
+        className='w-80'
         shadow="none"
       >
         <CardHeader className="flex py-2 justify-between items-center">

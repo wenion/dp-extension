@@ -49,7 +49,7 @@ export function ExitConfirmation() {
 
   return (
     <div className="flex gap-4 items-center">
-      <Card className='border-2 border-gray-300 w-80' shadow="none">
+      <Card className="w-80" shadow="none">
         <CardHeader className="py-2">
           <span className="text-lg font-bold">Turn off extension?</span>
         </CardHeader>

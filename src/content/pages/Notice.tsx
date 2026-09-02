@@ -16,7 +16,7 @@ export function Notice({
 }: Props) {
   return (
     <Card
-      className="w-80 min-h-[169px] border-2 border-gray-300"
+      className="w-80 min-h-[169px]"
       shadow="none"
     >
       {loading && (

@@ -9,7 +9,7 @@ import { Spinner } from "@/components/Spinner";
 export function Uploading() {
   return (
     <div className="flex gap-4 items-center">
-      <Card className="p-2 border-2 border-gray-300">
+      <Card className="p-2">
         <CardHeader className="flex gap-x-4 justify-center">
           <Spinner />
         </CardHeader>

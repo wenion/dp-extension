@@ -31,7 +31,7 @@ export function UploadCompleted() {
 
   return (
     <div className="flex gap-4 items-center">
-      <Card className="border-2 border-gray-300 w-80">
+      <Card className="w-80">
         <CardHeader className="flex flex-col items-center justify-center gap-2 py-3 text-green-600">
           <CircleCheck width={80} height={80} color="green"/>
           <p className="font-bold">Session uploaded</p>

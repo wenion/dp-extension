@@ -22,6 +22,8 @@ export function Card({
         flex-col
         overflow-hidden
         rounded-xl
+        border
+        border-gray-200
         bg-white
         ${className}
       `}

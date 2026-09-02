@@ -47,7 +47,7 @@ export function Collapsed() {
   return (
     <div className="flex items-center justify-center">
       <Button
-        className='gap-4'
+        className="gap-4 bg-white hover:bg-gray-50 active:bg-gray-100 shadow-md"
         startContent={
           activeSession?.captureState === "recording" ? (
             <CircleFill className='text-red-600'/>
