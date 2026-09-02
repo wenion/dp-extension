@@ -1,10 +1,8 @@
-import "@/styles/content.css";
-
 const HOST_ID = "trace-capture-overlay";
 const STYLE_ID = "trace-capture-style";
+const ROOT_ID = "trace-capture-root";
 
-export function createHost() {
-
+export function createHost(): HTMLDivElement {
   const host = document.createElement("div");
 
   host.id = HOST_ID;
@@ -18,22 +16,43 @@ export function createHost() {
   return host;
 }
 
-export function removeHost(host: HTMLElement | null) {
-  host?.remove();
+export function createShadowRoot(
+  host: HTMLDivElement,
+): ShadowRoot {
+  return host.attachShadow({
+    mode: "open",
+  });
 }
 
-export function injectStyle(): HTMLLinkElement {
+export function createContainer(
+  shadowRoot: ShadowRoot,
+): HTMLDivElement {
+  const container = document.createElement("div");
+
+  container.id = ROOT_ID;
+  shadowRoot.appendChild(container);
+
+  return container;
+}
+
+export function injectStyle(
+  shadowRoot: ShadowRoot,
+): HTMLLinkElement {
   const link = document.createElement("link");
 
   link.id = STYLE_ID;
   link.rel = "stylesheet";
-  link.href = chrome.runtime.getURL("content-script.css");
+  link.href = chrome.runtime.getURL(
+    "content-script.css",
+  );
 
-  document.head.appendChild(link);
+  shadowRoot.appendChild(link);
 
   return link;
 }
 
-export function removeStyle(style: HTMLLinkElement | null)  {
-  style?.remove();
+export function removeHost(
+  host: HTMLDivElement | null,
+) {
+  host?.remove();
 }

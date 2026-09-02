@@ -16,7 +16,8 @@ export function render(
     return;
   }
 
-  reactRoot = ReactDOM.createRoot(container);
+  reactRoot =
+    ReactDOM.createRoot(container);
   
   reactRoot.render(
     <Providers initialState={initialState}>

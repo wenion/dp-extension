@@ -23,7 +23,8 @@ export function Card({
         overflow-hidden
         rounded-xl
         border
-        border-gray-200
+        border-solid
+        border-gray-300
         bg-white
         ${className}
       `}

@@ -6,6 +6,8 @@ import { ContentStore } from "./ContentState";
 import { Overlay } from "./overlay/Overlay";
 import { SiteCapture } from "./capture/SiteCapture";
 
+import "@/styles/content.css";
+
 const store = new ContentStore();
 const overlay = new Overlay();
 const capture = new SiteCapture();

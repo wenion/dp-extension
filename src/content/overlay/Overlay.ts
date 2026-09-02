@@ -1,18 +1,16 @@
-import "@/styles/content.css";
-
 import { render, unmount } from "./render";
 import {
+  createContainer,
   createHost,
+  createShadowRoot,
   injectStyle,
   removeHost,
-  removeStyle,
 } from "./dom";
 
 import type { OverlayState } from "../types";
 
 export class Overlay {
   private host: HTMLDivElement | null = null;
-  private style: HTMLLinkElement | null = null;
 
   show(initialState?: OverlayState) {
     if (this.isVisible()) {
@@ -20,9 +18,16 @@ export class Overlay {
     }
 
     this.host = createHost();
-    this.style = injectStyle();
 
-    render(this.host, initialState);
+    const shadowRoot =
+      createShadowRoot(this.host);
+
+    injectStyle(shadowRoot);
+
+    const container =
+      createContainer(shadowRoot);
+
+    render(container, initialState);
   }
 
   hide() {
@@ -31,12 +36,9 @@ export class Overlay {
     }
 
     unmount();
-
     removeHost(this.host);
-    removeStyle(this.style);
 
     this.host = null;
-    this.style = null;
   }
 
   isVisible(): boolean {

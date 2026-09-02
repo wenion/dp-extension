@@ -46,7 +46,8 @@ export function Button({
         cursor-pointer
         rounded-xl
         border
-        border-gray-200
+        border-solid
+        border-gray-300
         bg-transparent
         transition-colors
         hover:bg-gray-100
