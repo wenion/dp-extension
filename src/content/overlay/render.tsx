@@ -1,4 +1,4 @@
-import ReactDOM from "react-dom/client";
+import { createRoot } from "react-dom/client";
 
 import { Providers } from "../context/providers";
 import App from "./App";
@@ -16,8 +16,7 @@ export function render(
     return;
   }
 
-  reactRoot =
-    ReactDOM.createRoot(container);
+  reactRoot = createRoot(container);
   
   reactRoot.render(
     <Providers initialState={initialState}>
