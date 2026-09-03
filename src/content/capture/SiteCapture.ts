@@ -1,22 +1,28 @@
+import { getPlatformName } from "./platform";
 import { initializeSite } from "./registry";
-import { getPlatform } from "./platform";
 
-import type { Dispose } from "./types";
+import type { Overlay } from "../overlay/Overlay";
 import type { Platform } from "./platform";
+import type { Dispose } from "./types";
 
 export class SiteCapture {
   private platform?: Platform;
   private dispose?: Dispose;
 
-  start(url: string): boolean {
+  start(
+    url: string,
+    overlay?: Overlay,
+  ): boolean {
     if (this.dispose) {
       return false;
     }
 
-    this.platform = getPlatform(url);
+    this.platform = getPlatformName(url);
 
-    this.dispose =
-      initializeSite(this.platform);
+    this.dispose = initializeSite(
+      this.platform,
+      overlay,
+    );
 
     return true;
   }
@@ -26,7 +32,7 @@ export class SiteCapture {
       return false;
     }
 
-    this.dispose?.();
+    this.dispose();
 
     this.dispose = undefined;
     this.platform = undefined;

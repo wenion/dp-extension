@@ -1,16 +1,17 @@
+import { sendUserTrace } from "../../message/backgroundClient";
+
 import {
   chatgptMutationHandler,
   createChatGPTMutationListener,
 } from "../handlers/mutation/chatgpt";
 import { ListenerGroup } from "../listener/ListenerGroup";
 import { observe } from "../listener/observe";
-import { sendUserTrace } from "../sender";
 import { mountCommonListeners } from "./common";
 
+import type { Overlay } from "../../overlay/Overlay";
 import type { Dispose } from "../types";
 
-
-const chatgptMutationConfig = {
+const chatgptMutationConfig: MutationObserverInit = {
   childList: true, // Watch for addition or removal of child nodes
   // attributes: true, // Watch for changes to attributes
   subtree: true,   // Watch for changes in descendant nodes
@@ -18,12 +19,14 @@ const chatgptMutationConfig = {
 };
 
 export const chatgptPlatform = {
-  mount(): Dispose {
+  mount(
+    overlay?: Overlay,
+  ): Dispose {
     const group = new ListenerGroup();
 
     // common listeners
     group.add(
-      mountCommonListeners()
+      mountCommonListeners(overlay),
     );
 
     // chatgpt mutation
@@ -32,12 +35,25 @@ export const chatgptPlatform = {
         document.body,
         chatgptMutationConfig,
         createChatGPTMutationListener(
-          node => sendUserTrace(chatgptMutationHandler(node))
-        )
-      )
+          async node => {
+            try {
+              await sendUserTrace(
+                chatgptMutationHandler(node),
+              );
+            } catch (error) {
+              if (!(error instanceof Error)) {
+                throw error;
+              }
+
+              overlay?.show({
+                notice: `${error.message} Please reload the page.`,
+              });
+            }
+          },
+        ),
+      ),
     );
 
     return () => group.dispose();
-
-  }
+  },
 };

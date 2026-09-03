@@ -6,7 +6,9 @@ export type Platform =
   | "overleaf"
   | "default";
 
-export function getPlatform(url: string): Platform {
+export function getPlatformName(
+  url: string,
+): Platform {
   const u = new URL(url);
 
   if (u.host === "chatgpt.com") {

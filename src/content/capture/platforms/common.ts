@@ -1,84 +1,181 @@
-import { changeHandler, inputHandler, keyDownHandler } from "../handlers/keyboard";
-import { copyHandler, cutHandler, pasteHandler } from "../handlers/clipboard";
+import { sendUserTrace } from "../../message/backgroundClient";
+
+import {
+  copyHandler,
+  cutHandler,
+  pasteHandler,
+} from "../handlers/clipboard";
+import {
+  changeHandler,
+  inputHandler,
+  keyDownHandler,
+} from "../handlers/keyboard";
 import { pointerDownHandler } from "../handlers/pointer";
 
 import { ListenerGroup } from "../listener/ListenerGroup";
 import { listen } from "../listener/listen";
 
-import { sendUserTrace } from "../sender";
+import type { Overlay } from "../../overlay/Overlay";
+import type { Dispose } from "../types";
 
 
-export function mountCommonListeners() {
+export function mountCommonListeners(
+  overlay?: Overlay,
+): Dispose {
   const group = new ListenerGroup();
 
   group.add(
     listen(
       document,
       "pointerdown",
-      e => sendUserTrace(
-        pointerDownHandler(e)
-      )
-    )
+      async e => {
+        try {
+          await sendUserTrace(
+            pointerDownHandler(e),
+          );
+        } catch (error) {
+          if (!(error instanceof Error)) {
+            throw error;
+          }
+
+          overlay?.show({
+            notice: `${error.message} Please reload the page.`,
+          });
+        }
+      },
+    ),
   );
 
   group.add(
     listen(
       document,
       "keydown",
-      e => sendUserTrace(
-        keyDownHandler(e)
-      )
-    )
+      async e => {
+        try {
+          await sendUserTrace(
+            keyDownHandler(e),
+          );
+        } catch (error) {
+          if (!(error instanceof Error)) {
+            throw error;
+          }
+
+          overlay?.show({
+            notice: `${error.message} Please reload the page.`,
+          });
+        }
+      },
+    ),
   );
 
   group.add(
     listen(
       document,
       "change",
-      e => sendUserTrace(
-        changeHandler(e)
-      )
-    )
+      async e => {
+        try {
+          await sendUserTrace(
+            changeHandler(e),
+          );
+        } catch (error) {
+          if (!(error instanceof Error)) {
+            throw error;
+          }
+
+          overlay?.show({
+            notice: `${error.message} Please reload the page.`,
+          });
+        }
+      },
+    ),
   );
 
   group.add(
     listen(
       document,
       "input",
-      e => sendUserTrace(
-        inputHandler(e)
-      )
-    )
+      async e => {
+        try {
+          await sendUserTrace(
+            inputHandler(e),
+          );
+        } catch (error) {
+          if (!(error instanceof Error)) {
+            throw error;
+          }
+
+          overlay?.show({
+            notice: `${error.message} Please reload the page.`,
+          });
+        }
+      },
+    ),
   );
 
   group.add(
     listen(
       document,
       "copy",
-      e => sendUserTrace(
-        copyHandler(e)
-      )
-    )
+      async e => {
+        try {
+          await sendUserTrace(
+            copyHandler(e),
+          );
+        } catch (error) {
+          if (!(error instanceof Error)) {
+            throw error;
+          }
+
+          overlay?.show({
+            notice: `${error.message} Please reload the page.`,
+          });
+        }
+      },
+    ),
   );
 
   group.add(
     listen(
       document,
       "cut",
-      e => sendUserTrace(
-        cutHandler(e)
-      )
-    )
+      async e => {
+        try {
+          await sendUserTrace(
+            cutHandler(e),
+          );
+        } catch (error) {
+          if (!(error instanceof Error)) {
+            throw error;
+          }
+
+          overlay?.show({
+            notice: `${error.message} Please reload the page.`,
+          });
+        }
+      },
+    ),
   );
 
   group.add(
     listen(
       document,
       "paste",
-      e => sendUserTrace(
-        pasteHandler(e)
-      )
-    )
+      async e => {
+        try {
+          await sendUserTrace(
+            pasteHandler(e),
+          );
+        } catch (error) {
+          if (!(error instanceof Error)) {
+            throw error;
+          }
+
+          overlay?.show({
+            notice: `${error.message} Please reload the page.`,
+          });
+        }
+      },
+    ),
   );
 
   return () => group.dispose();
