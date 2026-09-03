@@ -9,9 +9,9 @@ export class AllowlistRepository {
         allowlist?: string[];
       }>(STORAGE_KEY);
 
-    this.origins = new Set(
-      allowlist ?? [],
-    );
+    for (const origin of allowlist ?? []) {
+      this.origins.add(origin);
+    }
   }
 
   getOrigins(): readonly string[] {
