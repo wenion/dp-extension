@@ -6,10 +6,11 @@ import { googleDocsPlatform } from "./platforms/googleDocs";
 import { overleafPlatform } from "./platforms/overleaf";
 
 import type { Dispose } from "./types";
+import type { Overlay } from "../overlay/Overlay";
 
 
 export interface Platform {
-  mount(): Dispose;
+  mount(overlay?: Overlay): Dispose;
 }
 
 export const registry: Record<string, Platform> = {
@@ -21,9 +22,12 @@ export const registry: Record<string, Platform> = {
   default: defaultPlatform,
 };
 
-export function initializeSite(origin: string) {
+export function initializeSite(
+  platformName: string,
+  overlay?: Overlay,
+): Dispose {
   return (
-    registry[origin as keyof typeof registry]
+    registry[platformName]
     ?? registry.default
-  ).mount();
+  ).mount(overlay);
 }

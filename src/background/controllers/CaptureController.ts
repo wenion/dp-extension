@@ -114,7 +114,7 @@ export class CaptureController {
     });
   }
 
-  async captureMany(
+  private async captureMany(
     traces: UserEvent[],
     tabId: number,
   ): Promise<void> {
