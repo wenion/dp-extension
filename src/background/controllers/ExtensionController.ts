@@ -613,7 +613,8 @@ export class ExtensionController {
     const tab =
       this.tabsService.getTab(tabId);
 
-    if (!tab) {
+    if (tab) {
+      // Already tracked locally.
       return;
     }
 

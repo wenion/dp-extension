@@ -5,10 +5,21 @@ import type { TraceService } from "../services/TraceService";
 
 import type {
   GoogleDocsMeta,
+  TabState,
   UserEvent,
 } from "@/shared/types";
 
+type MutationCaptureState = {
+  isActive: boolean;
+  lastActivityAt?: number;
+};
+
+const MUTATION_TIMEOUT =
+  120_000;
+
 export class CaptureController {
+  private readonly mutationCaptureStates =
+    new Map<number, MutationCaptureState>();
 
   private readonly activeSessionService: ActiveSessionService;
   private readonly tabsService: TabsService;
@@ -50,6 +61,10 @@ export class CaptureController {
   async onCaptureStopped(
     tabId: number,
   ): Promise<void> {
+    this.mutationCaptureStates.delete(
+      tabId,
+    );
+
     await this.googleDocsService.remove(
       tabId,
     );
@@ -104,6 +119,16 @@ export class CaptureController {
       return;
     }
 
+    if (
+      !this.shouldCaptureMutation(
+        tabId,
+        trace,
+        tabState,
+      )
+    ) {
+      return;
+    }
+
     await this.traceService.add(trace, {
       sessionId: session.clientId,
       sessionStart: session.startedAt,
@@ -148,5 +173,93 @@ export class CaptureController {
       windowId: tabState!.windowId,
       url: tabState!.url,
     });
+  }
+
+  private shouldCaptureMutation(
+    tabId: number,
+    trace: UserEvent,
+    tabState: TabState,
+  ): boolean {
+    let state =
+      this.mutationCaptureStates.get(
+        tabId,
+      );
+
+    const timestamp =
+      trace.timestamp;
+
+    if (
+      state?.lastActivityAt !== undefined &&
+      timestamp - state.lastActivityAt >
+        MUTATION_TIMEOUT
+    ) {
+      this.mutationCaptureStates.delete(
+        tabId,
+      );
+
+      state = undefined;
+    }
+
+    // Start trace
+    if (this.isStartTrace(trace, tabState)) {
+      this.mutationCaptureStates.set(
+        tabId,
+        {
+          isActive: true,
+          lastActivityAt: timestamp,
+        },
+      );
+
+      return true;
+    }
+
+    // Mutation trace
+    if (this.isMutationTrace(trace)) {
+      if (!state?.isActive) {
+        return false;
+      }
+
+      state.lastActivityAt =
+        timestamp;
+
+      return true;
+    }
+
+    // Other traces
+    return true;
+  }
+
+  private isStartTrace(
+    trace: UserEvent,
+    tabState: TabState,
+  ): boolean {
+    const isClaude =
+      tabState.origin ===
+      "https://claude.ai";
+
+    if (
+      trace.eventType === "pointerdown"
+    ) {
+      return (
+        trace.elementType === "submit" ||
+        isClaude
+      );
+    }
+
+    if (
+      trace.eventType === "keydown"
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private isMutationTrace(
+    trace: UserEvent,
+  ): boolean {
+    return (
+      trace.eventType === "mutation"
+    );
   }
 }
