@@ -109,6 +109,15 @@ export class ContentScriptService {
       : InjectionResult.ContentUnavailable;
   }
 
+  isSupported(
+    protocol: string,
+  ): boolean {
+    return (
+      protocol === "http:"
+      || protocol === "https:"
+    );
+  }
+
   /**
    * Returns whether the content script is responsive.
    */

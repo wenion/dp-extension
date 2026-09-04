@@ -523,16 +523,27 @@ export class ExtensionController {
   ) {
     const url = new URL(urlString);
 
+    const isSupported =
+      this.contentScriptService.isSupported(
+        url.protocol,
+      );
+
     const isAllowlisted =
-      this.tabsService.isAllowlisted(url.origin);
+      this.tabsService.isAllowlisted(
+        url.origin,
+      );
+
+    const recordingScope = !isSupported
+      ? "unsupported"
+      : isAllowlisted
+        ? "recording"
+        : "not_in_scope";
 
     await this.tabsService.addTab({
       tabId,
       url: urlString,
       origin: url.origin,
-      recordingScope: isAllowlisted
-        ? "recording"
-        : "not_in_scope",
+      recordingScope,
       connected: false,
     });
 
@@ -581,7 +592,7 @@ export class ExtensionController {
     const tab =
       this.tabsService.getTab(tabId);
 
-    if (tab) {
+    if (!tab) {
       return;
     }
 
@@ -595,18 +606,27 @@ export class ExtensionController {
     const url =
       new URL(chromeTab.url);
 
+    const isSupported =
+      this.contentScriptService.isSupported(
+        url.protocol,
+      );
+
     const isAllowlisted =
       this.tabsService.isAllowlisted(
         url.origin,
       );
 
+    const recordingScope = !isSupported
+      ? "unsupported"
+      : isAllowlisted
+        ? "recording"
+        : "not_in_scope";
+
     await this.tabsService.addTab({
       tabId,
       url: chromeTab.url,
       origin: url.origin,
-      recordingScope: isAllowlisted
-        ? "recording"
-        : "not_in_scope",
+      recordingScope,
       connected: false,
       title: chromeTab.title,
     });

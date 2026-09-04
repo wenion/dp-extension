@@ -22,6 +22,14 @@ export class BadgeService {
 
       await Promise.allSettled(
         tabs.map(async tab => {
+          if (
+            !tab.connected &&
+            tab.recordingScope !== "unsupported"
+          ) {
+            await this.setError(tab.tabId);
+            return;
+          }
+
           if (tab.recordingScope === "excluded") {
             await this.setExcluded(tab.tabId);
             return;
@@ -45,28 +53,59 @@ export class BadgeService {
     }
 
     if (mounted) {
-      await this.setReadyWithTabs(tabs);
+      await Promise.allSettled(
+        tabs.map(async tab => {
+          if (
+            !tab.connected &&
+            tab.recordingScope !== "unsupported"
+          ) {
+            await this.setError(tab.tabId);
+            return;
+          }
+
+          await this.setReady(tab.tabId);
+        }),
+      );
       return;
     }
 
-    await this.setDisabledWithTabs(tabs);
+    await Promise.allSettled(
+      tabs.map(async tab => {
+        if (
+          !tab.connected &&
+          tab.recordingScope !== "unsupported"
+        ) {
+          await this.setError(tab.tabId);
+          return;
+        }
+
+        await this.setDisabled(tab.tabId);
+      }),
+    );
   }
 
-  async setUnauthenticated(
-  ): Promise<void> {
+  async setUnauthenticated(): Promise<void> {
     await this.show(
       BadgeState.Unauthenticated,
     );
   }
 
-  async setDisabled(): Promise<void> {
+  async setDisabled(
+    tabId: number,
+  ): Promise<void> {
     await this.show(
       BadgeState.Disabled,
+      tabId,
     );
   }
 
-  async setReady(): Promise<void> {
-    await this.show(BadgeState.Ready);
+  async setReady(
+    tabId: number,
+  ): Promise<void> {
+    await this.show(
+      BadgeState.Ready,
+      tabId,
+    );
   }
 
   async setUnauthenticatedWithTabs(
@@ -74,24 +113,6 @@ export class BadgeService {
   ): Promise<void> {
     return this.showWithTabs(
       BadgeState.Unauthenticated,
-      tabs,
-    );
-  }
-
-  private async setDisabledWithTabs(
-    tabs: readonly TabState[],
-  ): Promise<void> {
-    return this.showWithTabs(
-      BadgeState.Disabled,
-      tabs,
-    );
-  }
-
-  private async setReadyWithTabs(
-    tabs: readonly TabState[],
-  ): Promise<void> {
-    return this.showWithTabs(
-      BadgeState.Ready,
       tabs,
     );
   }
@@ -133,6 +154,12 @@ export class BadgeService {
     tabId: number,
   ): Promise<void> {
     await this.show(BadgeState.OutOfScope, tabId);
+  }
+
+  private async setError(
+    tabId: number,
+  ): Promise<void> {
+    await this.show(BadgeState.Error, tabId);
   }
 
   private async show(

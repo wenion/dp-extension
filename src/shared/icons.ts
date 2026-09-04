@@ -13,7 +13,7 @@ export type BadgeState =
   (typeof BadgeState)[keyof typeof BadgeState];
 
 type BadgeMetadata = {
-  mode: "disabled" | "ready" | "recording" | "paused" | "excluded" | "not_in_scope",
+  mode: "disabled" | "ready" | "recording" | "paused" | "excluded" | "not_in_scope" | "error",
   title: string;
   badgeText: string;
   badgeColor?: string;
@@ -70,15 +70,14 @@ export const BadgeMetadata: Record<
   },
 
   [BadgeState.Error]: {
-    mode: "excluded",
+    mode: "error",
     title: "Extension error",
     badgeText: "!",
-    badgeColor: "#123008",
   },
 };
 
 export const getBadgeIcon = (
-  mode: "disabled" | "ready" | "recording" | "paused" | "excluded" | "not_in_scope",
+  mode: "disabled" | "ready" | "recording" | "paused" | "excluded" | "not_in_scope" | "error",
   color?: BadgeMetadata["badgeColor"],
   size = 128,
 ) =>  {
