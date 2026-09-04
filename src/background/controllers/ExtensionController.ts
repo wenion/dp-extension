@@ -5,6 +5,7 @@ import type { AuthenticationService } from "../services/AuthenticationService";
 import type { BadgeService } from "../services/BadgeService";
 import type { ContentScriptService } from "../services/ContentScriptService";
 import type { ExtensionService } from "../services/ExtensionService";
+import type { GoogleDocsService } from "../services/GoogleDocsService";
 import type { NotificationService } from "../services/NotificationService";
 import type { SessionsService } from "../services/SessionsService";
 import type { TabsService } from "../services/TabsService";
@@ -36,6 +37,7 @@ export class ExtensionController {
   private badgeService: BadgeService;
   private contentScriptService: ContentScriptService;
   private extensionService: ExtensionService;
+  private googleDocsService: GoogleDocsService;
   private notificationService: NotificationService;
   private sessionsService: SessionsService;
   private tabsService: TabsService;
@@ -48,6 +50,7 @@ export class ExtensionController {
     badgeService: BadgeService,
     contentScriptService: ContentScriptService,
     extensionService: ExtensionService,
+    googleDocsService: GoogleDocsService,
     notificationService: NotificationService,
     sessionsService: SessionsService,
     tabsService: TabsService,
@@ -59,6 +62,7 @@ export class ExtensionController {
     this.badgeService = badgeService;
     this.contentScriptService = contentScriptService;
     this.extensionService = extensionService;
+    this.googleDocsService = googleDocsService;
     this.notificationService = notificationService;
     this.sessionsService = sessionsService;
     this.tabsService = tabsService;
@@ -560,12 +564,29 @@ export class ExtensionController {
     tabId: number,
     windowId: number,
     title?: string,
+    googleDocId?: string,
   ) {
+    const tab =
+      this.tabsService.getTab(
+        tabId,
+      );
+
+    if (
+      googleDocId &&
+      tab?.googleDocId !== googleDocId
+    ) {
+      await this.googleDocsService.init(
+        tabId,
+        googleDocId,
+      );
+    }
+
     await this.tabsService.updateTab(
       tabId,
       {
         windowId,
         title,
+        googleDocId,
       },
     );
 

@@ -178,6 +178,7 @@ class Application {
       this.badgeService,
       this.contentScriptService,
       this.extensionService,
+      this.googleDocsService,
       this.notificationService,
       this.sessionsService,
       this.tabsService,
