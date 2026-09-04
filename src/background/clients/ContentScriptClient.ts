@@ -49,13 +49,17 @@ export class ContentScriptClient {
     const tabs =
       this.tabsRepository.getTabs();
 
-    await Promise.allSettled(
-      tabs.map(tab =>
-        this.send(
-          tab.tabId,
-          message,
-        ),
-      ),
+    await Promise.all(
+      tabs.map(async tab => {
+        try {
+          await this.send(
+            tab.tabId,
+            message,
+          );
+        } catch {
+          tab.connected = false;
+        }
+      }),
     );
   }
 }
