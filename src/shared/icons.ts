@@ -73,6 +73,7 @@ export const BadgeMetadata: Record<
     mode: "error",
     title: "Extension error",
     badgeText: "!",
+    badgeColor: "#4688F1",
   },
 };
 
