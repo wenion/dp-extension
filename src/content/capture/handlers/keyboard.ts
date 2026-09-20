@@ -1,187 +1,8 @@
+import { getCaretInfo } from "../utils/caret.ts";
 import { getXPath } from "../utils/xpath";
 import { getVisibleFormFieldIndex } from "../utils/formFieldIndex.ts";
 
 import type { Trace } from "@/shared/types";
-
-
-type CaretInfo = {
-  absolutePosition: number;
-  line: number;     // 0-based
-  column: number;   // 0-based
-};
-
-function getCaretInfo(target: HTMLElement, key?: string): CaretInfo | null {
-
-  // ============================
-  // 1 TEXTAREA / INPUT
-  // ============================
-  if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
-
-    const value = target.value;
-    const start = target.selectionStart ?? 0;
-
-    const before = value.slice(0, start);
-    const lines = before.split("\n");
-
-    return {
-      absolutePosition: start,
-      line: lines.length - 1,
-      column: lines[lines.length - 1].length
-    };
-  }
-
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return null;
-  const range = selection.getRangeAt(0);
-
-  // ============================
-  // 2 CodeMirror (Overleaf)
-  // ============================
-  if (target.classList.contains("cm-content")) {
-
-    const container = range.startContainer;
-
-    const lineEl =
-      container.nodeType === Node.TEXT_NODE
-        ? container.parentElement?.closest(".cm-line")
-        : (container as HTMLElement).closest(".cm-line");
-
-    if (!lineEl) return null;
-
-    const lines = Array.from(target.querySelectorAll(".cm-line"));
-    const lineIndex = lines.indexOf(lineEl);
-
-    let absolutePosition = 0;
-
-    for (let i = 0; i < lineIndex; i++) {
-      absolutePosition += (lines[i].textContent ?? "").length + 1;
-    }
-
-    const preRange = range.cloneRange();
-    preRange.selectNodeContents(lineEl);
-    preRange.setEnd(range.startContainer, range.startOffset);
-
-    const column = preRange.toString().length;
-
-    return {
-      absolutePosition: absolutePosition + column,
-      line: lineIndex,
-      column
-    };
-  }
-
-  // ============================
-  // 3 ProseMirror (ChatGPT / Notion)
-  // ============================
-  if (target.querySelector("p")) {
-
-    const container = range.startContainer;
-
-    const paragraphs = Array.from(target.querySelectorAll("p"));
-
-    const currentParagraph =
-      container.nodeType === Node.TEXT_NODE
-        ? container.parentElement?.closest("p")
-        : (container as HTMLElement).closest("p");
-
-    if (!currentParagraph) return null;
-
-    let paragraphIndex = paragraphs.indexOf(currentParagraph); // paragraphIndex is 0-based index
-
-    if (key === "Enter") {
-      // DOM structure changes
-      paragraphIndex = paragraphIndex - 1;
-    }
-
-    let absolutePosition = 0;
-
-    for (let i = 0; i < paragraphIndex; i++) {
-      absolutePosition += (paragraphs[i].textContent ?? "").length;
-      if ((paragraphs[i + 1].textContent ?? "").length > 0) {
-        // next paragraph has text, so add 1 for the newline
-        absolutePosition += 1;
-      }
-      else if ((paragraphs[i + 1].textContent ?? "").length === 0 && key !== "Enter") {
-        // next paragraph is empty, but user didn't just press Enter, so add 1 for the newline
-        absolutePosition += 1;
-      }
-      else if ((paragraphs[i + 1].textContent ?? "").length === 0 && paragraphs[i + 2]?.textContent !== undefined) {
-        // next paragraph is empty, but there is a next next paragraph, so add 1 for the newline
-        absolutePosition += 1;
-      }
-    }
-
-    const preRange = range.cloneRange();
-    preRange.selectNodeContents(currentParagraph);
-    preRange.setEnd(range.startContainer, range.startOffset);
-
-    absolutePosition += preRange.toString().length;
-
-    // 3 Convert to line + column
-    const line = paragraphIndex;
-    const column = preRange.toString().length;
-
-    return {
-      absolutePosition,
-      line,
-      column
-    };
-  }
-
-  // ============================
-  // 4 Google Docs
-  // ============================
-  if (target.querySelector(".kix-lineview")) {
-
-    const container = range.startContainer;
-
-    const lines = Array.from(document.querySelectorAll(".kix-lineview"));
-
-    const currentLine =
-      container.nodeType === Node.TEXT_NODE
-        ? container.parentElement?.closest(".kix-lineview")
-        : (container as HTMLElement).closest(".kix-lineview");
-
-    if (!currentLine) return null;
-
-    const lineIndex = lines.indexOf(currentLine);
-
-    let absolutePosition = 0;
-
-    for (let i = 0; i < lineIndex; i++) {
-      absolutePosition += (lines[i].textContent ?? "").length + 1;
-    }
-
-    const preRange = range.cloneRange();
-    preRange.selectNodeContents(currentLine);
-    preRange.setEnd(range.startContainer, range.startOffset);
-
-    const column = preRange.toString().length;
-
-    return {
-      absolutePosition: absolutePosition + column,
-      line: lineIndex,
-      column
-    };
-  }
-
-  // ============================
-  // 5 Generic contenteditable fallback
-  // ============================
-
-  const preRange = range.cloneRange();
-  preRange.selectNodeContents(target);
-  preRange.setEnd(range.startContainer, range.startOffset);
-
-  const text = preRange.toString();
-  const lines = text.split("\n");
-
-  return {
-    absolutePosition: text.length,
-    line: lines.length - 1,
-    column: lines[lines.length - 1].length
-  };
-}
 
 export const keyDownHandler = (
   event: KeyboardEvent,
@@ -190,7 +11,10 @@ export const keyDownHandler = (
   data.eventType = event.type;
   const target = event.target;
 
-  if (!target) return data;
+  if (!target) {
+    data.reason = "NoTarget";
+    return data;
+  }
 
   const isNativeInput =
     target instanceof HTMLInputElement ||
@@ -199,7 +23,10 @@ export const keyDownHandler = (
   const isInContentEditable =
     (target as HTMLElement).isContentEditable;
 
-  if (!isNativeInput && !isInContentEditable) return data;
+  if (!isNativeInput && !isInContentEditable) {
+    data.reason = "UnsupportedEditor";
+    return data;
+  }
 
   const isUndo =
     (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z";
@@ -222,7 +49,10 @@ export const keyDownHandler = (
   const isModifierOnly = MODIFIER_KEYS.has(event.key);
 
   // ignore modifier-only presses (Shift, Ctrl, etc.)
-  if (isModifierOnly) return data;
+  if (isModifierOnly) {
+    data.reason = "ModifierKey";
+    return data;
+  }
 
   // ignore most shortcuts EXCEPT undo/redo
   if (
@@ -230,6 +60,7 @@ export const keyDownHandler = (
     !isUndo &&
     !isRedo
   ) {
+    data.reason = "Shortcut"
     return data;
   }
 
@@ -242,7 +73,7 @@ export const keyDownHandler = (
   data.clientY = NaN;
   data.width = window.innerWidth;
   data.height = window.innerHeight;
-  data.xpath = target instanceof Element ? getXPath(target) : "";
+  data.xpath = getXPath(target as Element);
 
   data.code = event.code;
   data.key = event.key;
@@ -261,8 +92,13 @@ export const keyDownHandler = (
   if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
     data.eventState = target.value;
     data.startPosition = target.selectionStart ?? undefined;
+
+    const caretInfo = getCaretInfo(target as HTMLElement, event.key);
+    data.startPosition = caretInfo?.absolutePosition;
   }
   else if (target instanceof HTMLElement && target.isContentEditable) {
+    const caretInfo = getCaretInfo(target as HTMLElement, event.key);
+
     let eventState = "";
     if (target) {
       const paragraphs = target.querySelectorAll("p, .cm-line, .kix-lineview");
@@ -278,7 +114,6 @@ export const keyDownHandler = (
     }
 
     data.eventState = eventState;
-    const caretInfo = getCaretInfo(target as HTMLElement, event.key);
     data.startPosition = caretInfo?.absolutePosition;
   }
 
@@ -288,7 +123,7 @@ export const keyDownHandler = (
 export const inputHandler = (
   event: Event,
 ) : Trace => {
-  const data = {} as Trace;  
+  const data = {} as Trace;
   data.eventType = event.type;
 
   if (!(event instanceof InputEvent)) return data;
@@ -297,6 +132,7 @@ export const inputHandler = (
   // data.eventType = event.type;
   data.timestamp = Date.now();
   data.author = "human";
+  data.inputType = event.inputType;
 
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
     data.startPosition = target.selectionStart ?? undefined;
