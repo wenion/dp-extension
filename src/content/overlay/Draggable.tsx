@@ -38,29 +38,70 @@ export function Draggable({ children }: DraggableProps) {
     }
   };
 
+  const clampPosition = (
+    position: { x: number; y: number },
+    width: number,
+    height: number,
+  ) => {
+    const maxX = Math.max(
+      0,
+      window.innerWidth - width,
+    );
+
+    const maxY = Math.max(
+      0,
+      window.innerHeight - height,
+    );
+
+    return {
+      x: Math.min(
+        Math.max(0, position.x),
+        maxX,
+      ),
+      y: Math.min(
+        Math.max(0, position.y),
+        maxY,
+      ),
+    };
+  };
+
   useEffect(() => {
-    const handleMouseMove = (e: globalThis.MouseEvent) => {
+    const handleMouseMove = (
+      e: globalThis.MouseEvent
+    ) => {
       if (!isMouseDownRef.current) return;
 
-      const dx = Math.abs(e.clientX - startPos.current.x);
-      const dy = Math.abs(e.clientY - startPos.current.y);
+       const dx = Math.abs(
+        e.clientX - startPos.current.x,
+      );
+      const dy = Math.abs(
+        e.clientY - startPos.current.y,
+      );
 
-      if (!isDraggedRef.current && (dx > 5 || dy > 5)) {
+      if (
+        !isDraggedRef.current &&
+        (dx > 5 || dy > 5)
+      ) {
         isDraggedRef.current = true;
         setIsDragging(true);
       }
 
       if (isDraggedRef.current) {
-        const rawX = e.clientX - offset.current.x;
-        const rawY = e.clientY - offset.current.y;
+        const rawX =
+          e.clientX - offset.current.x;
+        const rawY =
+          e.clientY - offset.current.y;
 
-        const maxX = window.innerWidth - dimensions.current.width;
-        const maxY = window.innerHeight - dimensions.current.height;
-
-        setPosition({
-          x: Math.min(Math.max(0, rawX), maxX),
-          y: Math.min(Math.max(0, rawY), maxY),
-        });
+        setPosition(
+          clampPosition(
+            {
+              x: rawX,
+              y: rawY,
+            },
+            dimensions.current.width,
+            dimensions.current.height,
+          ),
+        );
       }
     };
 
@@ -71,12 +112,87 @@ export function Draggable({ children }: DraggableProps) {
       }
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    const handleResize = () => {
+      setPosition(currentPosition => {
+        // Component has never been dragged.
+        if (!currentPosition) {
+          return null;
+        }
+
+        const rect =
+          elementRef.current?.getBoundingClientRect();
+
+        if (!rect) {
+          return currentPosition;
+        }
+
+        return clampPosition(
+          currentPosition,
+          rect.width,
+          rect.height,
+        );
+      });
+    };
+
+    window.addEventListener(
+      "mousemove",
+      handleMouseMove,
+    );
+
+    window.addEventListener(
+      "mouseup",
+      handleMouseUp,
+    );
+
+    window.addEventListener(
+      "resize",
+      handleResize,
+    );
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener(
+        "mousemove",
+        handleMouseMove,
+      );
+
+      window.removeEventListener(
+        "mouseup",
+        handleMouseUp,
+      );
+
+      window.removeEventListener(
+        "resize",
+        handleResize,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    const element = elementRef.current;
+
+    if (!element) return;
+
+    const observer = new ResizeObserver(() => {
+      const rect =
+        element.getBoundingClientRect();
+
+      setPosition(currentPosition => {
+        if (!currentPosition) {
+          return null;
+        }
+
+        return clampPosition(
+          currentPosition,
+          rect.width,
+          rect.height,
+        );
+      });
+    });
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
     };
   }, []);
 
