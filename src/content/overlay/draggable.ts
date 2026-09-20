@@ -1,8 +1,6 @@
 export function makeDraggable(
   element: HTMLElement,
 ): () => void {
-  let isDragging = false;
-
   let position:
     | { x: number; y: number }
     | null = null;
@@ -35,6 +33,86 @@ export function makeDraggable(
   element.style.position = "fixed";
   element.style.right = "24px";
   element.style.bottom = "24px";
+
+  const clampPosition = (
+    currentPosition: {
+      x: number;
+      y: number;
+    },
+    width: number,
+    height: number,
+  ) => {
+    const maxX = Math.max(
+      0,
+      window.innerWidth - width,
+    );
+
+    const maxY = Math.max(
+      0,
+      window.innerHeight - height,
+    );
+
+    return {
+      x: Math.min(
+        Math.max(
+          0,
+          currentPosition.x,
+        ),
+        maxX,
+      ),
+
+      y: Math.min(
+        Math.max(
+          0,
+          currentPosition.y,
+        ),
+        maxY,
+      ),
+    };
+  };
+
+  const applyPosition = (
+    nextPosition: {
+      x: number;
+      y: number;
+    },
+  ) => {
+    position = nextPosition;
+
+    element.style.left =
+      `${position.x}px`;
+
+    element.style.top =
+      `${position.y}px`;
+
+    element.style.right = "auto";
+    element.style.bottom = "auto";
+  };
+
+  const clampCurrentPosition = () => {
+    if (!position) {
+      return;
+    }
+
+    const rect =
+      element.getBoundingClientRect();
+
+    const nextPosition =
+      clampPosition(
+        position,
+        rect.width,
+        rect.height,
+      );
+
+    if (
+      nextPosition.x === position.x &&
+      nextPosition.y === position.y
+    ) {
+      return;
+    }
+
+    applyPosition(nextPosition);
+  };
 
   const handleMouseDown = (
     event: MouseEvent,
@@ -92,7 +170,6 @@ export function makeDraggable(
       (dx > 5 || dy > 5)
     ) {
       isDragged = true;
-      isDragging = true;
 
       element.classList.remove(
         "cursor-grab",
@@ -107,45 +184,24 @@ export function makeDraggable(
       return;
     }
 
-    const rawX =
-      event.clientX -
-      offset.x;
+    const rawPosition = {
+      x:
+        event.clientX -
+        offset.x,
 
-    const rawY =
-      event.clientY -
-      offset.y;
-
-    const maxX =
-      window.innerWidth -
-      dimensions.width;
-
-    const maxY =
-      window.innerHeight -
-      dimensions.height;
-
-    position = {
-      x: Math.min(
-        Math.max(0, rawX),
-        maxX,
-      ),
-
-      y: Math.min(
-        Math.max(0, rawY),
-        maxY,
-      ),
+      y:
+        event.clientY -
+        offset.y,
     };
 
-    element.style.left =
-      `${position.x}px`;
+    const nextPosition =
+      clampPosition(
+        rawPosition,
+        dimensions.width,
+        dimensions.height,
+      );
 
-    element.style.top =
-      `${position.y}px`;
-
-    element.style.right =
-      "auto";
-
-    element.style.bottom =
-      "auto";
+    applyPosition(nextPosition);
   };
 
   const handleMouseUp = () => {
@@ -154,7 +210,6 @@ export function makeDraggable(
     }
 
     isMouseDown = false;
-    isDragging = false;
 
     element.classList.remove(
       "cursor-grabbing",
@@ -178,6 +233,17 @@ export function makeDraggable(
     isDragged = false;
   };
 
+  const handleResize = () => {
+    clampCurrentPosition();
+  };
+
+  const resizeObserver =
+    new ResizeObserver(() => {
+      clampCurrentPosition();
+    });
+
+  resizeObserver.observe(element);
+
   element.addEventListener(
     "mousedown",
     handleMouseDown,
@@ -197,6 +263,11 @@ export function makeDraggable(
   window.addEventListener(
     "mouseup",
     handleMouseUp,
+  );
+
+  window.addEventListener(
+    "resize",
+    handleResize,
   );
 
   return () => {
@@ -220,5 +291,12 @@ export function makeDraggable(
       "mouseup",
       handleMouseUp,
     );
+
+    window.removeEventListener(
+      "resize",
+      handleResize,
+    );
+
+    resizeObserver.disconnect();
   };
 }
