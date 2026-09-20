@@ -1,21 +1,34 @@
+import {
+  findFirstDifference,
+  isSubsequence,
+} from "@/content/capture/utils/string";
+
 import type { Trace  } from "@/shared/types";
 
 export type DocState = {
   state: string;
-  value: string;
-  text?: string;
+  value?: string;
   startPosition?: number;
   endPosition?: number;
-  done: boolean;
-  // timestamp: number;
-  // requestId?: number;
-  // tabId: number;
-  // sessionId: string;
-  type: string;
+};
+
+type GroupedTraces = {
+  groups: Trace[][];
+  otherTraces: Trace[];
+};
+
+interface ConversationTurn {
+  userAsk?: Trace;
+  aiReplys: Trace[];
+};
+
+type InitialStateInfo = {
+  index: number;
+  state: string;
+  stateIsPreEvent: boolean;
 };
 
 export class TraceProcessorService {
-  private readonly keyboardState = new Map<number, DocState>();
 
   getDomains(
     traces: readonly Trace[],
@@ -60,676 +73,1335 @@ export class TraceProcessorService {
     }));
   }
 
+  private matchKeydownInputPair(
+    keydownTrace: Trace,
+    inputTrace?: Trace,
+  ): {
+    matched: boolean;
+    resultState: string;
+  } {
+    const matched =
+      keydownTrace.key !== undefined &&
+      this.getInputKey(inputTrace) ===
+        keydownTrace.key;
+
+    return {
+      matched,
+      resultState: matched
+        ? inputTrace!.eventState!
+        : keydownTrace.eventState!,
+    };
+  }
+
+  private getInputKey(
+    trace?: Trace,
+  ): string | undefined {
+    if (
+      trace?.eventType !== "input" ||
+      !trace?.inputType
+    ) {
+      return undefined;
+    }
+
+    switch (trace.inputType) {
+      case "deleteContentForward":
+      case "deleteWordForward":
+        return "Delete";
+
+      case "deleteContentBackward":
+      case "deleteWordBackward":
+        return "Backspace";
+
+      case "insertText":
+        return trace.eventValue;
+
+      case "insertLineBreak":
+      case "insertParagraph":
+        return "Enter";
+
+      case "historyUndo":
+        return "Undo";
+
+      case "historyRedo":
+        return "Redo";
+
+      default:
+        return undefined;
+    }
+  }
+
+  private mergeTraces(
+    processedTraces: Trace[],
+    otherTraces: Trace[],
+  ): Trace[] {
+    const results: Trace[] = [];
+
+    let i = 0;
+    let j = 0;
+
+    while (
+      i < processedTraces.length &&
+      j < otherTraces.length
+    ) {
+      const processed = processedTraces[i];
+      const other = otherTraces[j];
+
+      if (other.timestamp <= processed.timestamp) {
+        results.push(other);
+        j++;
+      }
+      else {
+        results.push(processed);
+        i++;
+      }
+    }
+
+    results.push(...processedTraces.slice(i));
+    results.push(...otherTraces.slice(j));
+
+    return results;
+  }
+
   private process(traces: Trace[]): Trace[] {
-    const traces1 = this.processKeyboardEvents(traces);
-    const traces2 = this.processMutationEvents(traces1);
+    const {
+      groups,
+      otherTraces,
+    } = this.groupTraces(traces);
+
+    const processedGroups = groups.map(group =>
+      this.processKeyboardTraces(
+        this.filterTracesByAnchors(group),
+      ),
+    );
+
+    const processedTraces =
+      processedGroups.reduce<Trace[]>(
+        (results, group) =>
+          this.mergeTraces(results, group),
+        [],
+      );
+
+    const traces1 = this.mergeTraces(
+      processedTraces,
+      otherTraces
+    );
+
+    const conversationGroups =
+      this.groupConversationTraces(traces1);
+
+    const processedConversationGroups =
+      conversationGroups.map(group =>
+        this.processGroupedMutationTraces(group),
+      );
+
+    const traces2 =
+      processedConversationGroups.reduce<Trace[]>(
+        (results, group) =>
+          this.mergeTraces(
+            results,
+            group,
+          ),
+        [],
+      );
+
     const traces3 = this.processPointerDownEvents(traces2);
     const traces4 = this.processGoogleDocsEvents(traces3);
 
     return traces4;
   }
 
-  private findAllMatches(str: string, sub: string): { start: number; end: number }[] {
-    const results = [];
+  private groupTraces(
+    traces: Trace[],
+  ): GroupedTraces {
+    // Groups traces by [tabId, url, xpath].
+    // Each group represents a possible editing context.
+    const groups = new Map<string, Trace[]>();
+
+    // Maps each page [tabId, url] to all editing groups
+    // discovered on that page.
+    //
+    // This allows ambiguous cut/paste events to be assigned
+    // to every possible editing context on the same page.
+    // page [tab, url] -> [[tab1, urlA, xpathA], [tab1, urlA, xpathB], ...]
+    const pageGroups = new Map<string, string[]>();
+    const otherTraces: Trace[] = [];
+
+    const getPageKey = (trace: Trace) =>
+      JSON.stringify([
+        trace.tabId,
+        trace.url,
+      ]);
+
+    const getGroupKey = (trace: Trace) =>
+      JSON.stringify([
+        trace.tabId,
+        trace.url,
+        trace.xpath ?? null,
+      ]);
+
+    // Only these event types participate in keyboard
+    // trace processing.
+    const targetTypes = new Set([
+      "keydown",
+      "input",
+      "cut",
+      "paste",
+    ]);
+
+    // Pass 1:
+    // Discover editing contexts using keydown/input traces
+    // with a reliable xpath.
+    //
+    // These traces act as anchors because their xpath can
+    // identify a specific editing context on the page.
+    for (const trace of traces) {
+      if (
+        (trace.eventType !== "keydown" &&
+          trace.eventType !== "input") ||
+        !trace.xpath
+      ) {
+        continue;
+      }
+
+      const groupKey = getGroupKey(trace);
+
+      if (groups.has(groupKey)) {
+        continue;
+      }
+
+      groups.set(groupKey, []);
+
+      // Register this editing context under its page so
+      // ambiguous events can later find all candidate groups.
+      const pageKey = getPageKey(trace);
+      const keys = pageGroups.get(pageKey);
+
+      if (keys) {
+        keys.push(groupKey);
+      }
+      else {
+        pageGroups.set(pageKey, [groupKey]);
+      }
+    }
+
+    // Pass 2:
+    // Assign target traces to the editing contexts
+    // preserve non-target traces, and discard
+    // keydown/input traces without a reliable xpath.
+    for (const trace of traces) {
+      if (!targetTypes.has(trace.eventType ?? "")) {
+        otherTraces.push(trace);
+        continue;
+      }
+
+      const isKeyboardInput =
+        trace.eventType === "keydown" ||
+        trace.eventType === "input";
+
+      // keydown/input traces with an xpath have a reliable
+      // editing context, so assign them only to the exact group.
+      //
+      // keydown/input traces without an xpath are ignored
+      // because their editing context cannot be determined.
+      if (isKeyboardInput) {
+        if (!trace.xpath) {
+          continue;
+        }
+
+        groups
+          .get(getGroupKey(trace))
+          ?.push(trace);
+
+        continue;
+      }
+
+      // Ambiguous cut/paste traces:
+      // assign to all groups on the same page.
+      const pageKey = getPageKey(trace);
+      const groupKeys = pageGroups.get(pageKey);
+
+      if (groupKeys?.length) {
+        for (const groupKey of groupKeys) {
+          groups.get(groupKey)?.push(trace);
+        }
+
+        continue;
+      }
+
+      // No anchor exists for this page.
+      const fallbackKey = JSON.stringify([
+        trace.tabId,
+        trace.url,
+        null,
+      ]);
+
+      if (!groups.has(fallbackKey)) {
+        groups.set(fallbackKey, []);
+        pageGroups.set(pageKey, [fallbackKey]);
+      }
+
+      groups.get(fallbackKey)!.push(trace);
+    }
+
+    return {
+      groups: [...groups.values()],
+      otherTraces,
+    };
+  }
+
+  /**
+   * Filters traces using keydown events as anchors.
+   *
+   * Each keydown and its immediately following input, if any,
+   * are preserved. Traces after the previous keydown
+   * (+ optional input) and before the next keydown are filtered
+   * against the next keydown's state. If no next keydown exists,
+   * the remaining traces are preserved unchanged.
+   */
+  private filterTracesByAnchors(
+    traces: Trace[],
+  ): Trace[] {
+    const filtered: Trace[] = [];
+
     let index = 0;
 
-    while (true) {
-      const start = str.indexOf(sub, index);
-      if (start === -1) break;
+    while (index < traces.length) {
+      const anchorOffset =
+        traces
+          .slice(index)
+          .findIndex(
+            trace =>
+              trace.eventType === "keydown",
+          );
 
-      results.push({
-        start,
-        end: start + sub.length - 1,
-      });
-
-      index = start + 1; // allow overlap
-    }
-
-    return results;
-  }
-
-  private processKeyboardEvents(traces: Trace[]): Trace[] {
-    const results = [] as Trace[];
-    for (const trace of traces) {
-      if (trace.eventType === "keydown") {
-        if (trace.eventValue === "Enter") {
-          const cache: DocState = {
-            state: trace.eventState || "",
-            value: "\n",
-            text: trace.textContent,
-            startPosition: trace.startPosition,
-            done: true,
-            // tabId: trace.tabId,
-            // timestamp: trace.timestamp,
-            // sessionId: trace.sessionId,
-            type: "Insert",
-          };
-          this.keyboardState.set(trace.tabId, cache);
-
-          const data = {} as Trace;
-          data.eventType = "keystroke";
-          data.key = "Enter";
-          data.code = "Enter";
-          data.eventValue = "\n";
-          data.eventState = trace.eventState;
-          data.startPosition = trace.startPosition ? trace.startPosition : 0;
-          data.endPosition = data.startPosition + 1;
-          data.url = trace.url;
-          data.timestamp = trace.timestamp;
-          data.sessionId = trace.sessionId;
-          // data.source = "UserEvent";
-          data.author = "human";
-          data.textContent = trace.textContent;
-          data.tag = trace.tag;
-          data.elementType = "insert";
-
-
-          trace.eventType = "keystroke";
-          trace.key = "Enter";
-          trace.code = "Enter";
-          trace.eventValue = "\n";
-          trace.startPosition = trace.startPosition ?? 0;
-          trace.endPosition = trace.startPosition + 1;
-          // data.timestamp = trace.timestamp;
-          // data.sessionId = trace.sessionId;
-          // data.source = "UserEvent";
-          trace.author = "human";
-          // data.textContent = trace.textContent;
-          // data.tag = trace.tag;
-          trace.elementType = "insert";
-
-          // results.push(data);
-          results.push(trace);
-        }
-        else if (trace.key === "Backspace") {
-          const start = trace.startPosition;
-          const length = trace.eventState?.length || 0;
-          const prev = this.keyboardState.get(trace.tabId!);
-          const prevState = prev ? prev.state : "";
-
-          if (prevState !== "") {
-            if (prevState === trace.eventState) {
-              // delete a letter
-              const value = prevState.slice(start, start! + 1);
-              const cache: DocState = {
-                state: trace.eventState || "",
-                value: value,
-                text: trace.textContent,
-                startPosition: start,
-                done: trace.startPosition === 0 ? true : false,
-                // tabId: trace.tabId!,
-                // timestamp: Date.now(),
-                type: "Backspace",
-              };
-              this.keyboardState.set(trace.tabId!, cache);
-            }
-            else {
-              const diff = prevState.length - length;
-              if (diff === 1) {
-                const value = prevState.slice(start, start! + 1);
-                if (value === "\n") {
-                  const cache: DocState = {
-                    state: trace.eventState || "",
-                    value: "\n",
-                    text: trace.textContent,
-                    startPosition: start! + 1,
-                    endPosition: start,
-                    done: true,
-                    // tabId: trace.tabId!,
-                    // timestamp: Date.now(),
-                    type: "Backspace",
-                  };
-                  this.keyboardState.set(trace.tabId!, cache);
-                  // output
-                  // const data = {} as Trace;
-                  // data.eventType = "keystroke";
-                  // data.key = "Enter";
-                  // data.code = "Enter";
-                  // data.eventValue = "\n";
-                  // data.eventState = trace.eventState;
-                  // data.startPosition = start! + 1;
-                  // data.endPosition = start;
-                  // data.url = trace.url;
-                  // data.timestamp = trace.timestamp;
-                  // data.sessionId = trace.sessionId;
-                  // // data.source = "UserEvent";
-                  // data.author = "human";
-                  // data.textContent = trace.textContent;
-                  // data.tag = trace.tag;
-                  // data.elementType = "delete";
-
-
-                  trace.eventType = "keystroke";
-                  trace.key = "Enter";
-                  trace.code = "Enter";
-                  trace.eventValue = "\n";
-                  trace.startPosition = start! + 1;
-                  trace.endPosition = start;
-                  trace.author = "human";
-                  trace.elementType = "delete";
-
-                  results.push(trace);
-                }
-              }
-              else if (diff === prevState.length) {
-                // delete all text
-                const cache: DocState = {
-                  state: trace.eventState || "",
-                  value: prevState,
-                  text: trace.textContent,
-                  startPosition: prevState.length,
-                  endPosition: 0,
-                  done: true,
-                  // tabId: trace.tabId!,
-                  // timestamp: Date.now(),
-                  type: "Backspace",
-                };
-                this.keyboardState.set(trace.tabId!, cache);
-
-                // const data = {} as Trace;
-                // data.eventType = "keystroke";
-                // data.key = prevState;
-                // data.code = prevState;
-                // data.eventValue = prevState;
-                // data.eventState = trace.eventState;
-                // data.startPosition = prevState.length;
-                // data.endPosition = 0;
-                // data.url = trace.url;
-                // data.timestamp = trace.timestamp;
-                // data.sessionId = trace.sessionId;
-                // // data.source = "UserEvent";
-                // data.author = "human";
-                // data.textContent = trace.textContent;
-                // data.tag = trace.tag;
-                // data.elementType = "delete";
-
-                trace.eventType = "keystroke";
-                trace.key = prevState;
-                trace.code = prevState;
-                trace.eventValue = prevState;
-                trace.startPosition = prevState.length;
-                trace.endPosition = 0;
-                trace.author = "human";
-                trace.elementType = "delete";
-
-                // results.push(data);
-                results.push(trace);
-              }
-              else {
-                // delete a part of the text
-                let start = trace.startPosition || 0;
-                const result = this.findAllMatches(prevState, trace.eventState || "");
-                const match = result.find(m => m.start === start);
-                if (match) {
-                  start = match.start;
-                }
-                const cache: DocState = {
-                  state: trace.eventState || "",
-                  value: prevState.slice(start, diff + start),
-                  text: trace.textContent,
-                  startPosition: start,
-                  endPosition: start + diff,
-                  done: true,
-                  // tabId: trace.tabId!,
-                  // timestamp: Date.now(),
-                  type: "Backspace",
-                };
-                this.keyboardState.set(trace.tabId!, cache);
-
-                // const data = {} as Trace;
-                // data.eventType = "keystroke";
-                // data.key = prevState.slice(start, diff + start);
-                // data.code = prevState.slice(start, diff + start);
-                // data.eventValue = prevState.slice(start, diff + start);
-                // data.eventState = trace.eventState;
-                // data.startPosition = start;
-                // data.endPosition = start + diff;
-                // data.url = trace.url;
-                // data.timestamp = trace.timestamp;
-                // data.sessionId = trace.sessionId;
-                // // data.source = "UserEvent";
-                // data.author = "human";
-                // data.textContent = trace.textContent;
-                // data.tag = trace.tag;
-                // data.elementType = "delete";
-
-                trace.eventType = "keystroke";
-                trace.key = prevState.slice(start, diff + start);
-                trace.code = prevState.slice(start, diff + start);
-                trace.eventValue = prevState.slice(start, diff + start);
-                // data.eventState = trace.eventState;
-                trace.startPosition = start;
-                trace.endPosition = start + diff;
-                trace.author = "human";
-                trace.elementType = "delete";
-
-                results.push(trace);
-                // results.push(data);
-              }
-            }
-          }
-          else {
-            // empty delete, we can ignore this case
-            // but we still need to update the cache
-            if (trace.eventState !== "") {
-              const cache: DocState = {
-                state: trace.eventState || "",
-                value: "",
-                text: trace.textContent,
-                startPosition: trace.startPosition,
-                done: false,
-                // tabId: trace.tabId!,
-                // timestamp: Date.now(),
-                type: "Backspace",
-              };
-              this.keyboardState.set(trace.tabId!, cache);
-            }
-          }
-        }
-        else if (trace.key === "Delete") {
-          const start = trace.startPosition;
-
-          const prev = this.keyboardState.get(trace.tabId!);
-          const prevState = prev ? prev.state : "";
-          if (prevState !== "") {
-            if (prevState === trace.eventState) {
-              // will follow with input event
-              const value = prevState.slice(start, start! + 1);
-              const cache: DocState = {
-                state: trace.eventState || "",
-                value: value,
-                text: trace.textContent,
-                startPosition: start,
-                done: false,
-                // tabId: trace.tabId!,
-                // timestamp: Date.now(),
-                type: "Delete",
-              };
-              this.keyboardState.set(trace.tabId!, cache);
-            }
-            else {
-              const diff = prevState.length - trace.eventState!.length;
-              if (diff === 1) {
-                const value = prevState.slice(start, start! + 1);
-                if (value === "\n") {
-                  const cache: DocState = {
-                    state: trace.eventState || "",
-                    value: "\n",
-                    text: trace.textContent,
-                    startPosition: start! + 1,
-                    endPosition: start,
-                    done: true,
-                    // tabId: trace.tabId!,
-                    // timestamp: Date.now(),
-                    type: "Delete",
-                  };
-                  this.keyboardState.set(trace.tabId!, cache);
-                  // output
-                  // const data = {} as Trace;
-                  trace.eventType = "keystroke";
-                  trace.key = "Enter";
-                  trace.code = "Enter";
-                  trace.eventValue = "\n";
-                  // trace.eventState = trace.eventState;
-                  trace.startPosition = start! + 1;
-                  trace.endPosition = start;
-                  // data.url = trace.url;
-                  // data.timestamp = trace.timestamp;
-                  // data.sessionId = trace.sessionId;
-                  // data.source = "UserEvent";
-                  trace.author = "human";
-                  // data.textContent = trace.textContent;
-                  // data.tag = trace.tag;
-                  trace.elementType = "delete";
-
-                  // results.push(data);
-                  results.push(trace);
-                }
-              }
-              else if (diff === prevState.length) {
-                // delete all text
-                const cache: DocState = {
-                  state: trace.eventState || "",
-                  value: prevState,
-                  text: trace.textContent,
-                  startPosition: prevState.length,
-                  endPosition: 0,
-                  done: true,
-                  // tabId: trace.tabId!,
-                  // timestamp: Date.now(),
-                  type: "Delete",
-                };
-                this.keyboardState.set(trace.tabId!, cache);
-
-                // const data = {} as Trace;
-                trace.eventType = "keystroke";
-                trace.key = prevState;
-                trace.code = prevState;
-                trace.eventValue = prevState;
-                // data.eventState = trace.eventState;
-                trace.startPosition = prevState.length;
-                trace.endPosition = 0;
-                // data.url = trace.url;
-                // data.timestamp = trace.timestamp;
-                // data.sessionId = trace.sessionId;
-                // data.source = "UserEvent";
-                trace.author = "human";
-                // data.textContent = trace.textContent;
-                // data.tag = trace.tag;
-                trace.elementType = "delete";
-
-                results.push(trace);
-              }
-              else {
-                let start = trace.startPosition || 0;
-                const result = this.findAllMatches(prevState, trace.eventState || "");
-                const match = result.find(m => m.start === start);
-                if (match) {
-                  start = match.start;
-                }
-                const cache: DocState = {
-                  state: trace.eventState || "",
-                  value: prevState.slice(start, diff + start),
-                  text: trace.textContent,
-                  startPosition: start,
-                  endPosition: start + diff,
-                  done: true,
-                  // tabId: trace.tabId!,
-                  // timestamp: Date.now(),
-                  type: "Delete",
-                };
-                this.keyboardState.set(trace.tabId!, cache);
-
-                // const data = {} as Trace;
-                trace.eventType = "keystroke";
-                trace.key = prevState.slice(start, diff + start);
-                trace.code = prevState.slice(start, diff + start);
-                trace.eventValue = prevState.slice(start, diff + start);
-                // data.eventState = trace.eventState;
-                trace.startPosition = start;
-                trace.endPosition = start + diff;
-                // data.url = trace.url;
-                // data.timestamp = trace.timestamp;
-                // data.sessionId = trace.sessionId;
-                // data.source = "UserEvent";
-                trace.author = "human";
-                // data.textContent = trace.textContent;
-                // data.tag = trace.tag;
-                trace.elementType = "delete";
-
-                results.push(trace);
-              }
-            }
-          }
-          else {
-            // TODO try to get the prev state in initialization or navigation event
-            if (trace.eventState !== "") {
-              const cache: DocState = {
-                state: trace.eventState || "",
-                value: "",
-                text: trace.textContent,
-                startPosition: trace.startPosition,
-                done: false,
-                // tabId: trace.tabId!,
-                // timestamp: Date.now(),
-                type: "Delete",
-              };
-              this.keyboardState.set(trace.tabId!, cache);
-            }
-          }
-        }
-        else if (trace.key === "Undo" || trace.key === "Redo") {
-          const cache: DocState = {
-            state: trace.eventState || "",
-            value: "",
-            text: trace.textContent,
-            startPosition: trace.startPosition,
-            done: true,
-            // tabId: trace.tabId!,
-            // timestamp: Date.now(),
-            type: "Insert",
-          };
-          this.keyboardState.set(trace.tabId!, cache);
-
-          // const data = {} as Trace;
-          trace.eventType = "keystroke";
-          trace.key = trace.key;
-          trace.code =trace.key;
-          trace.eventValue = "";
-          // data.eventState = trace.eventState;
-          trace.startPosition = trace.startPosition ? trace.startPosition - 1 : 0;
-          trace.endPosition = trace.startPosition + 1;
-          // data.url = trace.url;
-          // data.timestamp = trace.timestamp;
-          // data.sessionId = trace.sessionId;
-          // data.source = "UserEvent";
-          trace.author = "human";
-          // data.textContent = trace.textContent;
-          // data.tag = trace.tag;
-          trace.elementType = "insert";
-
-          results.push(trace);
-        }
-        else if (trace.eventValue && trace.eventValue.length === 1) {
-          // follow with the input event
-          const cache: DocState = {
-            state: trace.eventState || "",
-            value: trace.eventValue,
-            text: trace.textContent,
-            startPosition: trace.startPosition,
-            done: false,
-            // tabId: trace.tabId!,
-            // requestId: 0,
-            // timestamp: Date.now(),
-            type: "Insert",
-          };
-          this.keyboardState.set(trace.tabId!, cache);
-        }
-        else {
-          const cache: DocState = {
-            state: trace.eventState || "",
-            value: "",
-            text: trace.textContent,
-            startPosition: trace.startPosition,
-            done: true,
-            // tabId: trace.tabId!,
-            // timestamp: Date.now(),
-            type: "Insert",
-          };
-          this.keyboardState.set(trace.tabId!, cache);
-        }
+      if (anchorOffset === -1) {
+        filtered.push(
+          ...this.reconstructTraceChain(
+            traces.slice(index),
+          ),
+        );
+        break;
       }
-      else if (trace.eventType === "input") {
-        const pre = this.keyboardState.get(trace.tabId!);
-        if (pre && !pre.done) {
-          let value = "";
-          let start = pre.startPosition;
-          let end = pre.endPosition;
-          let type = pre.type; // "insert" or "delete"
-          let direction = "forward"; // or "backward"
-          if (pre.type === "Backspace") {
-            direction = "backward";
-            start = pre.startPosition! - 1;
-            end = pre.startPosition;
-            value = pre.state.slice(start, end);
-            type = "delete";
-          }
-          else if (pre.type === "Delete") {
-            start = pre.startPosition;
-            end = pre.startPosition! + 1;
-            value = pre.state.slice(start, end);
-            type = "delete";
-          }
-          else if (pre.type === "Insert") {
-            // insert letter
-            // or maybe replacement
-            if (pre.state.length >= trace.eventState!.length) {
-              type = "delete";
-              const diff = pre.state.length - trace.eventState!.length;
-              const remove = pre.state.slice(pre.startPosition, pre.startPosition! + diff + 1);
-              const remain = pre.state.slice(0, pre.startPosition) + pre.state.slice(pre.startPosition! + diff + 1);
 
-              const deleteTrace: Trace = {
-                ...trace,
-                eventType: "keystroke",
-                key: remove,
-                code: remove,
-                eventValue: remove,
-                eventState: remain,
-                startPosition: pre.startPosition,
-                endPosition: pre.startPosition! + diff + 1,
-                author: "human",
-                textContent: pre.text,
-                elementType: type,
-              };
+      const keydownIndex =
+        index + anchorOffset;
 
-              results.push(deleteTrace);
-            }
+      const keydown =
+        traces[keydownIndex];
 
-            start = pre.startPosition;
-            end = start! + 1;
-            value = pre.value;
-            type = "insert";
-          }
+      const candidateInput =
+        traces[keydownIndex + 1];
 
-          // add keystroke event
-          // const data = {} as Trace;
-          trace.eventType = "keystroke";
-          // trace.eventState = trace.eventState;
-          trace.startPosition = start;
-          trace.key = value;
-          trace.code = value;
-          trace.eventValue = value;
-          trace.endPosition = end;
-          trace.elementType = type;
-          // data.url = trace.url;
-          // data.timestamp = trace.timestamp;
-          // data.sessionId = trace.sessionId;
-          // data.source = "UserEvent";
-          trace.author = "human";
-          trace.textContent = pre.text;
-          // data.tag = trace.tag;
-          trace.direction = direction;
+      const { matched } =
+        this.matchKeydownInputPair(
+          keydown,
+          candidateInput,
+        )
 
-          results.push(trace);
-          pre.state = trace.eventState || "";
-          pre.done = true;
-          this.keyboardState.set(trace.tabId!, pre);
-        }
+      if (keydownIndex > index) {
+        filtered.push(
+          ...this.reconstructTraceChain(
+            traces.slice(
+              index,
+              keydownIndex,
+            ),
+            matched
+              ? keydown.eventState
+              : undefined,
+          ),
+        );
       }
-      else if (trace.eventType === "paste") {
-        if (trace.eventState) {
-          const cache: DocState = {
-            state: trace.eventState,
-            value: "\n",
-            text: trace.textContent,
-            startPosition: trace.startPosition,
-            done: true,
-            // tabId: trace.tabId!,
-            // timestamp: Date.now(),
-            type: "Insert",
-          };
-          this.keyboardState.set(trace.tabId, cache);
-        }
 
-        results.push(trace);
-      }
-      else if (trace.eventType === "cut") {
-        if (trace.eventState) {
-          // Google docs without eventState
-          const cache: DocState = {
-            state: trace.eventState,
-            value: trace.eventValue ?? "",
-            text: trace.textContent,
-            startPosition: trace.startPosition,
-            done: true,
-            // tabId: trace.tabId!,
-            // timestamp: Date.now(),
-            type: "Delete",
-          };
-          this.keyboardState.set(trace.tabId!, cache);
+      filtered.push(keydown);
 
-        }
-        results.push(trace);
+      if (matched) {
+        // keydown + input are treated as one pair.
+        filtered.push(candidateInput);
+
+        index = keydownIndex + 2;
       }
       else {
-        const pre = this.keyboardState.get(trace.tabId!);
-        if (pre && !pre.done) {
-          // add keystroke event
-          // const data = {} as Trace;
-          trace.eventType = "keystroke";
-          trace.eventState = pre.state;
-          trace.startPosition = pre.startPosition;
-          trace.key = pre.value;
-          trace.code = pre.value;
-          trace.eventValue = pre.value;
-          trace.endPosition = pre.endPosition;
-          trace.elementType = pre.type === "Insert" ? "insert" : "delete";
-          // data.url = trace.url;
-          // data.timestamp = trace.timestamp;
-          // data.sessionId = trace.sessionId;
-          // data.source = "UserEvent";
-          trace.author = "human";
-          trace.textContent = pre.text;
-          // data.tag = trace.tag;
+        // Only consume the keydown.
+        // The following input, if any,
+        // will be processed independently.
+        index = keydownIndex + 1;
+      }
+    }
 
-          results.push(trace);
-          pre.done = true;
-          this.keyboardState.set(trace.tabId, pre);
+    return filtered;
+  }
+
+  /**
+   * Reconstructs a valid trace chain leading to the target state.
+   *
+   * Uses the latest trace matching the target state as the anchor,
+   * then walks backward to retain preceding traces whose state
+   * transitions are consistent with the current trace.
+   */
+  private reconstructTraceChain(
+    traces: Trace[],
+    targetState?: string,
+  ): Trace[] {
+    if (traces.length === 0) {
+      return [];
+    }
+
+    let anchorIndex = traces.length - 1;
+
+    // If targetState is provided,
+    // determine whether the latest trace can lead to it.
+    if (targetState !== undefined) {
+      anchorIndex = -1;
+
+      // Find the latest trace whose state
+      // exactly matches the target state.
+      for (let i = traces.length - 1; i >= 0; i--) {
+        const trace = traces[i];
+
+        if (
+          (
+            trace.eventType === "cut" ||
+            trace.eventType === "input"
+          ) &&
+          trace.eventState === targetState
+        ) {
+          anchorIndex = i;
+          break;
         }
 
-        results.push(trace);
+        if (trace.eventType === "paste") {
+          anchorIndex = i;
+          break;
+        }
       }
 
+      // No matching anchor found.
+      if (anchorIndex === -1) {
+        return [];
+      }
+    }
+
+    // Step 2:
+    // Reconstruct the chain backward
+    // from the anchor.
+    const chain: Trace[] = [];
+
+    let current = traces[anchorIndex];
+
+    chain.push(current);
+
+    // Walk backward from anchorIndex - 1.
+    for (let i = anchorIndex - 1; i >= 0; i--) {
+      const prev = traces[i];
+
+      if (current.eventType === "cut") {
+        if (
+          current.eventState !== undefined &&
+          prev.eventState !== undefined &&
+          isSubsequence(
+            prev.eventState,
+            current.eventState,
+          )
+        ) {
+          chain.push(prev);
+          current = prev;
+        }
+        else if (
+          prev.eventType === "paste" &&
+          prev.eventState === undefined
+        ) {
+          // Keep a preceding paste when its post-state
+          // is unavailable, since the cut transition
+          // cannot be validated by state comparison.
+          chain.push(prev);
+          current = prev;
+        }
+
+        continue;
+      }
+
+      if (
+        current.eventType === "paste" ||
+        current.eventType === "input"
+      ) {
+        chain.push(prev);
+        current = prev;
+
+        continue;
+      }
+    }
+
+    chain.reverse();
+
+    return chain;
+  }
+
+  private processKeyboardTraces(
+    traces: Trace[],
+  ): Trace[] {
+    const results = [] as Trace[];
+
+    if (traces.length === 0) {
+      return results;
+    }
+
+    let initialStateInfo: InitialStateInfo | undefined;
+
+    let index = 0;
+
+    // init contentState
+    while (index < traces.length) {
+      const current: Trace = traces[index];
+      const eventType = current.eventType;
+
+      let state: string | undefined;
+      let stateIsPreEvent = false;
+
+      if (eventType === "keydown") {
+        const keydownState = current.eventState;
+
+        if (
+          !keydownState ||
+          !current.key ||
+          current.reason
+        ) {
+          index++;
+          continue;
+        }
+
+        const { matched, resultState } =
+          this.matchKeydownInputPair(
+            current,
+            traces[index + 1],
+          );
+
+        if (matched) {
+          stateIsPreEvent = true;
+        }
+
+        state = resultState;
+        stateIsPreEvent = matched;
+      }
+      else if (eventType === "paste") {
+        if (current.originValue !== undefined) {
+          state = current.originValue;
+          stateIsPreEvent = true;
+        }
+        else if (current.eventState !== undefined) {
+          state = current.eventState;
+        }
+      }
+      else if (current.eventState !== undefined) {
+        state = current.eventState;
+      }
+
+      if (state === undefined) {
+        index++;
+        continue;
+      }
+
+      initialStateInfo = {
+        index,
+        state,
+        stateIsPreEvent,
+      };
+
+      break;
+    }
+
+    if (initialStateInfo === undefined) {
+      return [];
+    }
+
+    let contentState: DocState = {
+      state: initialStateInfo.state,
+    };
+
+    index = initialStateInfo.stateIsPreEvent
+      ? initialStateInfo.index
+      : initialStateInfo.index + 1;
+
+    while (index < traces.length) {
+      const current: Trace = traces[index];
+
+      const eventType = current.eventType;
+
+      if (eventType === "keydown") {
+        const key = current.key;
+        const keydownState = current.eventState;
+
+        if (!keydownState || !key || current.reason) {
+          index += 1;
+          continue;
+        }
+
+        const nextTrace: Trace | undefined =
+          traces[index + 1];
+
+        const {
+          matched,
+          resultState,
+        } = this.matchKeydownInputPair(
+          current,
+          nextTrace,
+        );
+
+        if (matched) {
+          // the following input is corresponding to Keydown
+          // correct contentState
+          contentState = {
+            ...contentState,
+            state: keydownState,
+          };
+        }
+
+        let nextState = resultState;
+
+        let pos = current.startPosition ?? findFirstDifference(
+          contentState.state,
+          nextState,
+        );
+
+        if (key === "Enter") {
+          const preState = contentState.state;
+
+          // Since Enter inserts one character ("\n"),
+          // infer how many existing characters were replaced.
+          const removedLength =
+            preState.length - nextState.length + 1;
+
+          if (removedLength >= 0) {
+            const expectedState =
+              preState.slice(0, pos) +
+              "\n" +
+              preState.slice(pos + removedLength);
+
+            if (expectedState === nextState) {
+              if (removedLength > 0) {
+                const remove =
+                  preState.slice(
+                    pos,
+                    pos + removedLength,
+                  );
+
+                const remain =
+                  preState.slice(0, pos) +
+                  preState.slice(pos + removedLength);
+
+                const deleteTrace: Trace = {
+                  ...current,
+                  eventType: "keystroke",
+                  key: remove,
+                  code: remove,
+                  eventValue: remove,
+                  eventState: remain,
+                  startPosition: pos,
+                  endPosition: pos + removedLength,
+                  elementType: "delete",
+                };
+
+                results.push(deleteTrace);
+              }
+
+              const trace: Trace = {
+                ...current,
+                eventType: "keystroke",
+                key: "Enter",
+                code: "Enter",
+                eventValue: "\n",
+                eventState: nextState,
+                startPosition: pos,
+                endPosition: pos + 1,
+                elementType: "insert",
+              }
+              results.push(trace);
+            }
+            else {
+              // State transition cannot be explained
+              // by this Enter event.
+              results.push(current);
+            }
+
+            contentState = {
+              ...contentState,
+              state: nextState,
+              value: "\n",
+              startPosition: pos,
+            };
+          }
+        }
+        else if (key === "Backspace") {
+          const diff: number =
+            contentState.state.length - nextState.length;
+
+          if (diff === 1) {
+            // pos is backward
+            const start = pos - diff;
+            const end = pos;
+
+            const remove = contentState.state.slice(start, end);
+            const remain = contentState.state.slice(0, start) + contentState.state.slice(start + diff);
+
+            const deleteTrace: Trace = {
+              ...current,
+              eventType: "keystroke",
+              key: remove,
+              code: remove,
+              eventValue: remove,
+              eventState: remain,
+              startPosition: start,
+              endPosition: end,
+              direction: "backward",
+              elementType: "delete",
+            };
+
+            results.push(deleteTrace);
+
+            contentState = {
+              ...contentState,
+              state: nextState,
+              value: remove,
+              startPosition: start,
+            }
+          }
+          else if (diff > 1) {
+            // Backspace more
+            const remove = contentState.state.slice(pos, pos + diff);
+            const remain = contentState.state.slice(0, pos) + contentState.state.slice(pos + diff);
+
+            const deleteTrace: Trace = {
+              ...current,
+              eventType: "keystroke",
+              key: remove,
+              code: remove,
+              eventValue: remove,
+              eventState: remain,
+              startPosition: pos,
+              endPosition: pos + diff,
+              direction: "backward",
+              elementType: "delete",
+            };
+
+            results.push(deleteTrace);
+
+            contentState = {
+              ...contentState,
+              state: nextState,
+              value: remove,
+              startPosition: pos,
+            }
+          }
+          else if (diff === 0) {
+            contentState = {
+              ...contentState,
+              state: nextState,
+              value: "",
+              startPosition: pos,
+            }
+          }
+        }
+        else if (key === "Delete") {
+          const diff: number =
+            contentState.state.length - nextState.length;
+
+          if (diff > 0) {
+            // Delete one or more
+            const remove = contentState.state.slice(pos, pos + diff);
+            const remain = contentState.state.slice(0, pos) + contentState.state.slice(pos + diff);
+
+            const deleteTrace: Trace = {
+              ...current,
+              eventType: "keystroke",
+              key: remove,
+              code: remove,
+              eventValue: remove,
+              eventState: remain,
+              startPosition: pos,
+              endPosition: pos + diff,
+              direction: "forward",
+              elementType: "delete",
+            };
+
+            results.push(deleteTrace);
+          }
+
+          contentState = {
+            ...contentState,
+            state: nextState,
+            value: diff > 0 ? contentState.state.slice(pos, pos + diff) : "",
+            startPosition: pos,
+          }
+        }
+        else if (key === "Undo" || key === "Redo") {
+          const trace: Trace = {
+            ...current,
+            eventType: "keystroke",
+            key,
+            eventState: nextState,
+            elementType: key.toLowerCase(),
+          };
+
+          results.push(trace);
+
+          contentState = {
+            ...contentState,
+            state: nextState,
+            value: "",
+          };
+        }
+        else if (key.length === 1) {
+          const preState = contentState.state;
+          const insertValue = key;
+
+          // Infer how many existing characters were replaced.
+          const removedLength =
+            preState.length +
+            insertValue.length -
+            nextState.length;
+
+          if (removedLength >= 0) {
+            const expectedState =
+              preState.slice(0, pos) +
+              insertValue +
+              preState.slice(pos + removedLength);
+
+            if (expectedState === nextState) {
+              if (removedLength > 0) {
+                const remove =
+                  preState.slice(
+                    pos,
+                    pos + removedLength,
+                  );
+
+                const remain =
+                  preState.slice(0, pos) +
+                  preState.slice(pos + removedLength);
+
+                const deleteTrace: Trace = {
+                  ...current,
+                  eventType: "keystroke",
+                  key: remove,
+                  code: remove,
+                  eventValue: remove,
+                  eventState: remain,
+                  startPosition: pos,
+                  endPosition: pos + removedLength,
+                  elementType: "delete",
+                };
+
+                results.push(deleteTrace);
+              }
+
+              const trace: Trace = {
+                ...current,
+                eventType: "keystroke",
+                eventValue: insertValue,
+                eventState: nextState,
+                startPosition: pos,
+                endPosition: pos + insertValue.length,
+                elementType: "insert",
+              }
+
+              results.push(trace);
+            }
+            else {
+              // The observed state transition cannot be
+              // explained by this keystroke.
+              results.push(current);
+            }
+          }
+
+          contentState = {
+            ...contentState,
+            state: nextState,
+            value: insertValue,
+            startPosition: pos,
+          }
+        }
+        else {
+          contentState = {
+            ...contentState,
+            state: nextState,
+          }
+        }
+
+        if (matched) {
+          index += 2;
+          continue;
+        }
+      }
+      else if (eventType === "input") {
+        // miss pre keydown
+        const inputState = current.eventState;
+
+        if (inputState) {
+          const diff =
+            contentState.state.length - inputState.length;
+          
+          if (diff !== 0) {
+            const inputType = current.inputType;
+
+            let inputKey: string | undefined =
+              undefined;
+
+            if (
+              inputType === "deleteContentForward" ||
+              inputType === "deleteWordForward"
+            ) {
+              inputKey = "Delete";
+            }
+            else if (
+              inputType === "deleteContentBackward" ||
+              inputType === "deleteWordBackward"
+            ) {
+              inputKey = "Backspace";
+            }
+            else if (inputType === "insertText") {
+              inputKey = current.eventValue;
+            }
+            else if (
+              inputType === "insertLineBreak" ||
+              inputType === "insertParagraph"
+            ) {
+              inputKey = "Enter";
+            }
+            else if (inputType === "historyUndo") {
+              inputKey = "Undo";
+            }
+            else if (inputType === "historyRedo") {
+              inputKey = "Redo";
+            }
+            //"insertCompositionText"
+
+            if (inputKey === "Backspace" || inputKey === "Delete") {
+
+            }
+
+          }
+
+          contentState = {
+            ...contentState,
+            state: inputState,
+          };
+        }
+      }
+      else if (eventType === "paste") {
+        let eventState = current.eventState;
+
+        if (eventState === undefined) {
+          const next = traces[index + 1];
+
+          if (next?.eventType === "keydown") {
+            const keydownTrace = next;
+
+            const { matched } =
+              this.matchKeydownInputPair(
+                keydownTrace,
+                traces[index + 2],
+              );
+
+            if (matched) {
+              eventState = keydownTrace.eventState;
+            }
+          }
+          else if (
+            next?.eventType === "paste" &&
+            next?.originValue !== undefined
+          ) {
+            eventState = next.originValue;
+          }
+        }
+
+        if (eventState !== undefined) {
+          const originValue = current.originValue;
+          const pasteValue = current.eventValue;
+
+          if (
+            originValue !== undefined &&
+            pasteValue !== undefined
+          ) {
+            const startPosition =
+              eventState.indexOf(pasteValue);
+
+            if (
+              startPosition !== -1 &&
+              startPosition ===
+                eventState.lastIndexOf(pasteValue)
+            ) {
+              const afterPastePosition =
+                startPosition + pasteValue.length;
+
+              const prefix =
+                eventState.slice(0, startPosition);
+
+              const suffix =
+                eventState.slice(afterPastePosition);
+
+              const endPosition =
+                originValue.length - suffix.length;
+
+              if (
+                endPosition >= startPosition &&
+                originValue.slice(0, startPosition) === prefix &&
+                originValue.slice(endPosition) === suffix
+              ) {
+                current.startPosition = startPosition;
+                current.endPosition = endPosition;
+              }
+            }
+          }
+
+          current.eventState = eventState;
+
+          contentState = {
+            ...contentState,
+            state: eventState,
+          };
+        }
+
+        results.push(current);
+      }
+      else if (eventType === "cut") {
+        const cutState = current.eventState;
+
+        if (cutState) {
+          let pos =
+            current.startPosition ??
+            findFirstDifference(
+              contentState.state,
+              cutState,
+            );
+
+          const diff =
+            contentState.state.length -
+            cutState.length;
+
+          if (pos >= 0 && diff > 0) {
+            const remove =
+              contentState.state.slice(
+                pos,
+                pos + diff,
+              );
+
+            if (remove === current.eventValue) {
+              current.startPosition = pos;
+              current.endPosition = pos + diff;
+            }
+            else {
+              const origin =
+                cutState.slice(0, pos) +
+                remove +
+                cutState.slice(pos);
+
+              if (origin === contentState.state) {
+                current.startPosition = pos;
+                current.endPosition = pos + diff;
+              }
+            }
+          }
+
+          contentState = {
+            ...contentState,
+            state: cutState,
+          };
+        }
+
+        results.push(current);
+      }
+      else {
+        if (current.eventState) {
+          contentState = {
+            ...contentState,
+            state: current.eventState,
+          }
+        }
+      }
+
+      index += 1;
     }
 
     return results;
   }
 
-  private processMutationEvents(traces: Trace[]): Trace[] {
+  private keepLongestMutationMessages(
+    traces: Trace[],
+  ): Trace[] {
+    const results: Trace[] = [];
+
+    for (const trace of traces) {
+      const message = trace.message;
+
+      if (message === undefined) {
+        continue;
+      }
+
+      let shouldAdd = true;
+
+      for (let i = results.length - 1; i >= 0; i--) {
+        const existingMessage =
+          results[i].message;
+
+        if (existingMessage === undefined) {
+          continue;
+        }
+
+        // Current is a longer version.
+        if (message.startsWith(existingMessage)) {
+          results.splice(i, 1);
+          continue;
+        }
+
+        // Existing is already a longer version.
+        if (existingMessage.startsWith(message)) {
+          shouldAdd = false;
+          break;
+        }
+      }
+
+      if (shouldAdd) {
+        results.push(trace);
+      }
+    }
+
+    return results;
+  }
+
+  private filterMutationTraces(
+    traces: Trace[],
+  ): Trace[] {
+    const filtered: Trace[] = [];
+
+    let lastMutation: Trace | undefined;
+    let lastMutationIndex: number | undefined;
+
+    for (const trace of traces) {
+      if (trace.eventType !== "mutation") {
+        filtered.push(trace);
+        continue;
+      }
+      
+      if (trace.message === undefined) {
+        continue;
+      }
+
+      if (
+        lastMutation &&
+        lastMutationIndex !== undefined &&
+        lastMutation.author === trace.author &&
+        lastMutation.tabId === trace.tabId &&
+        trace.message.startsWith(lastMutation.message!)
+      ) {
+        // Remove the previous mutation from its old position.
+        filtered.splice(lastMutationIndex, 1);
+      }
+
+      // Keep current mutation at its actual position.
+      filtered.push(trace);
+
+      lastMutation = trace;
+      lastMutationIndex = filtered.length - 1;
+    }
+
+    return filtered;
+  }
+
+  private groupConversationTraces(
+    traces: Trace[],
+  ): Trace[][] {
+    const traceGroups =
+      new Map<number, Trace[]>();
+
+    for (const trace of traces) {
+      if (trace.tabId === undefined) {
+        continue;
+      }
+
+      const group =
+        traceGroups.get(trace.tabId);
+
+      if (group) {
+        group.push(trace);
+      } else {
+        traceGroups.set(
+          trace.tabId,
+          [trace],
+        );
+      }
+    }
+
+    return [...traceGroups.values()];
+  }
+
+  private processGroupedMutationTraces(
+    traces: Trace[],
+  ): Trace[] {
+    const filteredTraces =
+      this.filterMutationTraces(traces);
+
+    const turns: ConversationTurn[] = [];
+    const allAIReplys: Trace[] = [];
+
+    let index = 0;
+
+    while (index < filteredTraces.length) {
+      const trace = filteredTraces[index];
+
+      if (trace.eventType !== "mutation") {
+        index++;
+        continue;
+      }
+
+      if (trace.author === "human") {
+        const turn: ConversationTurn = {
+          userAsk: trace,
+          aiReplys: [],
+        };
+
+        let nextIndex = index + 1;
+
+        while (nextIndex < filteredTraces.length) {
+          const nextTrace =
+            filteredTraces[nextIndex];
+
+          if (nextTrace.eventType !== "mutation") {
+            nextIndex++;
+            continue;
+          }
+
+          if (
+            nextTrace.author === "human" ||
+            nextTrace.author === undefined
+          ) {
+            break;
+          }
+
+          if (nextTrace.author === "AI") {
+            turn.aiReplys.push(nextTrace);
+          }
+
+          nextIndex++;
+        }
+
+        if (turn.aiReplys.length > 0) {
+          turn.aiReplys =
+            this.keepLongestMutationMessages(
+              turn.aiReplys,
+            );
+        }
+
+        turns.push(turn);
+
+        allAIReplys.push(...turn.aiReplys);
+        // Continue from where we stopped collecting.
+        index = nextIndex;
+        continue;
+      }
+
+      if (trace.author === "AI") {
+        index++;
+        continue;
+      }
+
+      if (trace.author === undefined) {
+        const message = trace.message;
+
+        if (message === undefined) {
+          index++;
+          continue;
+        }
+
+        const matchesUserAsk =
+          turns.some(
+            turn =>
+              turn.userAsk?.message === message,
+          );
+
+        if (matchesUserAsk) {
+          index++;
+          continue;
+        }
+
+        const turn: ConversationTurn = {
+          aiReplys: [trace, ],
+        };
+
+        turns.push(turn);
+
+        allAIReplys.push(...turn.aiReplys);
+
+        index++;
+        continue;
+      }
+
+      index++;
+    }
+
+    const finalAIReplys =
+      this.keepLongestMutationMessages(
+        allAIReplys,
+      );
+
+    const keptSourceSequences =
+      new Set<number>();
+
+    for (const turn of turns) {
+      if (
+        turn.userAsk &&
+        turn.aiReplys.length > 0
+      ) {
+        const allRepliesKept =
+          turn.aiReplys.every(
+            reply =>
+              finalAIReplys.some(
+                finalReply =>
+                  finalReply.sourceSequence ===
+                  reply.sourceSequence,
+              ),
+          );
+
+        let shouldKeep = allRepliesKept;
+
+        if (shouldKeep) {
+          keptSourceSequences.add(
+            turn.userAsk.sourceSequence!,
+          );
+        }
+      }
+    }
+
+    for (const turn of turns) {
+      const userAskSequence =
+        turn.userAsk?.sourceSequence;
+
+      if (
+        userAskSequence !== undefined &&
+        keptSourceSequences.has(userAskSequence)
+      ) {
+        for (const reply of turn.aiReplys) {
+          if (reply.sourceSequence !== undefined) {
+            keptSourceSequences.add(
+              reply.sourceSequence,
+            );
+          }
+        }
+      }
+    }
+
     const result: Trace[] = [];
 
-    let pending: Trace | undefined;
-
-    for (const trace of traces) {
-      if (trace.eventType === "mutation") {
-        if (
-          pending &&
-          pending.author === trace.author &&
-          pending.tabId === trace.tabId &&
-          trace.message!.length >= pending.message!.length
-        ) {
-          pending = trace;
-        }
-        else {
-          if (pending) {
-            if (pending.message !== "") {
-              result.push(pending);
-            }
-          }
-          pending = trace;
-        }
-      }
-      else {
-        if (pending && pending.eventType === "mutation") {
-          if (pending.message !== "") {
-            result.push(pending);
-          }
-          pending = undefined;
-        }
-        // default all push but if is Enter, filter
-        if (trace.eventType === "keystroke" && trace.key === "Enter") {
-
-        } else {
-          result.push(trace);
-        }
+    for (const trace of filteredTraces) {
+      if (trace.eventType !== "mutation") {
+        result.push(trace);
+        continue;
       }
 
-    }
-
-    if (pending) {
-      if (pending.message !== "") {
-        result.push(pending)
+      if (
+        trace.sourceSequence !== undefined &&
+        keptSourceSequences.has(
+          trace.sourceSequence,
+        )
+      ) {
+        result.push(trace);
       }
     }
 
@@ -744,7 +1416,6 @@ export class TraceProcessorService {
     for (const trace of traces) {
       if (trace.eventType === "pointerdown") {
         if (
-          pending?.eventType === "pointerdown" &&
           pending?.textContent === trace.textContent &&
           pending?.tabId === trace.tabId &&
           pending?.xpath === trace.xpath

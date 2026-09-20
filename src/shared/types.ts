@@ -12,7 +12,6 @@ export type UserEvent = {
   tag?: string; // API Method
   elementType?: string; // API Subtype
 
-  // url?: string;
   name?: string;
   placeholder?: string;
   textContent?: string;
@@ -39,12 +38,15 @@ export type UserEvent = {
   label?: string;
   timestamp: number;
 
-  code?: string; // for keyboard event
-  key?: string; // for keyboard event
+  code?: string;  // for keyboard event
+  key?: string;   // for keyboard event
+  reason?: string;
+
+  inputType?: string;
 
   message?: string;
   eventValue?: string;
-  eventState?: string;
+  eventState?: string;    // content state after the event
   eventId?: string;
   startPosition?: number;
   endPosition?: number;
