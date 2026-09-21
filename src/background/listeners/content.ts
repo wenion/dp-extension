@@ -100,10 +100,22 @@ async function routeOptionsEvent(
     case "OPTIONS/PROMPT_TEMPORARY_PERMISSION":
       return;
 
+    case "OPTIONS/RENAME_SESSION": {
+      try {
+        const session =
+          await optionsController.renameSession(
+            message.payload.sessionId,
+            message.payload.name,
+          );
+        return session;
+      } catch {
+        return undefined;
+      }
+    }
+
     case "OPTIONS/ALLOWLIST_ADD":
     case "OPTIONS/ALLOWLIST_REMOVE":
     case "OPTIONS/OPEN_SESSION":
-    case "OPTIONS/RENAME_SESSION":
     case "OPTIONS/SET_PAGE": {
       await optionsController.handleOptionsEvent(
         message,

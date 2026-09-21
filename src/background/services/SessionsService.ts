@@ -110,14 +110,14 @@ export class SessionsService {
   async updateSession(
     clientId: string,
     updates: Partial<Session>,
-  ): Promise<void> {
+  ): Promise<Session | undefined> {
     const session =
       this.sessionsRepository.get(
         clientId,
       );
 
     if (!session) {
-      return;
+      return undefined;
     }
 
     const localSession =
@@ -126,16 +126,18 @@ export class SessionsService {
       );
 
     if (localSession) {
+      const updatedSession = {
+        ...localSession,
+        ...updates,
+      };
+
       await this.sessionsRepository.setSession(
-        {
-          ...localSession,
-          ...updates,
-        },
+        updatedSession,
         true,
       );
 
       await this.notifySessionsUpdated();
-      return;
+      return updatedSession;
     }
 
     const updated =
@@ -149,6 +151,8 @@ export class SessionsService {
     );
 
     await this.notifySessionsUpdated();
+
+    return updated;
   }
 
   /**

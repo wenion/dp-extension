@@ -4,6 +4,7 @@ import type { ExtensionService } from "../services/ExtensionService";
 import type { SessionsService } from "../services/SessionsService";
 import type { TabsService } from "../services/TabsService";
 
+import type { Session } from "@/shared/types";
 import type {
   OptionsEvent,
 } from "@/shared/messaging/optionsProtocol";
@@ -46,21 +47,24 @@ export class OptionsController {
         );
         return;
 
-      case "OPTIONS/RENAME_SESSION":
-        await this.sessionsService.updateSession(
-          event.payload.sessionId,
-          {
-            name: event.payload.name,
-          },
-        );
-        return;
-
       case "OPTIONS/OPEN_SESSION":
         await this.openSession(
           event.payload.sessionId,
         )
         return;
     }
+  }
+
+  async renameSession(
+    sessionId: string,
+    newName: string,
+  ): Promise<Session | undefined> {
+    return this.sessionsService.updateSession(
+      sessionId,
+      {
+        name: newName,
+      },
+    );
   }
 
   /**
