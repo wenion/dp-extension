@@ -160,21 +160,22 @@ export function TabRecordCard({
                 {tab.title}
               </span>
 
-              {!tab.connected && (
-                <span
-                  className="
-                    inline-flex items-center gap-1
-                    text-xs text-warning
-                  "
-                  title="
-                    Extension is not connected to this page.
-                    Reload the page to reconnect.
-                  "
-                >
-                  <LinkSlash />
-                  Disconnected · Need to reload the page
-                </span>
-              )}
+              {!tab.connected &&
+                tab.recordingScope === "recording" && (
+                  <span
+                    className="
+                      inline-flex items-center gap-1
+                      text-xs text-warning
+                    "
+                    title="
+                      Extension is not connected to this page.
+                      Reload the page to reconnect.
+                    "
+                  >
+                    <LinkSlash />
+                    Disconnected · Need to reload the page
+                  </span>
+                )}
             </p>
 
             <p className="truncate text-sm text-default-500">
