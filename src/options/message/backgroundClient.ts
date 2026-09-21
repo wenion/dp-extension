@@ -138,7 +138,7 @@ export async function setActiveSessionName(
 export async function renameSession(
   sessionId: string,
   name: string,
-): Promise<boolean> {
+): Promise<Session | undefined> {
   return sendOptionsMessage({
     type: "OPTIONS/RENAME_SESSION",
     source: "OPTIONS",

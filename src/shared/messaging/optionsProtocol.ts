@@ -98,7 +98,7 @@ export interface OptionsProtocol {
       sessionId: string;
       name: string;
     };
-    response: boolean;
+    response: Session | undefined;
   };
 
   "OPTIONS/RETRY_SESSION": {
