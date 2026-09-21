@@ -73,23 +73,25 @@ export function Default() {
                   sites={buildSites(session.urls ?? [])}
                   status={session.uploadStatus}
                   onRename={async newTitle => {
-                    const success =
+                    const res =
                       await renameSession(
                         session.clientId,
                         newTitle,
                       );
 
+                    const success = res?.name === newTitle;
+
                     if (success) {
                       addToast({
                         title: "Success",
-                        description: "Session renamed.",
+                        description: `Session renamed to "${newTitle}".`,
                         color: "success",
                       });
                     }
                     else {
                       addToast({
                         title: "Rename failed",
-                        description: "Unable to rename session.",
+                        description: `Unable to rename session to "${newTitle}".`,
                         color: "danger",
                       });
                     }
