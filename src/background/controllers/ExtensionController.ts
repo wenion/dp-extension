@@ -277,10 +277,17 @@ export class ExtensionController {
 
   async exitRequested() {
     await this.activeSessionService.updatePage("exit");
+    await this.pauseRecording();
   }
 
   async endRequested() {
     await this.activeSessionService.updatePage("end");
+    await this.pauseRecording();
+  }
+
+  async cancelRequested() {
+    await this.activeSessionService.updatePage("expanded");
+    await this.resumeRecording();
   }
   
   async setTabRecording(tabId: number) {
