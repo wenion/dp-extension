@@ -10,6 +10,14 @@ import {
 } from "../components/card";
 
 import {
+  createPauseFill,
+} from "../components/icons/pauseFill";
+
+import {
+  createSquareFill,
+} from "../components/icons/squareFill";
+
+import {
   cancelSessionExitRequest,
   exitSession,
 } from "../message/backgroundClient";
@@ -66,7 +74,7 @@ export function createExitConfirmation({
 
   const header =
     createCardHeader({
-      className: "py-2",
+      className: "flex py-2",
     });
 
   const title =
@@ -84,7 +92,7 @@ export function createExitConfirmation({
 
   const body =
     createCardBody({
-      className: "p-2",
+      className: "px-4 py-0",
     });
 
   const description =
@@ -108,7 +116,9 @@ export function createExitConfirmation({
 
   const cancelButton =
     createButton({
-      text: "Ⅱ Cancel",
+      text: "Cancel",
+      startContent:
+        createPauseFill(),
       className:
         "w-full h-11 px-5 border font-medium",
       onPress:
@@ -117,9 +127,11 @@ export function createExitConfirmation({
 
   const exitButton =
     createButton({
-      text: "■ Turn off & upload",
+      text: "Turn off & upload",
+      startContent:
+        createSquareFill(),
       className:
-        "w-full h-11 px-5 border text-red-600 font-medium",
+        "w-full px-0 h-11 border bg-red-600 text-white font-medium hover:bg-rose-200",
       onPress:
         handleExitSession,
     });

@@ -9,10 +9,9 @@ import {
   createCardHeader,
 } from "../components/card";
 
-
 import {
-  createSquareFill,
-} from "../components/icons/squareFill";
+  createArrowUpToLine,
+} from "../components/icons/arrowUpToLine";
 
 import {
   cancelSessionEndRequest,
@@ -28,6 +27,8 @@ type Props = {
 export function createEndConfirmation({
   onNotice,
 }: Props): HTMLElement {
+  let sessionName = "";
+
   const handleCancelSessionEndRequest =
     async () => {
       try {
@@ -46,7 +47,9 @@ export function createEndConfirmation({
   const handleEndSession =
     async () => {
       try {
-        await endSession();
+        await endSession(
+          sessionName.trim() || undefined,
+        );
       } catch (error) {
         if (!(error instanceof Error)) {
           throw error;
@@ -71,7 +74,7 @@ export function createEndConfirmation({
 
   const header =
     createCardHeader({
-      className: "py-2",
+      className: "flex py-2",
     });
 
   const title =
@@ -89,7 +92,7 @@ export function createEndConfirmation({
 
   const body =
     createCardBody({
-      className: "p-2",
+      className: "px-4 py-0",
     });
 
   const description =
@@ -105,6 +108,76 @@ export function createEndConfirmation({
     description,
   );
 
+  // Session name field
+  const inputContainer =
+    document.createElement("div");
+
+  inputContainer.className =
+    "mt-2";
+
+  const label =
+    document.createElement("label");
+
+  label.htmlFor =
+    "session-name";
+
+  label.className =
+    "block mb-1 text-sm font-bold";
+
+  label.textContent =
+    "Session name";
+
+  const input =
+    document.createElement("input");
+
+  input.id =
+    "session-name";
+
+  input.type =
+    "text";
+
+  input.placeholder =
+    "Enter session name";
+
+  input.maxLength =
+    100;
+
+  input.className = `
+    w-full
+    h-10
+    px-3
+    text-sm
+    rounded-xl
+    border
+    border-solid
+    border-gray-300
+    bg-transparent
+    outline-none
+    transition-colors
+    placeholder:text-gray-400
+    hover:border-gray-400
+    focus:border-gray-500
+    focus:ring-1
+    focus:ring-gray-300
+  `;
+
+  input.addEventListener(
+    "input",
+    () => {
+      sessionName =
+        input.value;
+    },
+  );
+
+  inputContainer.append(
+    label,
+    input,
+  );
+
+  body.appendChild(
+    inputContainer,
+  );
+
   const footer =
     createCardFooter({
       className:
@@ -113,7 +186,7 @@ export function createEndConfirmation({
 
   const cancelButton =
     createButton({
-      text: "Cancel",
+      text: "Keep recording",
       className:
         "w-full h-11 px-5 border font-medium",
       onPress:
@@ -124,9 +197,9 @@ export function createEndConfirmation({
     createButton({
       text: "End & upload",
       startContent:
-        createSquareFill(),
+        createArrowUpToLine(),
       className:
-        "w-full h-11 px-5 border border-rose-200 text-red-600 font-medium",
+        "w-full px-0 h-11 border bg-red-600 text-white font-medium hover:bg-rose-200",
       onPress:
         handleEndSession,
     });
