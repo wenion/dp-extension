@@ -39,7 +39,7 @@ async function routeOptionsEvent(
       return;
 
     case "SESSION/END_REQUEST_CANCELLED":
-      await extensionController.expand();
+      await extensionController.cancelRequested();
       return;
 
     case "SESSION/EXIT":
@@ -47,7 +47,7 @@ async function routeOptionsEvent(
       return;
 
     case "SESSION/EXIT_REQUEST_CANCELLED":
-      await extensionController.expand();
+      await extensionController.cancelRequested();
       return;
 
     case "SESSION/UPLOADED_DONE":
@@ -186,7 +186,7 @@ async function routeContentEvent(
       return;
 
     case "SESSION/END_REQUEST_CANCELLED":
-      await extensionController.expand();
+      await extensionController.cancelRequested();
       return;
 
     case "SESSION/EXIT":
@@ -194,7 +194,7 @@ async function routeContentEvent(
       return;
 
     case "SESSION/EXIT_REQUEST_CANCELLED":
-      await extensionController.expand();
+      await extensionController.cancelRequested();
       return;
 
     case "SESSION/UPLOADED_DONE":
