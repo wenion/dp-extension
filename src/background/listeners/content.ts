@@ -181,9 +181,15 @@ async function routeContentEvent(
       await extensionController.endRequested();
       return;
 
-    case "SESSION/END":
+    case "SESSION/END": {
+      if (message.payload.sessionName) {
+        await extensionController.setActiveSessionName(
+          message.payload.sessionName,
+        );
+      }
       await extensionController.endRecording();
       return;
+    }
 
     case "SESSION/END_REQUEST_CANCELLED":
       await extensionController.cancelRequested();

@@ -58,7 +58,9 @@ export interface ContentProtocol {
   };
 
   "SESSION/END": {
-    request: void;
+    request: {
+      sessionName?: string;
+    };
     response: void;
   };
 
