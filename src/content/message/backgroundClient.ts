@@ -80,10 +80,15 @@ export function requestSessionEnd() {
   });
 }
 
-export function endSession() {
+export function endSession(
+  sessionName?: string,
+) {
   return sendContentMessage({
     type: "SESSION/END",
     source: "CONTENT",
+    payload: {
+      sessionName,
+    },
   });
 }
 
