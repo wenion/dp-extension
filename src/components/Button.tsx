@@ -30,10 +30,10 @@ export function Button({
     size === "sm"
       ? isIconOnly
         ? "h-8 w-8 min-w-8 p-0"
-        : "h-8 min-w-16 px-3 text-sm"
+        : "h-8 min-w-16 px-2 text-sm"
       : isIconOnly
         ? "h-10 w-10 min-w-10 p-0"
-        : "h-10 min-w-20 px-4 text-sm";
+        : "h-10 min-w-20 px-2 text-sm";
 
   return (
     <button
@@ -48,7 +48,6 @@ export function Button({
         border
         border-solid
         border-gray-300
-        bg-transparent
         transition-colors
         hover:bg-gray-100
         active:bg-gray-200

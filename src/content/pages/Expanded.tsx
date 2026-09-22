@@ -235,7 +235,7 @@ export function Expanded() {
 
   return (
     <div className="flex items-center">
-      <Card 
+      <Card
         className='w-80'
         shadow="none"
       >

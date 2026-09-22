@@ -6,8 +6,10 @@ import {
   CardHeader,
 } from "@/components/Card";
 
-import { PauseFill } from '@gravity-ui/icons';
-import { SquareFill } from '@gravity-ui/icons';
+import {
+  PauseFill,
+  SquareFill,
+} from '@gravity-ui/icons';
 
 import {
   cancelSessionExitRequest,
@@ -50,12 +52,16 @@ export function ExitConfirmation() {
   return (
     <div className="flex gap-4 items-center">
       <Card className="w-80" shadow="none">
-        <CardHeader className="py-2">
+        <CardHeader className="flex py-2">
           <span className="text-lg font-bold">Turn off extension?</span>
         </CardHeader>
-        <CardBody className="p-2">
-          <p className="text-sm">Your active session will stop and upload first, then the puck is removed.</p>
+
+        <CardBody className="px-4 py-0">
+          <p className="text-sm">
+            Your active session will stop and upload first, then the puck is removed.
+          </p>
         </CardBody>
+
         <CardFooter className="flex gap-4 justify-between items-center">
           <Button
             className="w-full h-11 px-5 border font-medium"
@@ -64,8 +70,9 @@ export function ExitConfirmation() {
           >
             Cancel
           </Button>
+
           <Button
-            className="w-full h-11 px-5 border text-red-600 font-medium"
+            className="w-full px-0 h-11 border bg-red-600 text-white font-medium hover:bg-rose-200"
             startContent={<SquareFill />}
             onPress={handleExitSession}
           >
