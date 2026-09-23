@@ -1,4 +1,4 @@
-const EDGE_MARGIN = 12;
+const EDGE_MARGIN = 24;
 
 export function makeDraggable(
   element: HTMLElement,
