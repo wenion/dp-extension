@@ -5,6 +5,8 @@ type DraggableProps = {
   children: ReactNode;
 };
 
+const EDGE_MARGIN = 12;
+
 export function Draggable({ children }: DraggableProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
@@ -43,23 +45,26 @@ export function Draggable({ children }: DraggableProps) {
     width: number,
     height: number,
   ) => {
+    const minX = EDGE_MARGIN;
+    const minY = EDGE_MARGIN;
+
     const maxX = Math.max(
-      0,
-      window.innerWidth - width,
+      EDGE_MARGIN,
+      window.innerWidth - width - EDGE_MARGIN,
     );
 
     const maxY = Math.max(
-      0,
-      window.innerHeight - height,
+      EDGE_MARGIN,
+      window.innerHeight - height - EDGE_MARGIN,
     );
 
     return {
       x: Math.min(
-        Math.max(0, position.x),
+        Math.max(minX, position.x),
         maxX,
       ),
       y: Math.min(
-        Math.max(0, position.y),
+        Math.max(minY, position.y),
         maxY,
       ),
     };
@@ -221,8 +226,8 @@ export function Draggable({ children }: DraggableProps) {
             }
           : {
               position: "fixed",
-              right: 24,
-              bottom: 24,
+              right: EDGE_MARGIN,
+              bottom: EDGE_MARGIN,
             }
       }
       onMouseDown={handleMouseDown}
