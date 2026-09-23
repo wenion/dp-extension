@@ -5,7 +5,7 @@ type DraggableProps = {
   children: ReactNode;
 };
 
-const EDGE_MARGIN = 12;
+const EDGE_MARGIN = 24;
 
 export function Draggable({ children }: DraggableProps) {
   const [isDragging, setIsDragging] = useState(false);
