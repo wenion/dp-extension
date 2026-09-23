@@ -50,7 +50,7 @@ export function Collapsed() {
         className="gap-4 bg-white hover:bg-gray-50 active:bg-gray-100 shadow-md"
         startContent={
           activeSession?.captureState === "recording" ? (
-            <CircleFill className='text-red-600'/>
+            <CircleFill className='text-red-700'/>
           ) : (
             <PauseFill className='text-amber-700'/>
           )

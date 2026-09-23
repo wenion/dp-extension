@@ -203,7 +203,7 @@ export function Expanded() {
               : "paused",
           className:
             activeSession?.captureState === "recording"
-              ? "text-red-600"
+              ? "text-red-700"
               :" text-amber-700",
         }
       : currentTab?.recordingScope === "excluded"
@@ -241,7 +241,7 @@ export function Expanded() {
       >
         <CardHeader className="flex py-2 justify-between items-center">
           {activeSession?.captureState === "recording" ? (
-            <div className="flex gap-x-2 items-center text-red-600">
+            <div className="flex gap-x-2 items-center text-red-700">
               <CircleFill />
               <p>Recording</p>
             </div>
@@ -290,7 +290,7 @@ export function Expanded() {
               </Button>
             )}
             <Button
-              className="w-full border border-rose-200 text-red-600 font-medium"
+              className="w-full border border-red-600 text-red-700 font-medium"
               startContent={<SquareFill />}
               onPress={handleRequestEndSession}
             >

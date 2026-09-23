@@ -9,7 +9,7 @@ import {
 } from "@/components/Card";
 import { Input } from "@/components/Input";
 
-import { ArrowUpToLine } from '@gravity-ui/icons';
+import { ArrowUpFromLine } from '@gravity-ui/icons';
 
 import {
   cancelSessionEndRequest,
@@ -19,9 +19,50 @@ import { useAppContext } from "../context/context";
 
 
 export function EndConfirmation() {
-  const { showNotice } = useAppContext();
+  const {
+    activeSession,
+    numberOfRecordingTabs,
+    showNotice,
+  } = useAppContext();
 
   const [sessionName, setSessionName] = useState("");
+
+  const [duration] = useState(() => {
+    if (!activeSession?.startedAt) {
+      return "00:00";
+    }
+
+    const totalSeconds = Math.floor(
+      (
+        Date.now() -
+        new Date(activeSession.startedAt).getTime()
+      ) / 1000,
+    );
+
+    const hours = Math.floor(
+      totalSeconds / 3600,
+    );
+
+    const minutes = Math.floor(
+      (totalSeconds % 3600) / 60,
+    );
+
+    const seconds =
+      totalSeconds % 60;
+
+    if (hours > 0) {
+      return [
+        hours,
+        String(minutes).padStart(2, "0"),
+        String(seconds).padStart(2, "0"),
+      ].join(":");
+    }
+
+    return [
+      String(minutes).padStart(2, "0"),
+      String(seconds).padStart(2, "0"),
+    ].join(":");
+  });
 
   const handleCancelSessionEndRequest = async () => {
     try {
@@ -56,8 +97,21 @@ export function EndConfirmation() {
   return (
     <div className="flex gap-4 items-center">
       <Card className="w-80" shadow="none">
-        <CardHeader className="flex py-2">
-          <span className="text-lg font-bold">End session?</span>
+        <CardHeader className="flex py-2 justify-between items-center">
+          <span className="text-lg font-bold">
+            End session?
+          </span>
+
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span>{duration}</span>
+            <span>·</span>
+
+            <span>
+              {numberOfRecordingTabs}
+              {numberOfRecordingTabs > 0 &&
+              ` ${numberOfRecordingTabs === 1 ? "tab" : "tabs"}`}
+            </span>
+          </div>
         </CardHeader>
 
         <CardBody className="px-4 py-0">
@@ -95,8 +149,8 @@ export function EndConfirmation() {
           </Button>
 
           <Button
-            className="w-full px-0 h-11 border bg-red-600 text-white font-medium hover:bg-rose-200"
-            startContent={<ArrowUpToLine />}
+            className="w-full px-0 h-11 border bg-red-700 text-white text-xs font-medium hover:bg-red-500"
+            startContent={<ArrowUpFromLine />}
             onPress={handleEndSession}
           >
             End & upload
