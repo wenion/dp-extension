@@ -1,7 +1,7 @@
 const SVG_NS =
   "http://www.w3.org/2000/svg";
 
-export function createArrowUpToLine(): SVGSVGElement {
+export function createArrowUpFromLine(): SVGSVGElement {
   const svg =
     document.createElementNS(
       SVG_NS,
@@ -51,7 +51,7 @@ export function createArrowUpToLine(): SVGSVGElement {
 
   path.setAttribute(
     "d",
-    "M7.47 4.22a.75.75 0 0 1 1.06 0l2.5 2.5a.75.75 0 1 1-1.06 1.06L8.75 6.56v7.69a.75.75 0 0 1-1.5 0V6.56L6.03 7.78a.75.75 0 0 1-1.06-1.06zm6.78-1.72a.75.75 0 0 0 0-1.5H1.75a.75.75 0 0 0 0 1.5z",
+    "M7.47 1.22a.75.75 0 0 1 1.06 0l2.5 2.5a.75.75 0 1 1-1.06 1.06L8.75 3.56v7.69a.75.75 0 0 1-1.5 0V3.56L6.03 4.78a.75.75 0 0 1-1.06-1.06zM1.75 13.5a.75.75 0 0 0 0 1.5h12.5a.75.75 0 0 0 0-1.5z",
   );
 
   svg.appendChild(

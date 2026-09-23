@@ -251,6 +251,11 @@ export class OverlayController {
       case "end":
         element =
           createEndConfirmation({
+            activeSession:
+              this.state.activeSession,
+
+            numberOfRecordingTabs,
+
             onNotice:
               this.showNotice,
           });
@@ -259,6 +264,11 @@ export class OverlayController {
       case "exit":
         element =
           createExitConfirmation({
+            activeSession:
+              this.state.activeSession,
+
+            numberOfRecordingTabs,
+
             onNotice:
               this.showNotice,
           });

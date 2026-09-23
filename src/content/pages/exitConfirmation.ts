@@ -10,27 +10,65 @@ import {
 } from "../components/card";
 
 import {
-  createPauseFill,
-} from "../components/icons/pauseFill";
-
-import {
-  createSquareFill,
-} from "../components/icons/squareFill";
+  createArrowUpFromLine,
+} from "../components/icons/arrowUpFromLine";
 
 import {
   cancelSessionExitRequest,
   exitSession,
 } from "../message/backgroundClient";
 
+import type {
+  ActiveSession,
+} from "@/shared/types";
+
 type Props = {
+  activeSession?: ActiveSession;
+  numberOfRecordingTabs: number;
   onNotice: (
     notice: string,
   ) => void;
 };
 
 export function createExitConfirmation({
+  activeSession,
+  numberOfRecordingTabs,
   onNotice,
 }: Props): HTMLElement {
+  const getDuration = () => {
+    if (!activeSession?.startedAt) {
+      return "00:00";
+    }
+
+    const totalSeconds = Math.floor(
+      (Date.now() - activeSession.startedAt) / 1000,
+    );
+
+    const hours = Math.floor(
+      totalSeconds / 3600,
+    );
+
+    const minutes = Math.floor(
+      (totalSeconds % 3600) / 60,
+    );
+
+    const seconds =
+      totalSeconds % 60;
+
+    if (hours > 0) {
+      return [
+        hours,
+        String(minutes).padStart(2, "0"),
+        String(seconds).padStart(2, "0"),
+      ].join(":");
+    }
+
+    return [
+      String(minutes).padStart(2, "0"),
+      String(seconds).padStart(2, "0"),
+    ].join(":");
+  };
+
   const handleCancelSessionExitRequest =
     async () => {
       try {
@@ -72,9 +110,11 @@ export function createExitConfirmation({
       className: "w-80",
     });
 
+  // Header
   const header =
     createCardHeader({
-      className: "flex py-2",
+      className:
+        "flex py-2 justify-between items-center",
     });
 
   const title =
@@ -86,8 +126,45 @@ export function createExitConfirmation({
   title.textContent =
     "Turn off extension?";
 
-  header.appendChild(
+  const status =
+    document.createElement("div");
+
+  status.className =
+    "flex items-center gap-2 text-sm text-gray-500";
+
+  const duration =
+    document.createElement("span");
+
+  duration.textContent =
+    getDuration();
+
+  const separator =
+    document.createElement("span");
+
+  separator.textContent =
+    "·";
+
+  const tabs =
+    document.createElement("span");
+
+  tabs.textContent =
+    numberOfRecordingTabs > 0
+      ? `${numberOfRecordingTabs} ${
+          numberOfRecordingTabs === 1
+            ? "tab"
+            : "tabs"
+        }`
+      : String(numberOfRecordingTabs);
+
+  status.append(
+    duration,
+    separator,
+    tabs,
+  );
+
+  header.append(
     title,
+    status,
   );
 
   const body =
@@ -116,9 +193,7 @@ export function createExitConfirmation({
 
   const cancelButton =
     createButton({
-      text: "Cancel",
-      startContent:
-        createPauseFill(),
+      text: "Keep recording",
       className:
         "w-full h-11 px-5 border font-medium",
       onPress:
@@ -127,11 +202,11 @@ export function createExitConfirmation({
 
   const exitButton =
     createButton({
-      text: "Turn off & upload",
+      text: "Exit & upload",
       startContent:
-        createSquareFill(),
+        createArrowUpFromLine(),
       className:
-        "w-full px-0 h-11 border bg-red-600 text-white font-medium hover:bg-rose-200",
+        "w-full px-0 h-11 border bg-red-700 text-white font-medium hover:bg-red-500",
       onPress:
         handleExitSession,
     });

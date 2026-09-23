@@ -290,7 +290,7 @@ export function createExpanded({
 
   status.className =
     activeSession?.captureState === "recording"
-      ? "flex gap-x-2 items-center text-red-600"
+      ? "flex gap-x-2 items-center text-red-700"
       : "flex gap-x-2 items-center text-amber-700";
 
   const statusIcon =
@@ -398,7 +398,7 @@ export function createExpanded({
         createSquareFill(),
 
       className:
-        "w-full border border-rose-200 text-red-600 font-medium",
+        "w-full border border-red-600 text-red-700 font-medium",
 
       onPress:
         handleRequestEndSession,
@@ -488,7 +488,7 @@ export function createExpanded({
     actionClassName =
       activeSession?.captureState ===
       "recording"
-        ? "text-red-600"
+        ? "text-red-700"
         : "text-amber-700";
 
     handleScopePress =

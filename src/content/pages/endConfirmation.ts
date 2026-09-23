@@ -10,24 +10,66 @@ import {
 } from "../components/card";
 
 import {
-  createArrowUpToLine,
-} from "../components/icons/arrowUpToLine";
+  createArrowUpFromLine,
+} from "../components/icons/arrowUpFromLine";
 
 import {
   cancelSessionEndRequest,
   endSession,
 } from "../message/backgroundClient";
 
+import type {
+  ActiveSession,
+} from "@/shared/types";
+
 type Props = {
+  activeSession?: ActiveSession;
+  numberOfRecordingTabs: number;
   onNotice: (
     notice: string,
   ) => void;
 };
 
 export function createEndConfirmation({
+  activeSession,
+  numberOfRecordingTabs,
   onNotice,
 }: Props): HTMLElement {
   let sessionName = "";
+
+  const getDuration = () => {
+    if (!activeSession?.startedAt) {
+      return "00:00";
+    }
+
+    const totalSeconds = Math.floor(
+      (Date.now() - activeSession.startedAt) / 1000,
+    );
+
+    const hours = Math.floor(
+      totalSeconds / 3600,
+    );
+
+    const minutes = Math.floor(
+      (totalSeconds % 3600) / 60,
+    );
+
+    const seconds =
+      totalSeconds % 60;
+
+    if (hours > 0) {
+      return [
+        hours,
+        String(minutes).padStart(2, "0"),
+        String(seconds).padStart(2, "0"),
+      ].join(":");
+    }
+
+    return [
+      String(minutes).padStart(2, "0"),
+      String(seconds).padStart(2, "0"),
+    ].join(":");
+  };
 
   const handleCancelSessionEndRequest =
     async () => {
@@ -72,9 +114,11 @@ export function createEndConfirmation({
       className: "w-80",
     });
 
+  // Header
   const header =
     createCardHeader({
-      className: "flex py-2",
+      className:
+        "flex py-2 justify-between items-center",
     });
 
   const title =
@@ -86,10 +130,48 @@ export function createEndConfirmation({
   title.textContent =
     "End session?";
 
-  header.appendChild(
-    title,
+  const status =
+    document.createElement("div");
+
+  status.className =
+    "flex items-center gap-2 text-sm text-gray-500";
+
+  const duration =
+    document.createElement("span");
+
+  duration.textContent =
+    getDuration();
+
+  const separator =
+    document.createElement("span");
+
+  separator.textContent =
+    "·";
+
+  const tabs =
+    document.createElement("span");
+
+  tabs.textContent =
+    numberOfRecordingTabs > 0
+      ? `${numberOfRecordingTabs} ${
+          numberOfRecordingTabs === 1
+            ? "tab"
+            : "tabs"
+        }`
+      : String(numberOfRecordingTabs);
+
+  status.append(
+    duration,
+    separator,
+    tabs,
   );
 
+  header.append(
+    title,
+    status,
+  );
+
+  // Body
   const body =
     createCardBody({
       className: "px-4 py-0",
@@ -108,7 +190,7 @@ export function createEndConfirmation({
     description,
   );
 
-  // Session name field
+  // Session name
   const inputContainer =
     document.createElement("div");
 
@@ -178,6 +260,7 @@ export function createEndConfirmation({
     inputContainer,
   );
 
+  // Footer
   const footer =
     createCardFooter({
       className:
@@ -197,9 +280,9 @@ export function createEndConfirmation({
     createButton({
       text: "End & upload",
       startContent:
-        createArrowUpToLine(),
+        createArrowUpFromLine(),
       className:
-        "w-full px-0 h-11 border bg-red-600 text-white font-medium hover:bg-rose-200",
+        "w-full px-0 h-11 border bg-red-700 text-white text-xs font-medium hover:bg-red-500",
       onPress:
         handleEndSession,
     });

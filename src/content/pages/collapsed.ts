@@ -76,7 +76,7 @@ export function createCollapsed({
 
   captureStatus.classList.add(
     activeSession?.captureState === "recording"
-      ? "text-red-600"
+      ? "text-red-700"
       : "text-amber-700",
   );
 
