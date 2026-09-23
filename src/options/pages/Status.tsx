@@ -152,7 +152,7 @@ export function Status() {
               </Button>
             )}
             <Button
-              className="border border-rose-200 text-red-600 font-medium"
+              className="border border-rose-200 text-red-700 font-medium"
               variant="bordered"
               startContent={<SquareFill />}
               onPress={requestSessionEnd}
@@ -224,7 +224,7 @@ export function Status() {
               </Button>
 
               <Button
-                className="border border-rose-200 text-red-600 font-medium"
+                className="border border-rose-200 text-red-700 font-medium"
                 variant="bordered"
                 startContent={<SquareFill />}
                 onPress={exitSession}
@@ -262,7 +262,7 @@ export function Status() {
               </Button>
 
               <Button
-                className="border border-rose-200 text-red-600 font-medium"
+                className="border border-rose-200 text-red-700 font-medium"
                 variant="bordered"
                 startContent={<SquareFill />}
                 onPress={endSession}

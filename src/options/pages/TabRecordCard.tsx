@@ -44,7 +44,7 @@ export function TabRecordCard({
       : tab.recordingScope;
 
   const statusTextColor = {
-    recording: "text-red-600",
+    recording: "text-red-700",
     paused: "text-amber-700",
     excluded: "text-default-700",
     not_in_scope: "text-default-500",
