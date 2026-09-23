@@ -1,3 +1,5 @@
+const EDGE_MARGIN = 12;
+
 export function makeDraggable(
   element: HTMLElement,
 ): () => void {
@@ -31,8 +33,8 @@ export function makeDraggable(
   );
 
   element.style.position = "fixed";
-  element.style.right = "24px";
-  element.style.bottom = "24px";
+  element.style.right = `${EDGE_MARGIN}px`;
+  element.style.bottom = `${EDGE_MARGIN}px`;
 
   const clampPosition = (
     currentPosition: {
@@ -42,20 +44,27 @@ export function makeDraggable(
     width: number,
     height: number,
   ) => {
+    const minX = EDGE_MARGIN;
+    const minY = EDGE_MARGIN;
+
     const maxX = Math.max(
-      0,
-      window.innerWidth - width,
+      EDGE_MARGIN,
+      window.innerWidth -
+        width -
+        EDGE_MARGIN,
     );
 
     const maxY = Math.max(
-      0,
-      window.innerHeight - height,
+      EDGE_MARGIN,
+      window.innerHeight -
+        height -
+        EDGE_MARGIN,
     );
 
     return {
       x: Math.min(
         Math.max(
-          0,
+          minX,
           currentPosition.x,
         ),
         maxX,
@@ -63,7 +72,7 @@ export function makeDraggable(
 
       y: Math.min(
         Math.max(
-          0,
+          minY,
           currentPosition.y,
         ),
         maxY,
