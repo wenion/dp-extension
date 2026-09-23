@@ -21,7 +21,11 @@ import type {
   OptionsState,
 } from "@/shared/types";
 
-const SIGN_IN_MENU_ID = "sign-in";
+const SIGN_IN_MENU_ID =
+  "sign-in";
+
+const ACTIVATE_SESSION_MENU_ID =
+  "activate-session";
 
 const DEFAULT_ORIGINS = [
   "https://docs.google.com",
@@ -452,6 +456,12 @@ export class ExtensionController {
       title: "Sign in",
       contexts: ["action"],
     });
+
+    chrome.contextMenus.create({
+      id: ACTIVATE_SESSION_MENU_ID,
+      title: "Active sessions",
+      contexts: ["action"],
+    });
   }
 
   async handleLoginMessage(
@@ -670,6 +680,11 @@ export class ExtensionController {
     switch (info.menuItemId) {
       case SIGN_IN_MENU_ID: {
         await this.authService.openLogin();
+        break;
+      }
+
+      case ACTIVATE_SESSION_MENU_ID: {
+        await chrome.runtime.openOptionsPage();
         break;
       }
     }
