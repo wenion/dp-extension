@@ -37,6 +37,11 @@ export type DocState = {
   requestId: number;
   index: number;
   acc: number;
-  type: string;
+  type:
+    | "initial"
+    | "insert"
+    | "delete"
+    | "spellcheck"
+    | "assistwriting";
   docId: string;
 };

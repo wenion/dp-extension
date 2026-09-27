@@ -1,7 +1,6 @@
-import type { GoogleDocsMeta } from "@/shared/types";
-
 import type { DocState } from "./types";
 
+import type { GoogleDocsMeta } from "@/shared/types";
 
 export class GoogleDocumentEngine {
 
@@ -125,7 +124,6 @@ export class GoogleDocumentEngine {
     current: DocState,
     meta: GoogleDocsMeta,
   ): DocState | undefined {
-
     if (meta.api === "assistwriting") {
       return this.applyPreState(
         current,
@@ -134,27 +132,26 @@ export class GoogleDocumentEngine {
     }
 
     switch (meta.type) {
+      case "insert":
+        return this.applyInsert(
+            current,
+            meta,
+        );
 
-    case "insert":
-      return this.applyInsert(
-          current,
-          meta,
-      );
+      case "delete":
+        return this.applyDelete(
+            current,
+            meta,
+        );
 
-    case "delete":
-      return this.applyDelete(
-          current,
-          meta,
-      );
+      case "spellcheck":
+        return this.applySpellcheck(
+            current,
+            meta,
+        );
 
-    case "spellcheck":
-      return this.applySpellcheck(
-          current,
-          meta,
-      );
-
-    default:
-      return undefined;
-    }
+      default:
+        return undefined;
+      }
   }
 }
