@@ -109,7 +109,10 @@ export const pasteHandler = (
     data.tag = target.tagName;
     data.xpath = getXPath(target);
 
-    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement
+    ) {
       data.name = (target as HTMLInputElement).name ?? "";
       data.placeholder = (target as HTMLInputElement).placeholder ?? "";
       data.startPosition = target.selectionStart ?? undefined;
@@ -134,13 +137,16 @@ export const pasteHandler = (
       if (editable) {
         let elements: Element[] = [];
         let stateField:
-          "originValue" | "eventState" =
-            "eventState";
+          | "originValue"
+          | "eventState"
+          | undefined = "eventState";
 
         if (editable.querySelector(".cm-line")) {
           elements = Array.from(
             editable.querySelectorAll(".cm-line"),
           );
+
+          stateField = "eventState";
         }
         else if (
           editable.querySelector(".kix-lineview")
@@ -150,6 +156,8 @@ export const pasteHandler = (
               ".kix-lineview",
             ),
           );
+
+          stateField = "eventState";
         }
         else if (editable.querySelector("p")) {
           elements = Array.from(
@@ -166,6 +174,14 @@ export const pasteHandler = (
             ? "eventState"
             : "originValue";
         }
+        else if (
+          editable.matches(
+            '[role="textbox"]' +
+            '[aria-label="Document content"]',
+          )
+        ) {
+          stateField = undefined;
+        }
 
         const state = elements
           .map(element =>
@@ -173,7 +189,9 @@ export const pasteHandler = (
           )
           .join("\n");
 
-        data[stateField] = state;
+        if (stateField) {
+          data[stateField] = state;
+        }
       }
     }
   }

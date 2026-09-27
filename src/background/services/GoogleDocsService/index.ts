@@ -1,4 +1,4 @@
-import { transferToUserEventTrace } from "./GoogleDocsTraceMapper";
+import { transferToUserEvent } from "./GoogleDocsTraceMapper";
 
 import type { GoogleDocsApiClient} from "./GoogleDocsApiClient";
 import type { GoogleDocumentStore } from "./GoogleDocumentStore";
@@ -83,10 +83,12 @@ export class GoogleDocsService {
       updated,
     );
 
-    return transferToUserEventTrace(
-      "keystroke",
+    const event = transferToUserEvent(
+      "google-docs-edit",
       updated,
     );
+
+    return event ? [event] : [];
   }
 
   remove(tabId: number): boolean {

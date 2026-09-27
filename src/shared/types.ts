@@ -195,12 +195,22 @@ export type TraceRecord = {
   x_path: string | null;
 };
 
+export type GoogleDocsApi =
+  | "save"
+  | "assistwriting";
+
+export type GoogleDocsCommandType =
+  | "insert"
+  | "delete"
+  | "spellcheck"
+  | "assistwriting";
+
 export type GoogleDocsMeta = {
-  api: string;
+  api: GoogleDocsApi;
   requestId: number;
   index: number;
   acc: number; // accumulated character count of previous commands in the same bundle
-  type: string;
+  type: GoogleDocsCommandType;
   startPosition?: number;
   endPosition?: number;
   content?: string;

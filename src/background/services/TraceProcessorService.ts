@@ -166,35 +166,35 @@ export class TraceProcessorService {
     const {
       groups,
       otherTraces,
-    } = this.groupTraces(traces);
+    } = this.groupKeyboardEditTraces(traces);
 
-    const processedGroups = groups.map(group =>
+    const processedKeyboardGroups = groups.map(group =>
       this.processKeyboardTraces(
         this.filterTracesByAnchors(group),
       ),
     );
 
-    const processedTraces =
-      processedGroups.reduce<Trace[]>(
+    const processedKeyboardTraces =
+      processedKeyboardGroups.reduce<Trace[]>(
         (results, group) =>
           this.mergeTraces(results, group),
         [],
       );
 
-    const traces1 = this.mergeTraces(
-      processedTraces,
-      otherTraces
+    const processedTraces = this.mergeTraces(
+      processedKeyboardTraces,
+      otherTraces,
     );
 
     const conversationGroups =
-      this.groupConversationTraces(traces1);
+      this.groupConversationTraces(processedTraces);
 
     const processedConversationGroups =
       conversationGroups.map(group =>
         this.processGroupedMutationTraces(group),
       );
 
-    const traces2 =
+    const processedConversationTraces =
       processedConversationGroups.reduce<Trace[]>(
         (results, group) =>
           this.mergeTraces(
@@ -204,13 +204,43 @@ export class TraceProcessorService {
         [],
       );
 
-    const traces3 = this.processPointerDownEvents(traces2);
-    const traces4 = this.processGoogleDocsEvents(traces3);
+    const processedPointerDownTraces =
+      this.processPointerDownEvents(
+        processedConversationTraces,
+      );
 
-    return traces4;
+    const {
+      groups: googleDocsTraceGroups,
+      otherTraces: remainingTraces,
+    } =
+      this.groupGoogleDocsTraces(
+        processedPointerDownTraces,
+      );
+
+    const processedGoogleDocsTraceGroups =
+      googleDocsTraceGroups.map(group =>
+        this.processGoogleDocsEvents(group),
+      );
+
+    const processedGoogleDocsTraces =
+      processedGoogleDocsTraceGroups.reduce<Trace[]>(
+        (results, group) =>
+          this.mergeTraces(
+            results,
+            group,
+          ),
+        [],
+      );
+
+    const all = this.mergeTraces(
+      processedGoogleDocsTraces,
+      remainingTraces,
+    );
+
+    return all;
   }
 
-  private groupTraces(
+  private groupKeyboardEditTraces(
     traces: Trace[],
   ): GroupedTraces {
     // Groups traces by [tabId, url, xpath].
@@ -561,7 +591,7 @@ export class TraceProcessorService {
         const keydownState = current.eventState;
 
         if (
-          !keydownState ||
+          keydownState === undefined ||
           !current.key ||
           current.reason
         ) {
@@ -574,10 +604,6 @@ export class TraceProcessorService {
             current,
             traces[index + 1],
           );
-
-        if (matched) {
-          stateIsPreEvent = true;
-        }
 
         state = resultState;
         stateIsPreEvent = matched;
@@ -610,7 +636,7 @@ export class TraceProcessorService {
     }
 
     if (initialStateInfo === undefined) {
-      return [];
+      return traces;
     }
 
     let contentState: DocState = {
@@ -1232,6 +1258,42 @@ export class TraceProcessorService {
     return [...traceGroups.values()];
   }
 
+  private groupGoogleDocsTraces(
+    traces: Trace[],
+  ): GroupedTraces {
+    const groups = new Map<number, Trace[]>();
+    const otherTraces: Trace[] = [];
+
+    for (const trace of traces) {
+      if (
+        trace.tabId === undefined ||
+        !trace.url?.startsWith(
+          "https://docs.google.com/document/"
+        )
+      ) {
+        otherTraces.push(trace);
+        continue;
+      }
+
+      const group =
+        groups.get(trace.tabId);
+
+      if (group) {
+        group.push(trace);
+      } else {
+        groups.set(
+          trace.tabId,
+          [trace],
+        );
+      }
+    }
+
+    return {
+      groups: [...groups.values()],
+      otherTraces,
+    };
+  }
+
   private processGroupedMutationTraces(
     traces: Trace[],
   ): Trace[] {
@@ -1408,7 +1470,9 @@ export class TraceProcessorService {
     return result;
   }
 
-  private processPointerDownEvents(traces: Trace[]): Trace[] {
+  private processPointerDownEvents(
+    traces: Trace[],
+  ): Trace[] {
     const result: Trace[] = [];
 
     let pending: Trace | undefined;
@@ -1446,62 +1510,378 @@ export class TraceProcessorService {
     return result;
   }
 
-  private processGoogleDocsEvents(traces: Trace[]): Trace[] {
-    const result: Trace[] = [];
+  private getKeyAndCode(value: string): {
+    key: string;
+    code: string;
+  } {
+    if (value === "\n") {
+      return {
+        key: "Enter",
+        code: "Enter",
+      };
+    }
 
-    let pending: Trace | undefined;
-    let last: Trace |undefined;
-    let skip = 0;
+    if (value === " ") {
+      return {
+        key: " ",
+        code: "Space",
+      };
+    }
 
-    for (const trace of traces) {
+    if (/^[a-zA-Z]$/.test(value)) {
+      return {
+        key: value,
+        code: `Key${value.toUpperCase()}`,
+      };
+    }
 
-      if (skip > 0) {
-        if (
-          trace.eventType === "keystroke" &&
-          trace.elementType === "insert"
-        ) {
-          last = trace;
-          skip--;
+    if (/^[0-9]$/.test(value)) {
+      return {
+        key: value,
+        code: `Digit${value}`,
+      };
+    }
+
+    if (value.length === 1) {
+      return {
+        key: value,
+        code: value,
+      };
+    }
+
+    return {
+      key: value,
+      code: "Character",
+    };
+  }
+
+  private splitAndPushGoogleDocsInsert(
+    data: Trace,
+    traces: Trace[],
+  ): void {
+    if (!data.eventValue) {
+      return;
+    }
+
+    const letters = Array.from(
+      data.eventValue,
+    );
+
+    let offset = 0;
+
+    for (let i = 0; i < letters.length; i++) {
+      const letter = letters[i];
+
+      const startPosition =
+        data.startPosition! + offset;
+
+      const endPosition =
+        startPosition + letter.length;
+
+      const { key, code } =
+        this.getKeyAndCode(letter);
+
+      const trace: Trace = {
+        ...data,
+        eventType: "keystroke",
+        elementType: "insert",
+        textContent: data.textContent,
+
+        key,
+        code,
+
+        timestamp: data.timestamp + i,
+        // author: "human",
+
+        startPosition,
+        endPosition,
+
+        eventValue: letter,
+
+        eventState:
+          data.eventState?.slice(
+            0,
+            startPosition,
+          ) +
+          letter +
+          data.eventState?.slice(
+            data.endPosition,
+          ),
+
+        eventId:
+          data.eventId +
+          "_" +
+          offset,
+      };
+
+      traces.push(trace);
+
+      // Important for emoji / surrogate pairs
+      offset += letter.length;
+    }
+  }
+
+  private normalizeForGoogleDocsComparison(
+    value: string,
+  ): string {
+    return value
+      .normalize("NFC")
+      .replace(/(?:\r\n|\r|\n)+/g, "\n")
+      .trim();
+  }
+
+  private findPasteInsertEndIndex(
+    traces: Trace[],
+    pasteIndex: number,
+  ): number | undefined {
+    const pasteValue =
+      traces[pasteIndex].eventValue;
+
+    if (!pasteValue) {
+      return undefined;
+    }
+
+    let combinedInsertValue = "";
+
+    for (
+      let index = pasteIndex + 1;
+      index < traces.length;
+      index++
+    ) {
+      const trace = traces[index];
+
+      if (
+        trace.eventType !== "google-docs-edit"
+      ) {
+        break;
+      }
+
+      // Selection paste:
+      // keep looking past delete traces.
+      if (trace.elementType === "delete") {
+        trace.eventType = "keystroke";
+        continue;
+      }
+
+      if (
+        trace.elementType !== "insert" ||
+        !trace.eventValue
+      ) {
+        break;
+      }
+
+      combinedInsertValue += trace.eventValue;
+
+      if (
+        this.normalizeForGoogleDocsComparison(
+          combinedInsertValue,
+        ) ===
+        this.normalizeForGoogleDocsComparison(
+          pasteValue,
+        )
+      ) {
+        return index;
+      }
+    }
+
+    return undefined;
+  }
+
+  private findCutDeleteEndIndex(
+    traces: Trace[],
+    cutIndex: number,
+  ): number | undefined {
+    const cutValue =
+      traces[cutIndex].eventValue;
+
+    if (!cutValue) {
+      return undefined;
+    }
+
+    let combinedDeleteValue = "";
+
+    for (
+      let index = cutIndex + 1;
+      index < traces.length;
+      index++
+    ) {
+      const trace = traces[index];
+
+      if (
+        trace.eventType !== "google-docs-edit" ||
+        trace.elementType !== "delete" ||
+        !trace.eventValue
+      ) {
+        break;
+      }
+
+      combinedDeleteValue += trace.eventValue;
+
+      if (
+        this.normalizeForGoogleDocsComparison(
+          combinedDeleteValue,
+        ) ===
+        this.normalizeForGoogleDocsComparison(
+          cutValue,
+        )
+      ) {
+        return index;
+      }
+    }
+
+    return undefined;
+  }
+
+  private processGoogleDocsEvents(
+    traces: Trace[],
+  ): Trace[] {
+    const processedTraces: Trace[] = [];
+
+    let index = 0;
+
+    while (index < traces.length) {
+      const current = traces[index];
+
+      // -------------------------
+      // Paste
+      // -------------------------
+
+      if (
+        current.eventType === "paste" &&
+        current.eventValue
+      ) {
+        const pasteEndIndex =
+          this.findPasteInsertEndIndex(
+            traces,
+            index,
+          );
+
+        if (pasteEndIndex !== undefined) {
+          // Do NOT push the original paste trace.
+          // Process the following Google Docs traces instead.
+
+          for (
+            let next = index + 1;
+            next <= pasteEndIndex;
+            next++
+          ) {
+            const trace = traces[next];
+
+            if (
+              trace.eventType ===
+                "google-docs-edit" &&
+              trace.elementType === "insert"
+            ) {
+              processedTraces.push({
+                ...trace,
+                eventType: "paste",
+                elementType: undefined,
+              });
+            } else {
+              // e.g. selection delete
+              if (
+                trace.eventType ===
+                  "google-docs-edit" &&
+                trace.elementType === "delete"
+              ) {
+                const deleteTrace = {
+                  ...trace,
+                  eventType: "keystroke",
+                };
+                processedTraces.push(deleteTrace);
+              }
+              else {
+                processedTraces.push(trace);
+              }
+            }
+          }
+
+          index = pasteEndIndex + 1;
           continue;
         }
 
-        result.push(trace);
+        // No corresponding Google Docs edit found.
+        // Keep original paste to avoid data loss.
+        processedTraces.push(current);
+        index++;
         continue;
       }
 
-      // skip done
-      if (pending) {
-        if (last) {
-          pending.eventState = last.eventState;
+      // -------------------------
+      // Cut
+      // -------------------------
+
+      if (
+        current.eventType === "cut" &&
+        current.eventValue
+      ) {
+        const cutEndIndex =
+          this.findCutDeleteEndIndex(
+            traces,
+            index,
+          );
+
+        if (cutEndIndex !== undefined) {
+          // Do NOT push original cut.
+
+          for (
+            let next = index + 1;
+            next <= cutEndIndex;
+            next++
+          ) {
+            processedTraces.push({
+              ...traces[next],
+              eventType: "cut",
+              elementType: undefined,
+            });
+          }
+
+          index = cutEndIndex + 1;
+          continue;
         }
 
-        result.push(pending);
-        pending = undefined;
-        last = undefined;
-      }
-
-      // Google Docs paste
-      if (
-        trace.eventType === "paste" &&
-        trace.url.startsWith("https://docs.google.com/document/")
-      ) {
-        pending = trace;
-        skip = trace.eventValue?.length ?? 0;
+        // Failed to find corresponding Docs delete.
+        processedTraces.push(current);
+        index++;
         continue;
       }
 
-      result.push(trace);
-    }
+      // -------------------------
+      // Normal Google Docs insert
+      // -------------------------
 
-    // paste is last
-    if (pending) {
-      if (last) {
-        pending.eventState = last.eventState;
+      if (
+        current.eventType === "google-docs-edit" &&
+        current.elementType === "insert"
+      ) {
+        this.splitAndPushGoogleDocsInsert(
+          current,
+          processedTraces,
+        );
+
+        index++;
+        continue;
       }
 
-      result.push(pending);
+      if (
+        current.eventType === "google-docs-edit" &&
+        current.elementType === "delete"
+      ) {
+        current.eventType = "keystroke";
+        processedTraces.push(current);
+
+        index++;
+        continue;
+      }
+
+      // -------------------------
+      // Everything else
+      // -------------------------
+
+      processedTraces.push(current);
+      index++;
     }
 
-    return result;
+    return processedTraces;
   }
 }
