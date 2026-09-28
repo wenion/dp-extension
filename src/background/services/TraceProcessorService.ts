@@ -657,7 +657,11 @@ export class TraceProcessorService {
         const key = current.key;
         const keydownState = current.eventState;
 
-        if (!keydownState || !key || current.reason) {
+        if (
+          keydownState === undefined ||
+          !key ||
+          current.reason
+        ) {
           index += 1;
           continue;
         }
