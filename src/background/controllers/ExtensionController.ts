@@ -477,22 +477,31 @@ export class ExtensionController {
       return;
     }
 
-    if (msg?.type !== "AUTH_CODE") {
-      sendResponse({
-        ok: false,
-        error: "Invalid message type",
-      });
-      return;
-    }
-
     try {
-      await this.authService.completeLogin(
-        msg.code,
-      );
+      switch (msg?.type) {
+        case "AUTH_CODE": {
+          await this.authService.completeLogin(msg.code);
 
-      this.updateCurrentBadge();
+          this.updateCurrentBadge();
 
-      sendResponse({ ok: true });
+          sendResponse({ ok: true });
+          return;
+        }
+
+        case "OPEN_OPTIONS": {
+          await chrome.runtime.openOptionsPage();
+          sendResponse({ ok: true });
+          return;
+        }
+
+        default: {
+          sendResponse({
+            ok: false,
+            error: "Invalid message type",
+          });
+          return;
+        }
+      }
     } catch (err) {
       sendResponse({
         ok: false,
