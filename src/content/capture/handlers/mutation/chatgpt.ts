@@ -1,19 +1,39 @@
 import type { Trace } from "@/shared/types";
 
+const MESSAGE_SELECTOR =
+  '[data-chatgpt-search-unit-key$=":user"], ' +
+  '[data-chatgpt-search-unit-key$=":assistant"]';
 
 export function chatgptMutationHandler(
   node: HTMLElement
 ): Trace {
-
   const data = {} as Trace;
+
+  const key =
+    node.getAttribute(
+      "data-chatgpt-search-unit-key",
+    ) || "";
+
+  const messageId =
+    node.getAttribute(
+      "data-chatgpt-search-message-ids",
+    ) || "";
+
   data.eventType = "mutation";
-  data.url = window.location.href;
+
   data.tag = node.tagName;
-  data.author = node.getAttribute("data-turn") === "user" ? "human" : "AI";
+
+  data.author = key.endsWith(":user")
+    ? "human"
+    : "AI";
+
   data.message = node.innerText;
-  data.sessionId = node.getAttribute("data-testid") || "";
+
+  data.sessionId = messageId;
+
   data.timestamp = Date.now();
-  data.name = node.getAttribute("data-turn-id") || "";
+
+  data.name = key;
 
   return data;
 }
@@ -21,47 +41,67 @@ export function chatgptMutationHandler(
 export function createChatGPTMutationListener(
   emit: (node: HTMLElement) => void
 ): MutationCallback {
-
   let target: HTMLElement | null = null;
   let innerTextCache: string | null = null;
 
   const func = (node: HTMLElement) => {
-    if (target === node && innerTextCache === node.innerText) {
+    if (
+      target === node &&
+      innerTextCache === node.innerText
+    ) {
       return;
     }
 
     emit(node);
+
     target = node;
     innerTextCache = node.innerText;
   };
 
-  return (mutationList: MutationRecord[], observer: MutationObserver) => {
+  return (
+    mutationList: MutationRecord[],
+    _observer: MutationObserver
+  ) => {
     for (const mutation of mutationList) {
       if (mutation.type === "characterData") {
         const textNode = mutation.target;
         const node = textNode.parentElement;
 
-        if (!node) continue;
+        if (!node) {
+          continue;
+        }
 
-        const article = node.closest('[data-turn-id]') as HTMLElement | null;
-        if (article) {
-          func(article);
+        const messageContainer =
+          node.closest<HTMLElement>(
+            MESSAGE_SELECTOR,
+          );
+
+        if (messageContainer) {
+          func(messageContainer);
         }
       }
 
       if (mutation.type === "childList") {
-        mutation.addedNodes.forEach((node) => {
-          if (!(node instanceof HTMLElement)) return;
+        mutation.addedNodes.forEach(node => {
+          if (!(node instanceof HTMLElement)) {
+            return;
+          }
 
-          if (node.matches('[data-turn-id]')) {
+          if (node.matches(MESSAGE_SELECTOR)) {
             func(node);
+            return;
           }
-          else {
-            let els = node.querySelectorAll('[data-turn-id]');
-            els.forEach((el) => {
-              func(el as HTMLElement);
-            });
-          }
+
+          const messageContainers =
+            node.querySelectorAll<HTMLElement>(
+              MESSAGE_SELECTOR,
+            );
+
+          messageContainers.forEach(
+            messageContainer => {
+              func(messageContainer);
+            },
+          );
         });
       }
     }
