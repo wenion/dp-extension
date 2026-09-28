@@ -164,15 +164,16 @@ export class TraceProcessorService {
 
   private process(traces: Trace[]): Trace[] {
     const {
-      groups,
+      groups: keyboardTraceGroups,
       otherTraces,
     } = this.groupKeyboardEditTraces(traces);
 
-    const processedKeyboardGroups = groups.map(group =>
-      this.processKeyboardTraces(
-        this.filterTracesByAnchors(group),
-      ),
-    );
+    const processedKeyboardGroups =
+      keyboardTraceGroups.map(group =>
+        this.processKeyboardTraces(
+          this.filterTracesByAnchors(group),
+        ),
+      );
 
     const processedKeyboardTraces =
       processedKeyboardGroups.reduce<Trace[]>(
@@ -1784,11 +1785,10 @@ export class TraceProcessorService {
                   "google-docs-edit" &&
                 trace.elementType === "delete"
               ) {
-                const deleteTrace = {
+                processedTraces.push({
                   ...trace,
                   eventType: "keystroke",
-                };
-                processedTraces.push(deleteTrace);
+                });
               }
               else {
                 processedTraces.push(trace);
@@ -1867,8 +1867,23 @@ export class TraceProcessorService {
         current.eventType === "google-docs-edit" &&
         current.elementType === "delete"
       ) {
-        current.eventType = "keystroke";
-        processedTraces.push(current);
+        processedTraces.push({
+          ...current,
+          eventType: "keystroke",
+        });
+
+        index++;
+        continue;
+      }
+
+      if (
+        current.eventType === "google-docs-edit" &&
+        current.elementType === "spellcheck"
+      ) {
+        processedTraces.push({
+          ...current,
+          eventType: "auto-correction",
+        });
 
         index++;
         continue;
