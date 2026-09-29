@@ -254,6 +254,8 @@ export function createEndConfirmation({
   input.addEventListener(
     "keydown",
     (event) => {
+      event.stopPropagation();
+
       if (event.key === "Enter") {
         event.preventDefault();
 
