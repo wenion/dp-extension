@@ -164,26 +164,26 @@ export class TraceProcessorService {
 
   private process(traces: Trace[]): Trace[] {
     const {
-      groups: keyboardTraceGroups,
+      groups: textEditTraceGroups,
       otherTraces,
-    } = this.groupKeyboardEditTraces(traces);
+    } = this.groupTextEditTraces(traces);
 
-    const processedKeyboardGroups =
-      keyboardTraceGroups.map(group =>
-        this.processKeyboardTraces(
-          this.filterTracesByAnchors(group),
+    const processedTextEditTraceGroups =
+      textEditTraceGroups.map(group =>
+        this.processTextEditTraces(
+          this.processTraceSegments(group),
         ),
       );
 
-    const processedKeyboardTraces =
-      processedKeyboardGroups.reduce<Trace[]>(
+    const mergedTextEditTraces =
+      processedTextEditTraceGroups.reduce<Trace[]>(
         (results, group) =>
           this.mergeTraces(results, group),
         [],
       );
 
     const processedTraces = this.mergeTraces(
-      processedKeyboardTraces,
+      mergedTextEditTraces,
       otherTraces,
     );
 
@@ -241,7 +241,7 @@ export class TraceProcessorService {
     return all;
   }
 
-  private groupKeyboardEditTraces(
+  private groupTextEditTraces(
     traces: Trace[],
   ): GroupedTraces {
     // Groups traces by [tabId, url, xpath].
@@ -389,7 +389,7 @@ export class TraceProcessorService {
    * against the next keydown's state. If no next keydown exists,
    * the remaining traces are preserved unchanged.
    */
-  private filterTracesByAnchors(
+  private processTraceSegments(
     traces: Trace[],
   ): Trace[] {
     const filtered: Trace[] = [];
@@ -407,7 +407,7 @@ export class TraceProcessorService {
 
       if (anchorOffset === -1) {
         filtered.push(
-          ...this.reconstructTraceChain(
+          ...this.validateAmbiguousTraces(
             traces.slice(index),
           ),
         );
@@ -427,11 +427,11 @@ export class TraceProcessorService {
         this.matchKeydownInputPair(
           keydown,
           candidateInput,
-        )
+        );
 
       if (keydownIndex > index) {
         filtered.push(
-          ...this.reconstructTraceChain(
+          ...this.validateAmbiguousTraces(
             traces.slice(
               index,
               keydownIndex,
@@ -469,7 +469,7 @@ export class TraceProcessorService {
    * then walks backward to retain preceding traces whose state
    * transitions are consistent with the current trace.
    */
-  private reconstructTraceChain(
+  private validateAmbiguousTraces(
     traces: Trace[],
     targetState?: string,
   ): Trace[] {
@@ -567,7 +567,7 @@ export class TraceProcessorService {
     return chain;
   }
 
-  private processKeyboardTraces(
+  private processTextEditTraces(
     traces: Trace[],
   ): Trace[] {
     const results = [] as Trace[];
