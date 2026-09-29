@@ -23,6 +23,17 @@ export function Draggable({ children }: DraggableProps) {
 
     if (e.button !== 0) return;
 
+    const target =
+      e.target as HTMLElement;
+
+    if (
+      target.closest(
+        "input, textarea, a, select, [contenteditable='true']",
+      )
+    ) {
+      return;
+    }
+
     isMouseDownRef.current = true;
     isDraggedRef.current = false;
     startPos.current = { x: e.clientX, y: e.clientY };
@@ -214,7 +225,7 @@ export function Draggable({ children }: DraggableProps) {
     <div
       ref={elementRef}
       className={`
-        pointer-events-auto select-none touch-none
+        pointer-events-auto touch-none
         ${isDragging ? "cursor-grabbing" : "cursor-grab"}
       `}
       style={
