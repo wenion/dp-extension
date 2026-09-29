@@ -133,6 +133,12 @@ export function EndConfirmation() {
               onChange={(event) =>
                 setSessionName(event.target.value)
               }
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleEndSession();
+                }
+              }}
               placeholder="Enter session name"
               maxLength={100}
               disabled={false}
