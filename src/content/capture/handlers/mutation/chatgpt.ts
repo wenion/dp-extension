@@ -41,21 +41,24 @@ export function chatgptMutationHandler(
 export function createChatGPTMutationListener(
   emit: (node: HTMLElement) => void
 ): MutationCallback {
-  let target: HTMLElement | null = null;
-  let innerTextCache: string | null = null;
+  const innerTextCache =
+    new WeakMap<HTMLElement, string>();
 
   const func = (node: HTMLElement) => {
-    if (
-      target === node &&
-      innerTextCache === node.innerText
-    ) {
+    const currentText = node.innerText;
+    const previousText =
+      innerTextCache.get(node);
+
+    if (previousText === currentText) {
       return;
     }
 
     emit(node);
 
-    target = node;
-    innerTextCache = node.innerText;
+    innerTextCache.set(
+      node,
+      currentText,
+    );
   };
 
   return (
@@ -82,6 +85,22 @@ export function createChatGPTMutationListener(
       }
 
       if (mutation.type === "childList") {
+        const target =
+          mutation.target instanceof HTMLElement
+            ? mutation.target
+            : mutation.target.parentElement;
+
+        // Existing message content changed
+        const parentMessage =
+          target?.closest<HTMLElement>(
+            MESSAGE_SELECTOR,
+          );
+
+        if (parentMessage) {
+          func(parentMessage);
+        }
+
+        // A completely new message was added
         mutation.addedNodes.forEach(node => {
           if (!(node instanceof HTMLElement)) {
             return;
@@ -92,16 +111,11 @@ export function createChatGPTMutationListener(
             return;
           }
 
-          const messageContainers =
-            node.querySelectorAll<HTMLElement>(
+          node
+            .querySelectorAll<HTMLElement>(
               MESSAGE_SELECTOR,
-            );
-
-          messageContainers.forEach(
-            messageContainer => {
-              func(messageContainer);
-            },
-          );
+            )
+            .forEach(func);
         });
       }
     }
