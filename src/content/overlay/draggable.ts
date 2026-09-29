@@ -27,7 +27,6 @@ export function makeDraggable(
 
   element.classList.add(
     "pointer-events-auto",
-    "select-none",
     "touch-none",
     "cursor-grab",
   );
@@ -127,6 +126,17 @@ export function makeDraggable(
     event: MouseEvent,
   ) => {
     if (event.button !== 0) {
+      return;
+    }
+
+    const target =
+      event.target as HTMLElement;
+
+    if (
+      target.closest(
+        "input, textarea, [contenteditable='true']",
+      )
+    ) {
       return;
     }
 
