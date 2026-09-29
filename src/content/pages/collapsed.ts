@@ -88,11 +88,11 @@ export function createCollapsed({
       break;
 
     case "excluded":
-      scope = createEyeClosed();
+      scope = createEyeSlash();
       break;
 
     default:
-      scope = createEyeSlash();
+      scope = createEyeClosed();
       break;
   }
 

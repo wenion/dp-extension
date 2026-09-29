@@ -466,7 +466,7 @@ export function createExpanded({
 
   let scopeIcon:
     SVGSVGElement =
-      createEyeSlash();
+      createEyeClosed();
 
   let handleScopePress:
     (() => void | Promise<void>) |
@@ -498,7 +498,7 @@ export function createExpanded({
     "excluded"
   ) {
     scopeIcon =
-      createEyeClosed();
+      createEyeSlash();
 
     actionText =
       "excluded";
@@ -510,7 +510,7 @@ export function createExpanded({
     "not_in_scope"
   ) {
     scopeIcon =
-      createEyeSlash();
+      createEyeClosed();
 
     actionText =
       "not in scope";
@@ -522,10 +522,10 @@ export function createExpanded({
     "no_permission"
   ) {
     scopeIcon =
-      createEyeSlash();
+      createEyeClosed();
 
     actionText =
-      "not in scope";
+      "no permission";
 
     handleScopePress =
       handlePromptHostPermission;
