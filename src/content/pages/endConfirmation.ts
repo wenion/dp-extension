@@ -251,6 +251,17 @@ export function createEndConfirmation({
     },
   );
 
+  input.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+
+        void handleEndSession();
+      }
+    },
+  );
+
   inputContainer.append(
     label,
     input,
