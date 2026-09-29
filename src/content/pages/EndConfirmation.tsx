@@ -134,6 +134,8 @@ export function EndConfirmation() {
                 setSessionName(event.target.value)
               }
               onKeyDown={(event) => {
+                event.stopPropagation();
+
                 if (event.key === "Enter") {
                   event.preventDefault();
                   handleEndSession();
