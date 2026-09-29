@@ -1,5 +1,6 @@
 export type Platform =
   | "chatgpt"
+  | "copilot"
   | "googleDocs"
   | "gemini"
   | "claude"
@@ -13,6 +14,10 @@ export function getPlatformName(
 
   if (u.host === "chatgpt.com") {
     return "chatgpt";
+  }
+
+  if (u.host === "copilot.com") {
+    return "copilot";
   }
 
   if (
