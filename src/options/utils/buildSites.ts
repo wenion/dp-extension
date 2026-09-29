@@ -8,6 +8,10 @@ const SITE_INFO: Record<string, SiteInfo> = {
     name: "ChatGPT",
     color: "green",
   },
+  "copilot.com": {
+    name: "Copilot",
+    color: "purple",
+  },
   "docs.google.com": {
     name: "Google Docs",
     color: "blue",

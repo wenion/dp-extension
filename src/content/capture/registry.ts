@@ -1,4 +1,5 @@
 import { chatgptPlatform } from "./platforms/chatgpt";
+import { copilotPlatform } from "./platforms/copilot";
 import { claudePlatform } from "./platforms/claude";
 import { defaultPlatform } from "./platforms/default";
 import { geminiPlatform } from "./platforms/gemini";
@@ -15,6 +16,7 @@ export interface Platform {
 
 export const registry: Record<string, Platform> = {
   chatgpt: chatgptPlatform,
+  copilot: copilotPlatform,
   gemini: geminiPlatform,
   claude: claudePlatform,
   overleaf: overleafPlatform,

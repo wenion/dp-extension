@@ -31,6 +31,7 @@ const DEFAULT_ORIGINS = [
   "https://docs.google.com",
   "https://chatgpt.com",
   "https://claude.ai",
+  "https://copilot.com",
   "https://gemini.google.com",
   "https://www.overleaf.com",
 ] as const;

@@ -1,9 +1,10 @@
 import { sendUserTrace } from "../../message/backgroundClient";
 
 import {
-  geminiMutationHandler,
-  createGeminiMutationListener,
-} from "../handlers/mutation/gemini";
+  copilotMutationHandler,
+  createCopilotMutationListener,
+} from "../handlers/mutation/copilot";
+
 import { ListenerGroup } from "../listener/ListenerGroup";
 import { observe } from "../listener/observe";
 import { mountCommonListeners } from "./common";
@@ -11,16 +12,14 @@ import { mountCommonListeners } from "./common";
 import type { Overlay } from "../../overlay/Overlay";
 import type { Dispose } from "../types";
 
-
-const geminiMutationConfig: MutationObserverInit = {
-  childList: true,
-  attributes: true,
-  attributeFilter: ["id"],
-  subtree: true,
-  characterData: true,
+const copilotMutationConfig: MutationObserverInit = {
+  childList: true, // Watch for addition or removal of child nodes
+  // attributes: true, // Watch for changes to attributes
+  subtree: true,   // Watch for changes in descendant nodes
+  characterData: true, // Text content changed
 };
 
-export const geminiPlatform = {
+export const copilotPlatform = {
   mount(
     overlay?: Overlay,
   ): Dispose {
@@ -31,15 +30,16 @@ export const geminiPlatform = {
       mountCommonListeners(overlay),
     );
 
+    // copilot mutation
     group.add(
       observe(
         document.body,
-        geminiMutationConfig,
-        createGeminiMutationListener(
+        copilotMutationConfig,
+        createCopilotMutationListener(
           async node => {
             try {
               await sendUserTrace(
-                geminiMutationHandler(node),
+                copilotMutationHandler(node),
               );
             } catch (error) {
               if (!(error instanceof Error)) {
@@ -54,6 +54,8 @@ export const geminiPlatform = {
         ),
       ),
     );
+
+    console.log("start trace")
 
     return () => group.dispose();
   },
