@@ -407,7 +407,7 @@ export class TraceProcessorService {
 
       if (anchorOffset === -1) {
         filtered.push(
-          ...this.validateAmbiguousTraces(
+          ...this.removeAmbiguousTraces(
             traces.slice(index),
           ),
         );
@@ -431,7 +431,7 @@ export class TraceProcessorService {
 
       if (keydownIndex > index) {
         filtered.push(
-          ...this.validateAmbiguousTraces(
+          ...this.removeAmbiguousTraces(
             traces.slice(
               index,
               keydownIndex,
@@ -463,15 +463,17 @@ export class TraceProcessorService {
   }
 
   /**
-   * Reconstructs a valid trace chain leading to the target state.
+   * Tries to remove ambiguous traces based on their state relationships.
    *
-   * Uses the latest trace matching the target state as the anchor,
-   * then walks backward to retain preceding traces whose state
-   * transitions are consistent with the current trace.
-   */
-  private validateAmbiguousTraces(
+   * When state evidence is available, it provides an additional
+   * validation step.
+   *
+   * With or without state evidence, traces are filtered based on
+   * their internal state relationships.
+  */
+  private removeAmbiguousTraces(
     traces: Trace[],
-    targetState?: string,
+    stateEvidence?: string,
   ): Trace[] {
     if (traces.length === 0) {
       return [];
@@ -479,13 +481,13 @@ export class TraceProcessorService {
 
     let anchorIndex = traces.length - 1;
 
-    // If targetState is provided,
-    // determine whether the latest trace can lead to it.
-    if (targetState !== undefined) {
+    // If state evidence is available,
+    // use it as an additional validation step.
+    if (stateEvidence !== undefined) {
       anchorIndex = -1;
 
-      // Find the latest trace whose state
-      // exactly matches the target state.
+      // Find the latest trace that can be validated
+      // against the state evidence.
       for (let i = traces.length - 1; i >= 0; i--) {
         const trace = traces[i];
 
@@ -494,7 +496,7 @@ export class TraceProcessorService {
             trace.eventType === "cut" ||
             trace.eventType === "input"
           ) &&
-          trace.eventState === targetState
+          trace.eventState === stateEvidence
         ) {
           anchorIndex = i;
           break;
@@ -506,15 +508,14 @@ export class TraceProcessorService {
         }
       }
 
-      // No matching anchor found.
+      // No valid anchor found.
       if (anchorIndex === -1) {
         return [];
       }
     }
 
-    // Step 2:
-    // Reconstruct the chain backward
-    // from the anchor.
+    // Filter traces backward from the anchor
+    // based on their state relationships.
     const chain: Trace[] = [];
 
     let current = traces[anchorIndex];
@@ -541,9 +542,8 @@ export class TraceProcessorService {
           prev.eventType === "paste" &&
           prev.eventState === undefined
         ) {
-          // Keep a preceding paste when its post-state
-          // is unavailable, since the cut transition
-          // cannot be validated by state comparison.
+          // Keep the paste when its state relationship
+          // cannot be verified.
           chain.push(prev);
           current = prev;
         }
