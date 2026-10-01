@@ -38,29 +38,13 @@ export const keyDownHandler = (
       event.key.toLowerCase() === "y" // Windows redo
     );
 
-  const MODIFIER_KEYS = new Set([
-    "Shift",
-    "Control",
-    "Alt",
-    "Meta",
-    "CapsLock"
-  ]);
-
-  const isModifierOnly = MODIFIER_KEYS.has(event.key);
-
-  // ignore modifier-only presses (Shift, Ctrl, etc.)
-  if (isModifierOnly) {
-    data.reason = "ModifierKey";
-    return data;
-  }
-
   // ignore most shortcuts EXCEPT undo/redo
   if (
     (event.ctrlKey || event.metaKey || event.altKey) &&
     !isUndo &&
     !isRedo
   ) {
-    data.reason = "Shortcut"
+    data.reason = "Shortcut";
     return data;
   }
 
