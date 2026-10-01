@@ -7,9 +7,6 @@ import type { Trace  } from "@/shared/types";
 
 export type DocState = {
   state: string;
-  value?: string;
-  startPosition?: number;
-  endPosition?: number;
 };
 
 type GroupedTraces = {
@@ -567,6 +564,75 @@ export class TraceProcessorService {
     return chain;
   }
 
+  private reconstructInsertTransition(
+    current: Trace,
+    preState: string,
+    postState: string,
+    insertValue: string,
+    pos: number,
+  ): Trace[] | undefined {
+    const removedLength =
+      preState.length +
+      insertValue.length -
+      postState.length;
+
+    if (removedLength < 0) {
+      return undefined;
+    }
+
+    const expectedState =
+      preState.slice(0, pos) +
+      insertValue +
+      preState.slice(pos + removedLength);
+
+    if (expectedState !== postState) {
+      return undefined;
+    }
+
+    const traces: Trace[] = [];
+
+    // Existing content was replaced.
+    if (removedLength > 0) {
+      const remove =
+        preState.slice(
+          pos,
+          pos + removedLength,
+        );
+
+      const remain =
+        preState.slice(0, pos) +
+        preState.slice(pos + removedLength);
+
+      const deleteTrace: Trace = {
+        ...current,
+        eventType: "keystroke",
+        key: remove,
+        code: remove,
+        eventValue: remove,
+        eventState: remain,
+        startPosition: pos,
+        endPosition: pos + removedLength,
+        elementType: "delete",
+      };
+
+      traces.push(deleteTrace);
+    }
+
+    const insertTrace: Trace = {
+      ...current,
+      eventType: "keystroke",
+      eventValue: insertValue,
+      eventState: postState,
+      startPosition: pos,
+      endPosition: pos + insertValue.length,
+      elementType: "insert",
+    };
+
+    traces.push(insertTrace);
+
+    return traces;
+  }
+
   private processTextEditTraces(
     traces: Trace[],
   ): Trace[] {
@@ -694,72 +760,27 @@ export class TraceProcessorService {
         );
 
         if (key === "Enter") {
-          const preState = contentState.state;
+          const reconstructed =
+            this.reconstructInsertTransition(
+              current,
+              contentState.state,
+              nextState,
+              "\n",
+              pos,
+            );
 
-          // Since Enter inserts one character ("\n"),
-          // infer how many existing characters were replaced.
-          const removedLength =
-            preState.length - nextState.length + 1;
-
-          if (removedLength >= 0) {
-            const expectedState =
-              preState.slice(0, pos) +
-              "\n" +
-              preState.slice(pos + removedLength);
-
-            if (expectedState === nextState) {
-              if (removedLength > 0) {
-                const remove =
-                  preState.slice(
-                    pos,
-                    pos + removedLength,
-                  );
-
-                const remain =
-                  preState.slice(0, pos) +
-                  preState.slice(pos + removedLength);
-
-                const deleteTrace: Trace = {
-                  ...current,
-                  eventType: "keystroke",
-                  key: remove,
-                  code: remove,
-                  eventValue: remove,
-                  eventState: remain,
-                  startPosition: pos,
-                  endPosition: pos + removedLength,
-                  elementType: "delete",
-                };
-
-                results.push(deleteTrace);
-              }
-
-              const trace: Trace = {
-                ...current,
-                eventType: "keystroke",
-                key: "Enter",
-                code: "Enter",
-                eventValue: "\n",
-                eventState: nextState,
-                startPosition: pos,
-                endPosition: pos + 1,
-                elementType: "insert",
-              }
-              results.push(trace);
-            }
-            else {
-              // State transition cannot be explained
-              // by this Enter event.
-              results.push(current);
-            }
-
-            contentState = {
-              ...contentState,
-              state: nextState,
-              value: "\n",
-              startPosition: pos,
-            };
+          if (reconstructed) {
+            results.push(...reconstructed);
+          } else {
+            // State transition cannot be explained
+            // by this Enter event.
+            results.push(current);
           }
+
+          contentState = {
+            ...contentState,
+            state: nextState,
+          };
         }
         else if (key === "Backspace") {
           const diff: number =
@@ -791,8 +812,6 @@ export class TraceProcessorService {
             contentState = {
               ...contentState,
               state: nextState,
-              value: remove,
-              startPosition: start,
             }
           }
           else if (diff > 1) {
@@ -818,16 +837,12 @@ export class TraceProcessorService {
             contentState = {
               ...contentState,
               state: nextState,
-              value: remove,
-              startPosition: pos,
             }
           }
           else if (diff === 0) {
             contentState = {
               ...contentState,
               state: nextState,
-              value: "",
-              startPosition: pos,
             }
           }
         }
@@ -859,8 +874,6 @@ export class TraceProcessorService {
           contentState = {
             ...contentState,
             state: nextState,
-            value: diff > 0 ? contentState.state.slice(pos, pos + diff) : "",
-            startPosition: pos,
           }
         }
         else if (key === "Undo" || key === "Redo") {
@@ -876,78 +889,28 @@ export class TraceProcessorService {
 
           contentState = {
             ...contentState,
-            state: nextState,
-            value: "",
           };
         }
         else if (key.length === 1) {
-          const preState = contentState.state;
-          const insertValue = key;
+          const reconstructed =
+            this.reconstructInsertTransition(
+              current,
+              contentState.state,
+              nextState,
+              key,
+              pos,
+            );
 
-          // Infer how many existing characters were replaced.
-          const removedLength =
-            preState.length +
-            insertValue.length -
-            nextState.length;
-
-          if (removedLength >= 0) {
-            const expectedState =
-              preState.slice(0, pos) +
-              insertValue +
-              preState.slice(pos + removedLength);
-
-            if (expectedState === nextState) {
-              if (removedLength > 0) {
-                const remove =
-                  preState.slice(
-                    pos,
-                    pos + removedLength,
-                  );
-
-                const remain =
-                  preState.slice(0, pos) +
-                  preState.slice(pos + removedLength);
-
-                const deleteTrace: Trace = {
-                  ...current,
-                  eventType: "keystroke",
-                  key: remove,
-                  code: remove,
-                  eventValue: remove,
-                  eventState: remain,
-                  startPosition: pos,
-                  endPosition: pos + removedLength,
-                  elementType: "delete",
-                };
-
-                results.push(deleteTrace);
-              }
-
-              const trace: Trace = {
-                ...current,
-                eventType: "keystroke",
-                eventValue: insertValue,
-                eventState: nextState,
-                startPosition: pos,
-                endPosition: pos + insertValue.length,
-                elementType: "insert",
-              }
-
-              results.push(trace);
-            }
-            else {
-              // The observed state transition cannot be
-              // explained by this keystroke.
-              results.push(current);
-            }
+          if (reconstructed) {
+            results.push(...reconstructed);
+          } else {
+            results.push(current);
           }
 
           contentState = {
             ...contentState,
             state: nextState,
-            value: insertValue,
-            startPosition: pos,
-          }
+          };
         }
         else {
           contentState = {
