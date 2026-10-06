@@ -30,7 +30,7 @@ export function startBackgroundListener(
           return;
 
         case "PING":
-          return;
+          return { injected: true };
       }
     },
   );

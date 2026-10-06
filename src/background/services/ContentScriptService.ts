@@ -125,17 +125,17 @@ export class ContentScriptService {
     tabId: number,
   ): Promise<boolean> {
     try {
-      await this.contentScriptClient.send(
-        tabId,
-        {
-          type: "PING",
-        },
-      );
-
-      return true;
-    } catch {
-      return false;
-    }
+      const response =
+        await this.contentScriptClient.send(
+          tabId,
+          {
+            type: "PING",
+          },
+        );
+        return response?.injected === true;
+      } catch {
+        return false;
+      }
   }
 
   private isSupportedProtocol(url: URL): boolean {

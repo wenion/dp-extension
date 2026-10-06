@@ -95,7 +95,9 @@ export interface BackgroundProtocol {
 
   "PING": {
     payload: void;
-    response: void;
+    response: {
+      injected: boolean;
+    };
   };
 }
 
