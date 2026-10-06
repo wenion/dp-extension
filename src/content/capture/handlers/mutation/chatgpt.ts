@@ -1,31 +1,42 @@
 import type { Trace } from "@/shared/types";
 
-const MESSAGE_SELECTOR =
-  '[data-chatgpt-search-unit-key$=":user"], ' +
-  '[data-chatgpt-search-unit-key$=":assistant"]';
+const MESSAGE_SELECTOR = [
+  '[data-chatgpt-search-unit-key$=":user"]',
+  '[data-chatgpt-search-unit-key$=":assistant"]',
+  '[data-message-role="user"]',
+  '[data-message-role="assistant"]',
+].join(", ");
 
 export function chatgptMutationHandler(
   node: HTMLElement
 ): Trace {
   const data = {} as Trace;
 
-  const key =
+  const searchUnitKey =
     node.getAttribute(
       "data-chatgpt-search-unit-key",
-    ) || "";
+    );
+
+  const messageRole =
+    node.getAttribute(
+      "data-message-role",
+    );
 
   const messageId =
     node.getAttribute(
       "data-chatgpt-search-message-ids",
-    ) || "";
+    ) ??
+    node.id;
 
   data.eventType = "mutation";
 
   data.tag = node.tagName;
 
-  data.author = key.endsWith(":user")
-    ? "human"
-    : "AI";
+  data.author =
+    searchUnitKey?.endsWith(":user") ||
+    messageRole === "user"
+      ? "human"
+      : "AI";
 
   data.message = node.innerText;
 
@@ -33,7 +44,10 @@ export function chatgptMutationHandler(
 
   data.timestamp = Date.now();
 
-  data.name = key;
+  data.name =
+    searchUnitKey ??
+    messageRole ??
+    "";
 
   return data;
 }
