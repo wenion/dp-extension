@@ -126,16 +126,31 @@ export class ContentScriptService {
   ): Promise<boolean> {
     try {
       const response =
-        await this.contentScriptClient.send(
-          tabId,
-          {
-            type: "PING",
-          },
-        );
-        return response?.injected === true;
-      } catch {
-        return false;
-      }
+        await Promise.race([
+          this.contentScriptClient.send(
+            tabId,
+            {
+              type: "PING",
+            },
+          ),
+          new Promise<never>(
+            (_, reject) =>
+              setTimeout(
+                () =>
+                  reject(
+                    new Error(
+                      "PING timeout",
+                    ),
+                  ),
+                500,
+              ),
+          ),
+        ]);
+
+      return response.injected;
+    } catch {
+      return false;
+    }
   }
 
   private isSupportedProtocol(url: URL): boolean {
