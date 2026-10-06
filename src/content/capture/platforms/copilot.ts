@@ -55,8 +55,6 @@ export const copilotPlatform = {
       ),
     );
 
-    console.log("start trace")
-
     return () => group.dispose();
   },
 };

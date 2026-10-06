@@ -3,11 +3,11 @@ import {
   isSubsequence,
 } from "@/content/capture/utils/string";
 
-import type { Trace  } from "@/shared/types";
+import {
+  normalizeTextEditTrace,
+} from "@/content/capture/utils/copilotTraceNormalizer";
 
-export type DocState = {
-  state: string;
-};
+import type { Trace } from "@/shared/types";
 
 type GroupedTraces = {
   groups: Trace[][];
@@ -17,12 +17,6 @@ type GroupedTraces = {
 interface ConversationTurn {
   userAsk?: Trace;
   aiReplys: Trace[];
-};
-
-type InitialStateInfo = {
-  index: number;
-  state: string;
-  stateIsPreEvent: boolean;
 };
 
 export class TraceProcessorService {
@@ -70,24 +64,14 @@ export class TraceProcessorService {
     }));
   }
 
-  private matchKeydownInputPair(
-    keydownTrace: Trace,
-    inputTrace?: Trace,
-  ): {
-    matched: boolean;
-    resultState: string;
-  } {
-    const matched =
-      keydownTrace.key !== undefined &&
-      this.getInputKey(inputTrace) ===
-        keydownTrace.key;
-
-    return {
-      matched,
-      resultState: matched
-        ? inputTrace!.eventState!
-        : keydownTrace.eventState!,
-    };
+  private isMatchingKeydownInput(
+    keydown: Trace,
+    next?: Trace,
+  ): boolean {
+    return (
+      keydown.key !== undefined &&
+      this.getInputKey(next) === keydown.key
+    );
   }
 
   private getInputKey(
@@ -165,8 +149,15 @@ export class TraceProcessorService {
       otherTraces,
     } = this.groupTextEditTraces(traces);
 
+    const normalizedTextEditTraceGroups =
+      textEditTraceGroups.map((group) =>
+        group.map((trace) =>
+          normalizeTextEditTrace(trace),
+        ),
+      );
+
     const processedTextEditTraceGroups =
-      textEditTraceGroups.map(group =>
+      normalizedTextEditTraceGroups.map(group =>
         this.processTextEditTraces(
           this.processTraceSegments(group),
         ),
@@ -420,8 +411,8 @@ export class TraceProcessorService {
       const candidateInput =
         traces[keydownIndex + 1];
 
-      const { matched } =
-        this.matchKeydownInputPair(
+      const matched =
+        this.isMatchingKeydownInput(
           keydown,
           candidateInput,
         );
@@ -642,77 +633,9 @@ export class TraceProcessorService {
       return results;
     }
 
-    let initialStateInfo: InitialStateInfo | undefined;
+    let contentState: string | undefined;
 
     let index = 0;
-
-    // init contentState
-    while (index < traces.length) {
-      const current: Trace = traces[index];
-      const eventType = current.eventType;
-
-      let state: string | undefined;
-      let stateIsPreEvent = false;
-
-      if (eventType === "keydown") {
-        const keydownState = current.eventState;
-
-        if (
-          keydownState === undefined ||
-          !current.key ||
-          current.reason
-        ) {
-          index++;
-          continue;
-        }
-
-        const { matched, resultState } =
-          this.matchKeydownInputPair(
-            current,
-            traces[index + 1],
-          );
-
-        state = resultState;
-        stateIsPreEvent = matched;
-      }
-      else if (eventType === "paste") {
-        if (current.originValue !== undefined) {
-          state = current.originValue;
-          stateIsPreEvent = true;
-        }
-        else if (current.eventState !== undefined) {
-          state = current.eventState;
-        }
-      }
-      else if (current.eventState !== undefined) {
-        state = current.eventState;
-      }
-
-      if (state === undefined) {
-        index++;
-        continue;
-      }
-
-      initialStateInfo = {
-        index,
-        state,
-        stateIsPreEvent,
-      };
-
-      break;
-    }
-
-    if (initialStateInfo === undefined) {
-      return traces;
-    }
-
-    let contentState: DocState = {
-      state: initialStateInfo.state,
-    };
-
-    index = initialStateInfo.stateIsPreEvent
-      ? initialStateInfo.index
-      : initialStateInfo.index + 1;
 
     while (index < traces.length) {
       const current: Trace = traces[index];
@@ -721,10 +644,9 @@ export class TraceProcessorService {
 
       if (eventType === "keydown") {
         const key = current.key;
-        const keydownState = current.eventState;
 
         if (
-          keydownState === undefined ||
+          // current.eventState === undefined || possible
           !key ||
           current.reason
         ) {
@@ -735,187 +657,564 @@ export class TraceProcessorService {
         const nextTrace: Trace | undefined =
           traces[index + 1];
 
-        const {
-          matched,
-          resultState,
-        } = this.matchKeydownInputPair(
-          current,
-          nextTrace,
-        );
-
-        if (matched) {
-          // the following input is corresponding to Keydown
-          // correct contentState
-          contentState = {
-            ...contentState,
-            state: keydownState,
-          };
-        }
-
-        let nextState = resultState;
-
-        let pos = current.startPosition ?? findFirstDifference(
-          contentState.state,
-          nextState,
-        );
+        const matched =
+          this.isMatchingKeydownInput(
+            current,
+            nextTrace,
+          );
 
         if (key === "Enter") {
-          const reconstructed =
-            this.reconstructInsertTransition(
-              current,
-              contentState.state,
-              nextState,
-              "\n",
-              pos,
-            );
+          if (
+            !matched &&
+            contentState !== undefined &&
+            current.eventState !== undefined
+          ) {
+            const insertPosition =
+              current.startPosition ??
+              findFirstDifference(
+                contentState,
+                current.eventState,
+              );
 
-          if (reconstructed) {
-            results.push(...reconstructed);
-          } else {
-            // State transition cannot be explained
-            // by this Enter event.
-            results.push(current);
+            const reconstructed =
+              this.reconstructInsertTransition(
+                current,
+                contentState,
+                current.eventState,
+                "\n",
+                insertPosition,
+              );
+
+            if (reconstructed) {
+              results.push(...reconstructed);
+            }
+            else {
+              results.push({
+                ...current,
+                eventType: "keystroke",
+                eventValue: "\n",
+                startPosition: insertPosition,
+                endPosition: insertPosition + 1,
+                elementType: "insert",
+              });
+            }
+
+            contentState = current.eventState;
           }
+          else if (
+            matched &&
+            contentState !== undefined &&
+            nextTrace.eventState !== undefined
+          ) {
+            const insertPosition =
+              current.startPosition ??
+              findFirstDifference(
+                contentState,
+                nextTrace.eventState,
+              );
 
-          contentState = {
-            ...contentState,
-            state: nextState,
-          };
+            const fromContentState =
+              this.reconstructInsertTransition(
+                current,
+                contentState,
+                nextTrace.eventState,
+                "\n",
+                insertPosition,
+              );
+
+            if (fromContentState) {
+              results.push(...fromContentState);
+            }
+            else if (current.eventState !== undefined) {
+              const preStatePosition =
+                current.startPosition ??
+                findFirstDifference(
+                  current.eventState,
+                  nextTrace.eventState,
+                );
+
+              const fromPreState =
+                this.reconstructInsertTransition(
+                  current,
+                  current.eventState,
+                  nextTrace.eventState,
+                  "\n",
+                  preStatePosition,
+                );
+
+              if (fromPreState) {
+                results.push(...fromPreState);
+              }
+              else {
+                results.push({
+                  ...current,
+                  eventType: "keystroke",
+                  eventValue: "\n",
+                  startPosition: preStatePosition,
+                  endPosition: preStatePosition + 1,
+                  elementType: "insert",
+                });
+              }
+            }
+            else {
+              results.push({
+                ...current,
+                eventType: "keystroke",
+                eventValue: "\n",
+                startPosition: insertPosition,
+                endPosition: insertPosition + 1,
+                elementType: "insert",
+              });
+            }
+
+            contentState = nextTrace.eventState;
+          }
+          else if (
+            matched &&
+            current.eventState !== undefined &&
+            nextTrace.eventState !== undefined
+          ) {
+            const insertPosition =
+              current.startPosition ??
+              findFirstDifference(
+                current.eventState,
+                nextTrace.eventState,
+              );
+
+            const reconstructed =
+              this.reconstructInsertTransition(
+                current,
+                current.eventState,
+                nextTrace.eventState,
+                "\n",
+                insertPosition,
+              );
+
+            if (reconstructed) {
+              results.push(...reconstructed);
+            }
+            else {
+              results.push({
+                ...current,
+                eventType: "keystroke",
+                eventValue: "\n",
+                startPosition: insertPosition,
+                endPosition: insertPosition + 1,
+                elementType: "insert",
+              });
+            }
+
+            contentState = nextTrace.eventState;
+          }
+          else {
+            results.push({
+              ...current,
+              eventType: "keystroke",
+              eventValue: "\n",
+              elementType: "insert",
+            });
+
+            contentState = matched
+              ? nextTrace.eventState
+              : current.eventState;
+          }
         }
         else if (key === "Backspace") {
-          const diff: number =
-            contentState.state.length - nextState.length;
+          const postState = matched
+            ? nextTrace.eventState
+            : current.eventState;
 
-          if (diff === 1) {
-            // pos is backward
-            const start = pos - diff;
-            const end = pos;
+          if (
+            contentState !== undefined &&
+            postState !== undefined
+          ) {
+            const deleteLength =
+              contentState.length - postState.length;
 
-            const remove = contentState.state.slice(start, end);
-            const remain = contentState.state.slice(0, start) + contentState.state.slice(start + diff);
+            const position =
+              current.startPosition ??
+              findFirstDifference(
+                contentState,
+                postState,
+              );
 
-            const deleteTrace: Trace = {
+            const startPosition =
+              deleteLength === 1
+                ? position - deleteLength
+                : position;
+
+            const endPosition =
+              startPosition + deleteLength;
+
+            const removedText =
+              contentState.slice(
+                startPosition,
+                endPosition,
+              );
+
+            const reconstructedState =
+              contentState.slice(0, startPosition) +
+              contentState.slice(endPosition);
+
+            if (
+              deleteLength > 0 &&
+              reconstructedState === postState
+            ) {
+              results.push({
+                ...current,
+                eventType: "keystroke",
+                eventValue: removedText,
+                eventState: postState,
+                startPosition: position,
+                endPosition: position + deleteLength,
+                direction: "backward",
+                elementType: "delete",
+              });
+            }
+            else {
+              results.push({
+                ...current,
+                eventType: "keystroke",
+                eventValue: removedText,
+                eventState: postState,
+                direction: "backward",
+                elementType: "delete",
+              });
+            }
+          }
+          else {
+            results.push({
               ...current,
               eventType: "keystroke",
-              key: remove,
-              code: remove,
-              eventValue: remove,
-              eventState: remain,
-              startPosition: start,
-              endPosition: end,
+              eventState: postState,
               direction: "backward",
               elementType: "delete",
-            };
-
-            results.push(deleteTrace);
-
-            contentState = {
-              ...contentState,
-              state: nextState,
-            }
+            });
           }
-          else if (diff > 1) {
-            // Backspace more
-            const remove = contentState.state.slice(pos, pos + diff);
-            const remain = contentState.state.slice(0, pos) + contentState.state.slice(pos + diff);
 
-            const deleteTrace: Trace = {
-              ...current,
-              eventType: "keystroke",
-              key: remove,
-              code: remove,
-              eventValue: remove,
-              eventState: remain,
-              startPosition: pos,
-              endPosition: pos + diff,
-              direction: "backward",
-              elementType: "delete",
-            };
-
-            results.push(deleteTrace);
-
-            contentState = {
-              ...contentState,
-              state: nextState,
-            }
-          }
-          else if (diff === 0) {
-            contentState = {
-              ...contentState,
-              state: nextState,
-            }
-          }
+          contentState = postState;
         }
         else if (key === "Delete") {
-          const diff: number =
-            contentState.state.length - nextState.length;
+          const postState = matched
+            ? nextTrace.eventState
+            : current.eventState;
 
-          if (diff > 0) {
-            // Delete one or more
-            const remove = contentState.state.slice(pos, pos + diff);
-            const remain = contentState.state.slice(0, pos) + contentState.state.slice(pos + diff);
+          if (
+            contentState !== undefined &&
+            postState !== undefined
+          ) {
+            const position =
+              current.startPosition ??
+              findFirstDifference(
+                contentState,
+                postState,
+              );
 
-            const deleteTrace: Trace = {
+            const deleteLength =
+              contentState.length - postState.length;
+
+            const removedText =
+              contentState.slice(
+                position,
+                position + deleteLength,
+              );
+
+            const reconstructedState =
+              contentState.slice(0, position) +
+              contentState.slice(
+                position + deleteLength,
+              );
+
+            if (
+              deleteLength > 0 &&
+              reconstructedState === postState
+            ) {
+              results.push({
+                ...current,
+                eventType: "keystroke",
+                // key: removedText,
+                // code: removedText,
+                eventValue: removedText,
+                eventState: postState,
+                startPosition: position,
+                endPosition: position + deleteLength,
+                direction: "forward",
+                elementType: "delete",
+              });
+            }
+            else {
+              results.push({
+                ...current,
+                eventType: "keystroke",
+                eventValue: removedText,
+                eventState: postState,
+                direction: "forward",
+                elementType: "delete",
+              });
+            }
+          }
+          else {
+            results.push({
               ...current,
               eventType: "keystroke",
-              key: remove,
-              code: remove,
-              eventValue: remove,
-              eventState: remain,
-              startPosition: pos,
-              endPosition: pos + diff,
+              eventState: postState,
               direction: "forward",
               elementType: "delete",
-            };
-
-            results.push(deleteTrace);
+            });
           }
 
-          contentState = {
-            ...contentState,
-            state: nextState,
-          }
+          contentState = postState;
         }
         else if (key === "Undo" || key === "Redo") {
+          const postState = current.eventState;
+
           const trace: Trace = {
             ...current,
             eventType: "keystroke",
             key,
-            eventState: nextState,
+            eventState: postState,
             elementType: key.toLowerCase(),
           };
 
           results.push(trace);
 
-          contentState = {
-            ...contentState,
-          };
+          contentState = postState;
         }
         else if (key.length === 1) {
-          const reconstructed =
-            this.reconstructInsertTransition(
-              current,
-              contentState.state,
-              nextState,
-              key,
-              pos,
-            );
+          if (
+            matched &&
+            contentState !== undefined &&
+            nextTrace.eventState !== undefined
+          ) {
+            const insertPosition =
+              current.startPosition ??
+              findFirstDifference(
+                contentState,
+                nextTrace.eventState,
+              );
 
-          if (reconstructed) {
-            results.push(...reconstructed);
-          } else {
-            results.push(current);
+            const fromContentState =
+              this.reconstructInsertTransition(
+                current,
+                contentState,
+                nextTrace.eventState,
+                key,
+                insertPosition,
+              );
+
+            if (fromContentState) {
+              results.push(...fromContentState);
+            }
+            else if (current.eventState !== undefined) {
+              const preStatePosition =
+                current.startPosition ??
+                findFirstDifference(
+                  current.eventState,
+                  nextTrace.eventState,
+                );
+
+              const fromPreState =
+                this.reconstructInsertTransition(
+                  current,
+                  current.eventState,
+                  nextTrace.eventState,
+                  key,
+                  preStatePosition,
+                );
+
+              if (fromPreState) {
+                results.push(...fromPreState);
+              }
+              else {
+                results.push({
+                  ...current,
+                  eventType: "keystroke",
+                  eventValue: key,
+                  startPosition: preStatePosition,
+                  endPosition: preStatePosition + 1,
+                  elementType: "insert",
+                });
+              }
+            }
+            else {
+              results.push({
+                ...current,
+                eventType: "keystroke",
+                eventValue: key,
+                startPosition: insertPosition,
+                endPosition: insertPosition + 1,
+                elementType: "insert",
+              });
+            }
+
+            contentState = nextTrace.eventState;
           }
+          else if (
+            matched &&
+            current.eventState !== undefined &&
+            nextTrace.eventState !== undefined
+          ) {
+            const insertPosition =
+              current.startPosition ??
+              findFirstDifference(
+                current.eventState,
+                nextTrace.eventState,
+              );
 
-          contentState = {
-            ...contentState,
-            state: nextState,
-          };
+            const reconstructed =
+              this.reconstructInsertTransition(
+                current,
+                current.eventState,
+                nextTrace.eventState,
+                key,
+                insertPosition,
+              );
+
+            if (reconstructed) {
+              results.push(...reconstructed);
+            }
+            else {
+              results.push({
+                ...current,
+                eventType: "keystroke",
+                eventValue: key,
+                startPosition: insertPosition,
+                endPosition: insertPosition + 1,
+                elementType: "insert",
+              });
+            }
+
+            contentState = nextTrace.eventState;
+          }
+          else if (
+            !matched &&
+            nextTrace?.eventType === "keydown" &&
+            nextTrace.key?.length === 1 &&
+            nextTrace.eventState !== undefined
+          ) {
+            const postState = nextTrace.eventState;
+
+            if (contentState !== undefined) {
+              const insertPosition =
+                current.startPosition ??
+                findFirstDifference(
+                  contentState,
+                  postState,
+                );
+
+              const fromContentState =
+                this.reconstructInsertTransition(
+                  current,
+                  contentState,
+                  postState,
+                  key,
+                  insertPosition,
+                );
+
+              if (fromContentState) {
+                results.push(...fromContentState);
+              }
+              else if (current.eventState !== undefined) {
+                const preStatePosition =
+                  current.startPosition ??
+                  findFirstDifference(
+                    current.eventState,
+                    postState,
+                  );
+
+                const fromPreState =
+                  this.reconstructInsertTransition(
+                    current,
+                    current.eventState,
+                    postState,
+                    key,
+                    preStatePosition,
+                  );
+
+                if (fromPreState) {
+                  results.push(...fromPreState);
+                }
+                else {
+                  results.push({
+                    ...current,
+                    eventType: "keystroke",
+                    eventValue: key,
+                    startPosition: preStatePosition,
+                    endPosition: preStatePosition + 1,
+                    elementType: "insert",
+                  });
+                }
+              }
+              else {
+                results.push({
+                  ...current,
+                  eventType: "keystroke",
+                  eventValue: key,
+                  startPosition: insertPosition,
+                  endPosition: insertPosition + 1,
+                  elementType: "insert",
+                });
+              }
+            }
+            else if (current.eventState !== undefined) {
+              const insertPosition =
+                current.startPosition ??
+                findFirstDifference(
+                  current.eventState,
+                  postState,
+                );
+
+              const reconstructed =
+                this.reconstructInsertTransition(
+                  current,
+                  current.eventState,
+                  postState,
+                  key,
+                  insertPosition,
+                );
+
+              if (reconstructed) {
+                results.push(...reconstructed);
+              }
+              else {
+                results.push({
+                  ...current,
+                  eventType: "keystroke",
+                  eventValue: key,
+                  startPosition: insertPosition,
+                  endPosition: insertPosition + 1,
+                  elementType: "insert",
+                });
+              }
+            }
+            else {
+              results.push({
+                ...current,
+                eventType: "keystroke",
+                eventValue: key,
+                elementType: "insert",
+              });
+            }
+
+            contentState = postState;
+          }
+          else {
+            results.push({
+              ...current,
+              eventType: "keystroke",
+              eventValue: key,
+              elementType: "insert",
+            });
+
+            contentState = matched
+              ? nextTrace?.eventState
+              : current.eventState;
+          }
         }
         else {
-          contentState = {
-            ...contentState,
-            state: nextState,
+          // ArrowLeft or Shift
+          if (current.eventState !== undefined) {
+            contentState = current.eventState;
           }
         }
 
@@ -926,87 +1225,36 @@ export class TraceProcessorService {
       }
       else if (eventType === "input") {
         // miss pre keydown
-        const inputState = current.eventState;
-
-        if (inputState) {
-          const diff =
-            contentState.state.length - inputState.length;
-          
-          if (diff !== 0) {
-            const inputType = current.inputType;
-
-            let inputKey: string | undefined =
-              undefined;
-
-            if (
-              inputType === "deleteContentForward" ||
-              inputType === "deleteWordForward"
-            ) {
-              inputKey = "Delete";
-            }
-            else if (
-              inputType === "deleteContentBackward" ||
-              inputType === "deleteWordBackward"
-            ) {
-              inputKey = "Backspace";
-            }
-            else if (inputType === "insertText") {
-              inputKey = current.eventValue;
-            }
-            else if (
-              inputType === "insertLineBreak" ||
-              inputType === "insertParagraph"
-            ) {
-              inputKey = "Enter";
-            }
-            else if (inputType === "historyUndo") {
-              inputKey = "Undo";
-            }
-            else if (inputType === "historyRedo") {
-              inputKey = "Redo";
-            }
-            //"insertCompositionText"
-
-            if (inputKey === "Backspace" || inputKey === "Delete") {
-
-            }
-
-          }
-
-          contentState = {
-            ...contentState,
-            state: inputState,
-          };
+        if (current.eventState !== undefined) {
+          contentState = current.eventState;
         }
       }
       else if (eventType === "paste") {
-        let eventState = current.eventState;
+        let postState = current.eventState;
 
-        if (eventState === undefined) {
-          const next = traces[index + 1];
+        if (postState === undefined) {
+          const nextTrace = traces[index + 1];
 
-          if (next?.eventType === "keydown") {
-            const keydownTrace = next;
-
-            const { matched } =
-              this.matchKeydownInputPair(
-                keydownTrace,
+          if (nextTrace?.eventType === "keydown") {
+            const matched =
+              this.isMatchingKeydownInput(
+                nextTrace,
                 traces[index + 2],
               );
 
             if (matched) {
-              eventState = keydownTrace.eventState;
+              postState = nextTrace.eventState;
             }
           }
           else if (
-            next?.eventType === "paste" &&
-            next?.originValue !== undefined
+            nextTrace?.eventType === "paste" &&
+            nextTrace?.originValue !== undefined
           ) {
-            eventState = next.originValue;
+            postState = nextTrace.originValue;
           }
         }
 
-        if (eventState !== undefined) {
+        if (postState !== undefined) {
           const originValue = current.originValue;
           const pasteValue = current.eventValue;
 
@@ -1015,21 +1263,21 @@ export class TraceProcessorService {
             pasteValue !== undefined
           ) {
             const startPosition =
-              eventState.indexOf(pasteValue);
+              postState.indexOf(pasteValue);
 
             if (
               startPosition !== -1 &&
               startPosition ===
-                eventState.lastIndexOf(pasteValue)
+                postState.lastIndexOf(pasteValue)
             ) {
               const afterPastePosition =
                 startPosition + pasteValue.length;
 
               const prefix =
-                eventState.slice(0, startPosition);
+                postState.slice(0, startPosition);
 
               const suffix =
-                eventState.slice(afterPastePosition);
+                postState.slice(afterPastePosition);
 
               const endPosition =
                 originValue.length - suffix.length;
@@ -1045,69 +1293,89 @@ export class TraceProcessorService {
             }
           }
 
-          current.eventState = eventState;
-
-          contentState = {
-            ...contentState,
-            state: eventState,
-          };
+          current.eventState = postState;
         }
 
         results.push(current);
+
+        contentState = postState;
       }
       else if (eventType === "cut") {
-        const cutState = current.eventState;
+        let postState = current.eventState;
 
-        if (cutState) {
-          let pos =
-            current.startPosition ??
-            findFirstDifference(
-              contentState.state,
-              cutState,
-            );
+        if (postState === undefined) {
+          const nextTrace = traces[index + 1];
 
-          const diff =
-            contentState.state.length -
-            cutState.length;
-
-          if (pos >= 0 && diff > 0) {
-            const remove =
-              contentState.state.slice(
-                pos,
-                pos + diff,
+          if (nextTrace?.eventType === "keydown") {
+            const matched =
+              this.isMatchingKeydownInput(
+                nextTrace,
+                traces[index + 2],
               );
 
-            if (remove === current.eventValue) {
-              current.startPosition = pos;
-              current.endPosition = pos + diff;
+            if (matched) {
+              postState = nextTrace.eventState;
             }
-            else {
-              const origin =
-                cutState.slice(0, pos) +
-                remove +
-                cutState.slice(pos);
+          }
+          else if (
+            nextTrace?.eventType === "paste" &&
+            nextTrace.originValue !== undefined
+          ) {
+            postState = nextTrace.originValue;
+          }
+        }
 
-              if (origin === contentState.state) {
-                current.startPosition = pos;
-                current.endPosition = pos + diff;
-              }
+        if (
+          contentState !== undefined &&
+          postState !== undefined
+        ) {
+          const position =
+            current.startPosition ??
+            findFirstDifference(
+              contentState,
+              postState,
+            );
+
+          const cutLength =
+            contentState.length -
+            postState.length;
+
+          if (
+            position >= 0 &&
+            cutLength > 0
+          ) {
+            const removedText =
+              contentState.slice(
+                position,
+                position + cutLength,
+              );
+
+            const reconstructedState =
+              contentState.slice(0, position) +
+              contentState.slice(
+                position + cutLength,
+              );
+
+            if (
+              removedText === current.eventValue &&
+              reconstructedState === postState
+            ) {
+              current.startPosition = position;
+              current.endPosition =
+                position + cutLength;
             }
           }
 
-          contentState = {
-            ...contentState,
-            state: cutState,
-          };
+          current.eventState = postState;
         }
+
+        contentState = postState;
 
         results.push(current);
       }
       else {
         if (current.eventState) {
-          contentState = {
-            ...contentState,
-            state: current.eventState,
-          }
+          contentState = current.eventState;
         }
       }
 
