@@ -18,9 +18,15 @@ import { listen } from "../listener/listen";
 import type { Overlay } from "../../overlay/Overlay";
 import type { Dispose } from "../types";
 
+interface CommonListenerOptions {
+  keydown?: AddEventListenerOptions;
+  change?: AddEventListenerOptions;
+  input?: AddEventListenerOptions;
+}
 
 export function mountCommonListeners(
   overlay?: Overlay,
+  options?: CommonListenerOptions,
 ): Dispose {
   const group = new ListenerGroup();
 
@@ -65,6 +71,7 @@ export function mountCommonListeners(
           });
         }
       },
+      options?.keydown,
     ),
   );
 
@@ -87,6 +94,7 @@ export function mountCommonListeners(
           });
         }
       },
+      options?.change,
     ),
   );
 
@@ -109,6 +117,7 @@ export function mountCommonListeners(
           });
         }
       },
+      options?.input,
     ),
   );
 

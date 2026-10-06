@@ -27,7 +27,13 @@ export const copilotPlatform = {
 
     // common listeners
     group.add(
-      mountCommonListeners(overlay),
+      mountCommonListeners(
+        overlay,
+        {
+          keydown:{capture: true},
+          input:{capture: true},
+        },
+      ),
     );
 
     // copilot mutation
