@@ -1385,6 +1385,34 @@ export class TraceProcessorService {
     return results;
   }
 
+  private hasMatchingOneThirdPrefix(
+    firstMessage: string,
+    secondMessage: string,
+  ): boolean {
+    const shorterLength = Math.min(
+      firstMessage.length,
+      secondMessage.length,
+    );
+
+    const longerLength = Math.max(
+      firstMessage.length,
+      secondMessage.length,
+    );
+
+    const compareLength = Math.min(
+      shorterLength,
+      Math.max(
+        10,
+        Math.ceil(longerLength / 3),
+      ),
+    );
+
+    return (
+      firstMessage.slice(0, compareLength) ===
+      secondMessage.slice(0, compareLength)
+    );
+  }
+
   private keepLongestMutationMessages(
     traces: Trace[],
   ): Trace[] {
@@ -1451,7 +1479,10 @@ export class TraceProcessorService {
         lastMutationIndex !== undefined &&
         lastMutation.author === trace.author &&
         lastMutation.tabId === trace.tabId &&
-        trace.message.startsWith(lastMutation.message!)
+        this.hasMatchingOneThirdPrefix(
+          trace.message,
+          lastMutation.message!,
+        )
       ) {
         // Remove the previous mutation from its old position.
         filtered.splice(lastMutationIndex, 1);
