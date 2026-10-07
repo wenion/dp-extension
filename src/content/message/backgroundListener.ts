@@ -9,10 +9,10 @@ export function startBackgroundListener(
   contentController: ContentController,
 ): void {
   chrome.runtime.onMessage.addListener(
-    async (msg: BackgroundEvent) => {
+    (msg: BackgroundEvent) => {
       switch (msg.type) {
         case "CONTENT/INITIALIZED":
-          await contentController.initializeStore(
+          contentController.initializeStore(
             msg.payload
           );
           return;

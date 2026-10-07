@@ -3,6 +3,7 @@ import type { TabsRepository } from "../repositories/TabsRepository";
 import type {
   BackgroundEvent,
   BackgroundMessageType,
+  BackgroundResponse,
 } from "@/shared/messaging/backgroundProtocol";
 
 
@@ -24,7 +25,7 @@ export class ContentScriptClient {
   >(
     tabId: number,
     message: BackgroundEvent<T>,
-  ): Promise<void> {
+  ): Promise<BackgroundResponse<T>> {
     return chrome.tabs.sendMessage(
       tabId,
       message,
