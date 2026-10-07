@@ -37,13 +37,13 @@ export class ActiveSessionService {
 
     // Recording in progress.
     if (active.endedAt === undefined) {
-      await this.notifySessionUpdated();
+      this.notifySessionUpdated();
       return active;
     }
 
     // Upload still in progress.
     if (active.uploadStatus === "uploading") {
-      await this.notifySessionUpdated();
+      this.notifySessionUpdated();
       return active;
     }
 
@@ -76,7 +76,7 @@ export class ActiveSessionService {
 
     await this.activeSessionRepository.setActiveSession(updated);
 
-    await this.notifySessionUpdated();
+    this.notifySessionUpdated();
 
     return updated;
   }
@@ -99,7 +99,7 @@ export class ActiveSessionService {
 
     await this.activeSessionRepository.setActiveSession(updated);
 
-    await this.notifySessionUpdated();
+    this.notifySessionUpdated();
 
     return updated;
   }
@@ -123,7 +123,7 @@ export class ActiveSessionService {
 
     await this.activeSessionRepository.setActiveSession(updated);
 
-    await this.notifySessionUpdated();
+    this.notifySessionUpdated();
 
     return updated;
   }
@@ -144,7 +144,7 @@ export class ActiveSessionService {
 
     await this.activeSessionRepository.clearActiveSession();
     
-    await this.notifySessionUpdated();
+    this.notifySessionUpdated();
   }
 
   async pause(): Promise<ActiveSession | undefined> {
@@ -165,7 +165,7 @@ export class ActiveSessionService {
 
     await this.activeSessionRepository.setActiveSession(updated);
 
-    await this.notifySessionUpdated();
+    this.notifySessionUpdated();
 
     return updated;
   }
@@ -188,7 +188,7 @@ export class ActiveSessionService {
 
     await this.activeSessionRepository.setActiveSession(updated);
 
-    await this.notifySessionUpdated();
+    this.notifySessionUpdated();
 
     return updated;
   }
@@ -213,7 +213,7 @@ export class ActiveSessionService {
 
     await this.activeSessionRepository.setActiveSession(updated);
 
-    await this.notifySessionUpdated();
+    this.notifySessionUpdated();
 
     return updated;
   }
@@ -232,7 +232,7 @@ export class ActiveSessionService {
 
     await this.activeSessionRepository.setActiveSession(updated);
 
-    await this.notifySessionUpdated();
+    this.notifySessionUpdated();
 
     return updated;
   }
@@ -251,7 +251,7 @@ export class ActiveSessionService {
 
     await this.activeSessionRepository.setActiveSession(updated);
 
-    await this.notifySessionUpdated();
+    this.notifySessionUpdated();
 
     return updated;
   }
@@ -270,7 +270,7 @@ export class ActiveSessionService {
 
     await this.activeSessionRepository.setActiveSession(updated);
 
-    await this.notifySessionUpdated();
+    this.notifySessionUpdated();
 
     return updated;
   }
@@ -288,13 +288,13 @@ export class ActiveSessionService {
 
     await this.activeSessionRepository.setActiveSession(active);
 
-    await this.notifySessionUpdated();
+    this.notifySessionUpdated();
 
     return active;
   }
 
-  private async notifySessionUpdated() {
-    await this.contentScriptClient.broadcast({
+  private notifySessionUpdated() {
+    this.contentScriptClient.broadcast({
       type: "SESSION/UPDATED",
       payload: this.getActiveSession(),
     });

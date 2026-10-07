@@ -64,7 +64,7 @@ export class TabsService {
   ): Promise<boolean> {
     const result =
       await this.tabsRepository.removeTab(tab);
-    await this.notifyTabsUpdated();
+    this.notifyTabsUpdated();
 
     return result;
   }
@@ -86,7 +86,7 @@ export class TabsService {
 
     await this.tabsRepository.setTabs(tabs);
 
-    await this.notifyTabsUpdated();
+    this.notifyTabsUpdated();
   }
 
   async addOriginsToAllowlist(
@@ -105,7 +105,7 @@ export class TabsService {
       "recording",
     );
 
-    await this.notifyAllowlistUpdated();
+    this.notifyAllowlistUpdated();
   }
 
   async addToAllowlist(
@@ -120,7 +120,7 @@ export class TabsService {
       "recording",
     );
 
-    await this.notifyAllowlistUpdated();
+    this.notifyAllowlistUpdated();
   }
 
   async removeFromAllowlist(
@@ -136,7 +136,7 @@ export class TabsService {
         "not_in_scope",
       );
 
-    await this.notifyAllowlistUpdated();
+    this.notifyAllowlistUpdated();
 
     return updatedTabs;
   }
@@ -154,7 +154,7 @@ export class TabsService {
         })
       );
 
-    await this.notifyTabsUpdated();
+    this.notifyTabsUpdated();
 
     return updated;
   }
@@ -275,7 +275,7 @@ export class TabsService {
     tab: TabState,
   ): Promise<TabState> {
     await this.tabsRepository.setTab(tab);
-    await this.notifyTabsUpdated();
+    this.notifyTabsUpdated();
 
     return tab;
   }
@@ -290,20 +290,20 @@ export class TabsService {
         updater,
       );
 
-    await this.notifyTabsUpdated();
+    this.notifyTabsUpdated();
 
     return updatedTabs;
   }
 
-  private async notifyTabsUpdated() {
-    await this.contentScriptClient.broadcast({
+  private notifyTabsUpdated() {
+    this.contentScriptClient.broadcast({
       type: "TABS/UPDATED",
       payload: this.getTabs(),
     });
   }
 
-  private async notifyAllowlistUpdated(): Promise<void> {
-    await this.contentScriptClient.broadcast({
+  private notifyAllowlistUpdated(): void {
+    this.contentScriptClient.broadcast({
       type: "ALLOWLIST/UPDATED",
       payload: {
         allowlist: this.getAllowlist(),

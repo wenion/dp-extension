@@ -34,7 +34,7 @@ export class ExtensionService {
   
     await this.extensionRepository.setMountEnabled(true);
 
-    await this.notifyMountUpdated();
+    this.notifyMountUpdated();
   }
 
   async unmount(): Promise<void> {
@@ -44,7 +44,7 @@ export class ExtensionService {
 
     await this.extensionRepository.setMountEnabled(false);
 
-    await this.notifyMountUpdated();
+    this.notifyMountUpdated();
   }
 
   async setOptionsPage(
@@ -52,37 +52,33 @@ export class ExtensionService {
   ): Promise<void> {
     await this.extensionRepository.setOptionsPage(page);
 
-    await this.notifyOptionsPageUpdated();
+    this.notifyOptionsPageUpdated();
   }
 
-  async notifyContent(
+  notifyContent(
     tabId: number,
     contentState: ContentState,
-  ) {
-    try {
-      await this.contentScriptClient.send(
-        tabId,
-        {
-          type: "CONTENT/INITIALIZED",
-          payload: contentState,
-        },
-      );
-    } catch (error) {
-      console.error(error)
-    }
+  ): Promise<void> {
+    return this.contentScriptClient.send(
+      tabId,
+      {
+        type: "CONTENT/INITIALIZED",
+        payload: contentState,
+      },
+    );
   }
 
-  async notifyOptions(
+  notifyOptions(
     optionsState: OptionsState,
   ) {
-    await this.contentScriptClient.broadcast({
+    this.contentScriptClient.broadcast({
       type: "OPTIONS/INITIALIZED",
       payload: optionsState,
     });
   }
 
-  private async notifyMountUpdated() {
-    await this.contentScriptClient.broadcast({
+  private notifyMountUpdated() {
+    this.contentScriptClient.broadcast({
       type: "MOUNT/UPDATED",
       payload: {
         mounted: this.isMountEnabled(),
@@ -90,8 +86,8 @@ export class ExtensionService {
     });
   }
 
-  private async notifyOptionsPageUpdated(): Promise<void> {
-    await this.contentScriptClient.broadcast({
+  private notifyOptionsPageUpdated(): void {
+    this.contentScriptClient.broadcast({
       type: "OPTIONS_PAGE/UPDATED",
       payload: {
         page: this.getOptionsPage(),

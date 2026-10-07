@@ -42,25 +42,21 @@ export class ContentScriptClient {
    * Delivery failures do not interrupt delivery to other tabs.
    * Results are collected and returned to the caller for handling.
    */
-  async broadcast<
+  broadcast<
     T extends BackgroundMessageType,
   >(
     message: BackgroundEvent<T>,
-  ): Promise<void> {
+  ): void {
     const tabs =
       this.tabsRepository.getTabs();
 
-    await Promise.all(
-      tabs.map(async tab => {
-        try {
-          await this.send(
-            tab.tabId,
-            message,
-          );
-        } catch {
-          tab.connected = false;
-        }
-      }),
-    );
+    for (const tab of tabs) {
+      this.send(
+        tab.tabId,
+        message,
+      ).catch(() => {
+        tab.connected = false;
+      });
+    }
   }
 }

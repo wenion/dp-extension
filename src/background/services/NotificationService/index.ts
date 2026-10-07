@@ -48,7 +48,7 @@ export class NotificationService {
     );
   }
 
-  private async present(
+  private present(
     level: NotificationLevel,
     title: string,
     message: string,
@@ -76,23 +76,23 @@ export class NotificationService {
 
     this.notificationRepository.setCurrent(notification.id);
 
-    await this.notifyNotificationsUpdated();
+    this.notifyNotificationsUpdated();
   }
 
-  async dismiss(): Promise<void> {
+  dismiss(): void {
     this.notificationRepository.clearCurrent();
 
-    await this.notifyNotificationsUpdated();
+    this.notifyNotificationsUpdated();
   }
 
-  async clear(): Promise<void> {
+  clear(): void {
     this.notificationRepository.clear();
 
-    await this.notifyNotificationsUpdated();
+    this.notifyNotificationsUpdated();
   }
 
-  private async notifyNotificationsUpdated(): Promise<void> {
-    await this.contentScriptClient.broadcast({
+  private notifyNotificationsUpdated(): void {
+    this.contentScriptClient.broadcast({
       type: "NOTIFICATIONS/UPDATED",
       payload: {
         notifications: this.getNotifications(),

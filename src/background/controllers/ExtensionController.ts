@@ -172,7 +172,7 @@ export class ExtensionController {
       return;
     }
 
-    await this.restoreTabs();
+    // await this.restoreTabs();
     await this.tabsService.resetRecordingScopesFromAllowlist();
 
     await this.activeSessionService.start();

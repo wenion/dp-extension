@@ -39,7 +39,7 @@ export class SessionsService {
       items
     );
 
-    await this.notifySessionsUpdated();
+    this.notifySessionsUpdated();
 
     return items;
   }
@@ -60,7 +60,7 @@ export class SessionsService {
       session,
     );
 
-    await this.notifySessionsUpdated();
+    this.notifySessionsUpdated();
 
     return session;
   }
@@ -82,7 +82,7 @@ export class SessionsService {
       created,
     );
 
-    await this.notifySessionsUpdated();
+    this.notifySessionsUpdated();
 
     return created;
   }
@@ -100,7 +100,7 @@ export class SessionsService {
       persistLocal,
     );
 
-    await this.notifySessionsUpdated();
+    this.notifySessionsUpdated();
   }
 
   /**
@@ -136,7 +136,7 @@ export class SessionsService {
         true,
       );
 
-      await this.notifySessionsUpdated();
+      this.notifySessionsUpdated();
       return updatedSession;
     }
 
@@ -150,7 +150,7 @@ export class SessionsService {
       updated,
     );
 
-    await this.notifySessionsUpdated();
+    this.notifySessionsUpdated();
 
     return updated;
   }
@@ -168,7 +168,7 @@ export class SessionsService {
       deleteLocal,
     );
 
-    await this.notifySessionsUpdated();
+    this.notifySessionsUpdated();
   }
 
   /**
@@ -187,7 +187,7 @@ export class SessionsService {
       session,
     );
 
-    await this.notifySessionsUpdated();
+    this.notifySessionsUpdated();
   }
 
   getSessions(): readonly Session[] {
@@ -207,8 +207,8 @@ export class SessionsService {
     );
   }
 
-  private async notifySessionsUpdated() {
-    await this.contentScriptClient.broadcast({
+  private notifySessionsUpdated() {
+    this.contentScriptClient.broadcast({
       type: "SESSIONS/UPDATED",
       payload: this.getSessions(),
     });
