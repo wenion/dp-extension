@@ -111,10 +111,17 @@ export class ExtensionController {
             tab.tabId,
           );
 
-        await this.extensionService.notifyContent(
-          tab.tabId,
-          contentState,
-        );
+        try {
+          await this.extensionService.notifyContent(
+            tab.tabId,
+            contentState,
+          );
+        } catch {
+          await this.tabsService.setConnected(
+            tab.tabId,
+            false,
+          );
+        }
       }),
     );
 
