@@ -13,7 +13,7 @@ import type { Dispose } from "../types";
 
 const chatgptMutationConfig: MutationObserverInit = {
   childList: true, // Watch for addition or removal of child nodes
-  // attributes: true, // Watch for changes to attributes
+  attributes: true, // Watch for changes to attributes
   subtree: true,   // Watch for changes in descendant nodes
   characterData: true, // Text content changed
 };

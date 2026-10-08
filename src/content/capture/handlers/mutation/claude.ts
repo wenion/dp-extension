@@ -1,19 +1,52 @@
 import type { Trace } from "@/shared/types";
 
+export const CLAUDE_SELECTORS = {
+  human: '[data-testid="user-message"]',
+  ai: '.font-claude-response',
+
+  messageContainer: '[data-testid="transcript-row"]',
+  article: '[role="article"][aria-posinset]',
+
+  message: [
+    '[data-testid="user-message"]',
+    '.font-claude-response',
+  ].join(", "),
+} as const;
+
 export function claudeMutationHandler(
   node: HTMLElement
 ): Trace {
-
   const data = {} as Trace;
 
   data.eventType = "mutation";
-  data.url = window.location.href;
   data.tag = node.tagName;
   data.message = node.innerText;
   data.timestamp = Date.now();
 
-  node.matches('[data-testid="user-message"]') ? data.author = "human" :
-    node.closest('.font-claude-response') ? data.author = "AI" : data.author = "unknown";
+  data.author = node.closest(
+    CLAUDE_SELECTORS.human
+  )
+    ? "human"
+    : node.closest(CLAUDE_SELECTORS.ai)
+      ? "AI"
+      : "unknown";
+
+  const container = node.closest<HTMLElement>(
+    CLAUDE_SELECTORS.messageContainer
+  );
+
+  const article = node.closest<HTMLElement>(
+    CLAUDE_SELECTORS.article
+  );
+
+  data.messageId =
+    container?.getAttribute("data-index") ??
+    article?.getAttribute("aria-posinset") ??
+    undefined;
+
+  data.eventId =
+    article?.getAttribute("aria-label") ??
+    undefined;
 
   return data;
 }
@@ -21,61 +54,65 @@ export function claudeMutationHandler(
 export function createClaudeMutationListener(
   emit: (node: HTMLElement) => void
 ): MutationCallback {
-  let target: HTMLElement | null = null;
-  let innerTextCache: string | null = null;
+  const textCache = new WeakMap<HTMLElement, string>();
 
-  const func = (node: HTMLElement) => {
-    if (target === node && innerTextCache === node.innerText) {
-      return;
+  const findMessages = (
+    node: Node
+  ): HTMLElement[] => {
+    const el =
+      node instanceof HTMLElement
+        ? node
+        : node.parentElement;
+
+    if (!el) return [];
+
+    const closest = el.closest<HTMLElement>(
+      CLAUDE_SELECTORS.message
+    );
+
+    if (closest) {
+      return [closest];
     }
-    emit(node);
-    target = node;
-    innerTextCache = node.innerText;
+
+    return Array.from(
+      el.querySelectorAll<HTMLElement>(
+        CLAUDE_SELECTORS.message
+      )
+    );
   };
 
-  return (mutationList: MutationRecord[], observer: MutationObserver) => {
+  const process = (node: Node) => {
+    const elements = findMessages(node);
+
+    for (const el of elements) {
+      const text = el.innerText;
+
+      if (textCache.get(el) === text) {
+        continue;
+      }
+
+      textCache.set(el, text);
+      emit(el);
+    }
+  };
+
+  return (
+    mutationList: MutationRecord[],
+    _observer: MutationObserver
+  ) => {
     for (const mutation of mutationList) {
-      // // streaming text updates
-      if (mutation.type === "characterData" || mutation.type === "attributes") {
-        const node = mutation.target;
-
-        if (!(node instanceof HTMLElement)) return;
-
-        let el =
-            node.matches('[data-testid="user-message"]')
-            ? node as HTMLElement
-            : node.querySelector('[data-testid="user-message"]') as HTMLElement | null;
-
-        if (!el) {
-          el = node.closest('.font-claude-response') as HTMLElement | null;
-        }
-
-        if (el) {
-          func(el as HTMLElement);
-        }
+      if (
+        mutation.type === "characterData" ||
+        mutation.type === "attributes"
+      ) {
+        process(mutation.target);
       }
 
-      // new DOM nodes added
       if (mutation.type === "childList") {
-        mutation.addedNodes.forEach((node) => {
-          if (!(node instanceof HTMLElement)) return;
+        process(mutation.target);
 
-          let el =
-            node.matches('[data-testid="user-message"]')
-            ? node
-            : node.querySelector('[data-testid="user-message"]');
-
-          if (el) {
-            func(el as HTMLElement);
-          }
-          else {
-            const el = node.closest('.font-claude-response');
-            if (el) {
-              func(el as HTMLElement);
-            }
-          }
-        });
+        mutation.addedNodes.forEach(process);
       }
     }
   };
-};
+}

@@ -1,11 +1,48 @@
 import type { Trace } from "@/shared/types";
 
-const MESSAGE_SELECTOR = [
-  '[data-chatgpt-search-unit-key$=":user"]',
-  '[data-chatgpt-search-unit-key$=":assistant"]',
-  '[data-message-role="user"]',
-  '[data-message-role="assistant"]',
-].join(", ");
+export const CHATGPT_SELECTORS = {
+  human: [
+    '[data-chatgpt-search-unit-key$=":user"]',
+    '[data-message-role="user"]',
+  ].join(", "),
+
+  ai: [
+    '[data-chatgpt-search-unit-key$=":assistant"]',
+    '[data-message-role="assistant"]',
+  ].join(", "),
+
+  message: [
+    '[data-chatgpt-search-unit-key$=":user"]',
+    '[data-chatgpt-search-unit-key$=":assistant"]',
+    '[data-message-role="user"]',
+    '[data-message-role="assistant"]',
+  ].join(", "),
+} as const;
+
+function getChatGPTMessageId(
+  node: HTMLElement,
+): string | undefined {
+  const selectionMessageId =
+    node.getAttribute(
+      "data-chatgpt-selection-message-id",
+    ) ??
+    node.querySelector<HTMLElement>(
+      "[data-chatgpt-selection-message-id]",
+    )?.getAttribute(
+      "data-chatgpt-selection-message-id",
+    );
+
+  const searchMessageIds =
+    node.getAttribute(
+      "data-chatgpt-search-message-ids",
+    );
+
+  return (
+    selectionMessageId ||
+    searchMessageIds?.trim().split(/\s+/)[0] ||
+    undefined
+  );
+}
 
 export function chatgptMutationHandler(
   node: HTMLElement
@@ -22,26 +59,24 @@ export function chatgptMutationHandler(
       "data-message-role",
     );
 
-  const messageId =
-    node.getAttribute(
-      "data-chatgpt-search-message-ids",
-    ) || "";
-
   data.eventType = "mutation";
-
   data.tag = node.tagName;
-
-  data.author =
-    searchUnitKey?.endsWith(":user") ||
-    messageRole === "user"
-      ? "human"
-      : "AI";
-
   data.message = node.innerText;
-
-  data.sessionId = messageId;
-
   data.timestamp = Date.now();
+
+  data.author = node.matches(
+    CHATGPT_SELECTORS.human,
+  )
+    ? "human"
+    : node.matches(CHATGPT_SELECTORS.ai)
+      ? "AI"
+      : "unknown";
+
+  data.messageId = getChatGPTMessageId(node);
+
+  data.eventId =
+    searchUnitKey ??
+    undefined;
 
   data.name =
     searchUnitKey ??
@@ -54,24 +89,67 @@ export function chatgptMutationHandler(
 export function createChatGPTMutationListener(
   emit: (node: HTMLElement) => void
 ): MutationCallback {
-  const innerTextCache =
+  const messageCache =
     new WeakMap<HTMLElement, string>();
 
-  const func = (node: HTMLElement) => {
-    const currentText = node.innerText;
-    const previousText =
-      innerTextCache.get(node);
+  const findMessages = (
+    node: Node,
+  ): HTMLElement[] => {
+    const el =
+      node instanceof HTMLElement
+        ? node
+        : node.parentElement;
 
-    if (previousText === currentText) {
-      return;
+    if (!el) return [];
+
+    const messages = new Set<HTMLElement>();
+
+    const closest = el.closest<HTMLElement>(
+      CHATGPT_SELECTORS.message,
+    );
+
+    if (closest) {
+      messages.add(closest);
     }
 
-    emit(node);
+    if (el.matches(CHATGPT_SELECTORS.message)) {
+      messages.add(el);
+    }
 
-    innerTextCache.set(
-      node,
-      currentText,
-    );
+    el.querySelectorAll<HTMLElement>(
+      CHATGPT_SELECTORS.message,
+    ).forEach(message => {
+      messages.add(message);
+    });
+
+    return Array.from(messages);
+  };
+
+  const process = (node: Node) => {
+    const messages = findMessages(node);
+
+    for (const message of messages) {
+      const currentText = message.innerText;
+
+      const currentState = JSON.stringify([
+        currentText,
+        getChatGPTMessageId(message),
+      ]);
+
+      if (
+        messageCache.get(message) ===
+        currentState
+      ) {
+        continue;
+      }
+
+      messageCache.set(
+        message,
+        currentState,
+      );
+
+      emit(message);
+    }
   };
 
   return (
@@ -79,57 +157,19 @@ export function createChatGPTMutationListener(
     _observer: MutationObserver
   ) => {
     for (const mutation of mutationList) {
-      if (mutation.type === "characterData") {
-        const textNode = mutation.target;
-        const node = textNode.parentElement;
-
-        if (!node) {
-          continue;
-        }
-
-        const messageContainer =
-          node.closest<HTMLElement>(
-            MESSAGE_SELECTOR,
-          );
-
-        if (messageContainer) {
-          func(messageContainer);
-        }
+      if (
+        mutation.type === "characterData" ||
+        mutation.type === "attributes"
+      ) {
+        process(mutation.target);
       }
 
       if (mutation.type === "childList") {
-        const target =
-          mutation.target instanceof HTMLElement
-            ? mutation.target
-            : mutation.target.parentElement;
+        process(mutation.target);
 
-        // Existing message content changed
-        const parentMessage =
-          target?.closest<HTMLElement>(
-            MESSAGE_SELECTOR,
-          );
-
-        if (parentMessage) {
-          func(parentMessage);
-        }
-
-        // A completely new message was added
-        mutation.addedNodes.forEach(node => {
-          if (!(node instanceof HTMLElement)) {
-            return;
-          }
-
-          if (node.matches(MESSAGE_SELECTOR)) {
-            func(node);
-            return;
-          }
-
-          node
-            .querySelectorAll<HTMLElement>(
-              MESSAGE_SELECTOR,
-            )
-            .forEach(func);
-        });
+        mutation.addedNodes.forEach(
+          process,
+        );
       }
     }
   }

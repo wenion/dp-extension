@@ -48,6 +48,7 @@ export type UserEvent = {
   eventValue?: string;
   eventState?: string;    // content state after the event
   eventId?: string;
+  messageId?: string;     // for AI and user conversation
   startPosition?: number;
   endPosition?: number;
 

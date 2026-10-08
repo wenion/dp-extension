@@ -180,7 +180,9 @@ export class TraceProcessorService {
 
     const processedConversationGroups =
       conversationGroups.map(group =>
-        this.processGroupedMutationTraces(group),
+        this.filterHistoricalConversationTraces(
+          this.processGroupedMutationTraces(group),
+        ),
       );
 
     const processedConversationTraces =
@@ -1428,10 +1430,19 @@ export class TraceProcessorService {
       let shouldAdd = true;
 
       for (let i = results.length - 1; i >= 0; i--) {
-        const existingMessage =
-          results[i].message;
+        const existing = results[i];
+        const existingMessage = existing.message;
 
         if (existingMessage === undefined) {
+          continue;
+        }
+
+        // Different messages should not be merged.
+        if (
+          trace.messageId !== undefined &&
+          existing.messageId !== undefined &&
+          trace.messageId !== existing.messageId
+        ) {
           continue;
         }
 
@@ -1469,7 +1480,7 @@ export class TraceProcessorService {
         filtered.push(trace);
         continue;
       }
-      
+
       if (trace.message === undefined) {
         continue;
       }
@@ -1478,17 +1489,33 @@ export class TraceProcessorService {
         lastMutation &&
         lastMutationIndex !== undefined &&
         lastMutation.author === trace.author &&
-        lastMutation.tabId === trace.tabId &&
-        this.hasMatchingOneThirdPrefix(
-          trace.message,
-          lastMutation.message!,
-        )
+        lastMutation.tabId === trace.tabId
       ) {
-        // Remove the previous mutation from its old position.
-        filtered.splice(lastMutationIndex, 1);
+        const sameMessage =
+          trace.messageId !== undefined &&
+          lastMutation.messageId !== undefined
+            ? trace.messageId === lastMutation.messageId
+            : this.hasMatchingOneThirdPrefix(
+                trace.message,
+                lastMutation.message!,
+              );
+
+        if (sameMessage) {
+          const previousMessage = lastMutation.message!;
+          const currentMessage = trace.message;
+
+          if (currentMessage.includes(previousMessage)) {
+            // Keep the longer current message.
+            filtered.splice(lastMutationIndex, 1);
+            lastMutation = undefined;
+            lastMutationIndex = undefined;
+          } else if (previousMessage.includes(currentMessage)) {
+            // Keep the longer previous message.
+            continue;
+          }
+        }
       }
 
-      // Keep current mutation at its actual position.
       filtered.push(trace);
 
       lastMutation = trace;
@@ -1496,6 +1523,93 @@ export class TraceProcessorService {
     }
 
     return filtered;
+  }
+
+  private filterHistoricalConversationTraces(
+    traces: Trace[],
+    threshold = 3,
+    minPairs = 2,
+  ): Trace[] {
+    const mutations = traces.filter(
+      trace =>
+        trace.eventType === "mutation" &&
+        (trace.author === "human" ||
+          trace.author === "AI"),
+    );
+
+    const historicalSequences = new Set<number>();
+
+    let batch: Trace[] = [];
+    let previousResponse: Trace | undefined;
+
+    const flushBatch = () => {
+      if (batch.length >= minPairs * 2) {
+        for (const trace of batch) {
+          if (trace.sourceSequence !== undefined) {
+            historicalSequences.add(
+              trace.sourceSequence,
+            );
+          }
+        }
+      }
+
+      batch = [];
+      previousResponse = undefined;
+    };
+
+    for (let i = 0; i < mutations.length - 1;) {
+      const query = mutations[i];
+      const response = mutations[i + 1];
+
+      if (
+        query.author !== "human" ||
+        response.author !== "AI"
+      ) {
+        flushBatch();
+        i++;
+        continue;
+      }
+
+      const withinTurn =
+        response.timestamp - query.timestamp;
+
+      const betweenTurns = previousResponse
+        ? query.timestamp - previousResponse.timestamp
+        : 0;
+
+      const validWithinTurn =
+        withinTurn >= 0 &&
+        withinTurn <= threshold;
+
+      const validBetweenTurns =
+        betweenTurns >= 0 &&
+        betweenTurns <= threshold;
+
+      if (!validWithinTurn || !validBetweenTurns) {
+        flushBatch();
+
+        // Current pair may start a new historical batch.
+        if (validWithinTurn) {
+          batch.push(query, response);
+          previousResponse = response;
+        }
+      } else {
+        batch.push(query, response);
+        previousResponse = response;
+      }
+
+      i += 2;
+    }
+
+    flushBatch();
+
+    return traces.filter(
+      trace =>
+        trace.sourceSequence === undefined ||
+        !historicalSequences.has(
+          trace.sourceSequence,
+        ),
+    );
   }
 
   private groupConversationTraces(
@@ -1523,42 +1637,6 @@ export class TraceProcessorService {
     }
 
     return [...traceGroups.values()];
-  }
-
-  private groupGoogleDocsTraces(
-    traces: Trace[],
-  ): GroupedTraces {
-    const groups = new Map<number, Trace[]>();
-    const otherTraces: Trace[] = [];
-
-    for (const trace of traces) {
-      if (
-        trace.tabId === undefined ||
-        !trace.url?.startsWith(
-          "https://docs.google.com/document/"
-        )
-      ) {
-        otherTraces.push(trace);
-        continue;
-      }
-
-      const group =
-        groups.get(trace.tabId);
-
-      if (group) {
-        group.push(trace);
-      } else {
-        groups.set(
-          trace.tabId,
-          [trace],
-        );
-      }
-    }
-
-    return {
-      groups: [...groups.values()],
-      otherTraces,
-    };
   }
 
   private processGroupedMutationTraces(
@@ -1775,6 +1853,42 @@ export class TraceProcessorService {
     }
 
     return result;
+  }
+
+  private groupGoogleDocsTraces(
+    traces: Trace[],
+  ): GroupedTraces {
+    const groups = new Map<number, Trace[]>();
+    const otherTraces: Trace[] = [];
+
+    for (const trace of traces) {
+      if (
+        trace.tabId === undefined ||
+        !trace.url?.startsWith(
+          "https://docs.google.com/document/"
+        )
+      ) {
+        otherTraces.push(trace);
+        continue;
+      }
+
+      const group =
+        groups.get(trace.tabId);
+
+      if (group) {
+        group.push(trace);
+      } else {
+        groups.set(
+          trace.tabId,
+          [trace],
+        );
+      }
+    }
+
+    return {
+      groups: [...groups.values()],
+      otherTraces,
+    };
   }
 
   private getKeyAndCode(value: string): {
