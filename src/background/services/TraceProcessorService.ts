@@ -2011,6 +2011,19 @@ export class TraceProcessorService {
       .trim();
   }
 
+  private getGoogleDocsRequestId(
+    trace: Trace,
+  ): string | undefined {
+    if (
+      trace.eventType !== "google-docs-edit" ||
+      !trace.eventId
+    ) {
+      return undefined;
+    }
+
+    return trace.eventId.split("_")[0];
+  }
+
   private findPasteInsertEndIndex(
     traces: Trace[],
     pasteIndex: number,
@@ -2022,7 +2035,9 @@ export class TraceProcessorService {
       return undefined;
     }
 
+    let requestId: string | undefined;
     let combinedInsertValue = "";
+    let endIndex: number | undefined;
 
     for (
       let index = pasteIndex + 1;
@@ -2037,35 +2052,34 @@ export class TraceProcessorService {
         break;
       }
 
-      // Selection paste:
-      // keep looking past delete traces.
-      if (trace.elementType === "delete") {
-        trace.eventType = "keystroke";
-        continue;
-      }
+      const currentRequestId =
+        this.getGoogleDocsRequestId(trace);
 
-      if (
-        trace.elementType !== "insert" ||
-        !trace.eventValue
-      ) {
+      if (!currentRequestId) {
         break;
       }
 
-      combinedInsertValue += trace.eventValue;
-
-      if (
-        this.normalizeForGoogleDocsComparison(
-          combinedInsertValue,
-        ) ===
-        this.normalizeForGoogleDocsComparison(
-          pasteValue,
-        )
-      ) {
-        return index;
+      if (requestId === undefined) {
+        requestId = currentRequestId;
       }
+
+      if (currentRequestId !== requestId) {
+        break;
+      }
+
+      if (trace.elementType === "insert") {
+        combinedInsertValue +=
+          trace.eventValue ?? "";
+      }
+
+      endIndex = index;
     }
 
-    return undefined;
+    if (endIndex === undefined) {
+      return undefined;
+    }
+
+    return endIndex;
   }
 
   private findCutDeleteEndIndex(
