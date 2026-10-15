@@ -9,7 +9,7 @@ import { listen } from "../../listener/listen";
 import {
   disableXHR,
   enableXHR,
-  loadInjectedScript,
+  loadScript,
 } from "./injectedController";
 import { createGoogleDocsMessageListener } from "./listener";
 
@@ -148,16 +148,29 @@ export function mountGoogleDocsXHR(
   config: XHRHookConfig,
   emit: (trace: GoogleDocsMeta) => void,
 ): Dispose {
-  const onLoad = () => enableXHR(config);
-
-  loadInjectedScript(onLoad);
+  let disposed = false;
 
   const handler =
     createGoogleDocsMessageListener(emit);
 
   window.addEventListener("message", handler);
 
+  loadScript("injected.js").then((loaded) => {
+    if (!loaded) {
+      return;
+    }
+
+    // Clean up if disposed before the script finished loading.
+    if (disposed) {
+      disableXHR();
+    }
+    else {
+      enableXHR(config);
+    }
+  });
+
   return () => {
+    disposed = true;
     disableXHR();
     window.removeEventListener("message", handler);
   };

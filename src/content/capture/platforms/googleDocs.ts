@@ -46,7 +46,6 @@ export const googleDocsPlatform = {
       ),
     );
 
-    // common listeners
     group.add(
       mountGoogleDocsXHR(
         googleDocsConfig,
