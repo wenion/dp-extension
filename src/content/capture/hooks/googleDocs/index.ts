@@ -155,7 +155,7 @@ export function mountGoogleDocsXHR(
 
   window.addEventListener("message", handler);
 
-  loadScript("injected.js").then((loaded) => {
+  loadScript("xhr-interceptor.js").then((loaded) => {
     if (!loaded) {
       return;
     }
