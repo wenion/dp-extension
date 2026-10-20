@@ -25,6 +25,14 @@ async function main() {
     .split(",")
     .map(s => s.trim())
     .filter(Boolean);
+  const fetch_interceptor_resources = (process.env.FETCH_INTERCEPTOR_RESOURCES ?? "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+  const fetch_interceptor_matches = (process.env.FETCH_INTERCEPTOR_MATCHES ?? "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
   const host_permissions = (process.env.HOST_PERMISSIONS ?? "")
     .split(",")
     .map(s => s.trim())
@@ -47,6 +55,8 @@ async function main() {
     externally_connectable_matches: JSON.stringify(externallyConnectableMatches),
     xhr_interceptor_resources: JSON.stringify(xhr_interceptor_resources),
     xhr_interceptor_matches: JSON.stringify(xhr_interceptor_matches),
+    fetch_interceptor_resources: JSON.stringify(fetch_interceptor_resources),
+    fetch_interceptor_matches: JSON.stringify(fetch_interceptor_matches),
     host_permissions: JSON.stringify(host_permissions),
     permissions: JSON.stringify(permissions),
     content_script_matches: JSON.stringify(contentScriptMatches),

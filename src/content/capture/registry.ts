@@ -1,4 +1,4 @@
-import { chatgptPlatform } from "./platforms/chatgpt";
+import { chatgptPlatform } from "./platforms/chatGPT";
 import { copilotPlatform } from "./platforms/copilot";
 import { claudePlatform } from "./platforms/claude";
 import { defaultPlatform } from "./platforms/default";

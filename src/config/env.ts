@@ -36,6 +36,11 @@ export const env = {
     import.meta.env.XHR_INTERCEPTOR_RESOURCES,
   ),
 
+  fetchInterceptorScript: requiredScript(
+    "FETCH_INTERCEPTOR_RESOURCES",
+    import.meta.env.FETCH_INTERCEPTOR_RESOURCES,
+  ),
+
   mode: import.meta.env.MODE,
   isDev: import.meta.env.DEV,
   isProd: import.meta.env.PROD,
