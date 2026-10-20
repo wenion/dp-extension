@@ -1,3 +1,9 @@
+import {
+  MESSAGE_SENDER,
+  INTERCEPTOR_TYPE,
+} from "@/shared/interceptor";
+
+import type { XHRTraceMessage } from "@/shared/interceptor";
 import type { GoogleDocsMeta } from "@/shared/types";
 
 type DocElement = {
@@ -8,15 +14,6 @@ type DocElement = {
   ei?: number; // end position for "ds"
   st?: string; // for "as" type, e.g., "ignore_spellcheck"
   mts?: Array<DocElement>; // array of operations for "mlti"
-};
-
-type XHRTraceMessage = {
-  source: string;
-  meta: {
-    method: string;
-    url: string;
-  };
-  body: Document | XMLHttpRequestBodyInit | null;
 };
 
 function parseSaveBundle(msg: any): GoogleDocsMeta[] {
@@ -148,11 +145,12 @@ function parseAssistWriting(msg: any): GoogleDocsMeta | null {
   }
 }
 
-export function createGoogleDocsMessageListener(
+export function createGoogleDocsXHRHandler(
   emit: (trace: GoogleDocsMeta) => void,
 ) {
-  return (event: MessageEvent<XHRTraceMessage>) => {
-
+  return (
+    event: MessageEvent<XHRTraceMessage>,
+  ) => {
     if (event.source !== window) {
       return;
     }
@@ -161,7 +159,8 @@ export function createGoogleDocsMessageListener(
 
     if (
       !msg ||
-      msg.source !== "injected"
+      msg.sender !== MESSAGE_SENDER.INJECTED ||
+      msg.interceptor !== INTERCEPTOR_TYPE.XHR
     ) {
       return;
     }

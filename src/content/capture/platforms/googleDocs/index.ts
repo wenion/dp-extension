@@ -1,26 +1,20 @@
 import {
   sendGoogleDocsTrace,
   sendUserTrace,
-} from "../../message/backgroundClient";
-import {
-  mountGoogleDocsEditor,
-  mountGoogleDocsXHR,
-} from "../hooks/googleDocs";
-import { ListenerGroup } from "../listener/ListenerGroup";
+} from "../../../message/backgroundClient";
+
+import { mountGoogleDocsClipboardListeners } from "./clipboard";
+import { mountGoogleDocsXHR } from "./xhr";
+
+import { ListenerGroup } from "../../listener/ListenerGroup";
 
 import type {
   GoogleDocsMeta,
   UserEvent,
 } from "@/shared/types";
 
-import type { Overlay } from "../../overlay/Overlay";
-import type { Dispose } from "../types";
-
-
-const googleDocsConfig = {
-  methods: ["POST"],
-  url: ["/save", "/assistwriting"],
-};
+import type { Overlay } from "../../../overlay/Overlay";
+import type { Dispose } from "../../types";
 
 export const googleDocsPlatform = {
   mount(
@@ -29,7 +23,7 @@ export const googleDocsPlatform = {
     const group = new ListenerGroup();
 
     group.add(
-      mountGoogleDocsEditor(
+      mountGoogleDocsClipboardListeners(
         async (trace: UserEvent) => {
           try {
             await sendUserTrace(trace);
@@ -48,7 +42,6 @@ export const googleDocsPlatform = {
 
     group.add(
       mountGoogleDocsXHR(
-        googleDocsConfig,
         async (trace: GoogleDocsMeta) => {
           try {
             await sendGoogleDocsTrace(trace);

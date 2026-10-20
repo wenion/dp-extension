@@ -6,21 +6,10 @@ import {
 import { ListenerGroup } from "../../listener/ListenerGroup";
 import { listen } from "../../listener/listen";
 
-import {
-  disableXHR,
-  enableXHR,
-  loadScript,
-} from "./injectedController";
-import { createGoogleDocsMessageListener } from "./listener";
-
-import type {
-  GoogleDocsMeta,
-  UserEvent,
-} from "@/shared/types";
+import type { UserEvent } from "@/shared/types";
 import type { Dispose } from "../../types";
-import type { XHRHookConfig } from "./controllerType";
 
-export function mountGoogleDocsEditor(
+export function mountGoogleDocsClipboardListeners(
   emit: (trace: UserEvent) => void,
 ): Dispose {
   let currentIframe: HTMLIFrameElement | null = null;
@@ -141,37 +130,5 @@ export function mountGoogleDocsEditor(
 
     currentIframe = null;
     currentEditor = null;
-  };
-}
-
-export function mountGoogleDocsXHR(
-  config: XHRHookConfig,
-  emit: (trace: GoogleDocsMeta) => void,
-): Dispose {
-  let disposed = false;
-
-  const handler =
-    createGoogleDocsMessageListener(emit);
-
-  window.addEventListener("message", handler);
-
-  loadScript("xhr-interceptor.js").then((loaded) => {
-    if (!loaded) {
-      return;
-    }
-
-    // Clean up if disposed before the script finished loading.
-    if (disposed) {
-      disableXHR();
-    }
-    else {
-      enableXHR(config);
-    }
-  });
-
-  return () => {
-    disposed = true;
-    disableXHR();
-    window.removeEventListener("message", handler);
   };
 }

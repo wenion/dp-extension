@@ -17,6 +17,10 @@ async function main() {
     .map(s => s.trim())
     .filter(Boolean);
   const default_popup = process.env.DEFAULT_POPUP ?? "popup.html";
+  const xhr_interceptor_resources = (process.env.XHR_INTERCEPTOR_RESOURCES ?? "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
   const xhr_interceptor_matches = (process.env.XHR_INTERCEPTOR_MATCHES ?? "")
     .split(",")
     .map(s => s.trim())
@@ -41,6 +45,7 @@ async function main() {
     version: version,
     default_popup: default_popup,
     externally_connectable_matches: JSON.stringify(externallyConnectableMatches),
+    xhr_interceptor_resources: JSON.stringify(xhr_interceptor_resources),
     xhr_interceptor_matches: JSON.stringify(xhr_interceptor_matches),
     host_permissions: JSON.stringify(host_permissions),
     permissions: JSON.stringify(permissions),

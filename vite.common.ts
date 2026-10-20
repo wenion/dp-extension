@@ -5,8 +5,10 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 export const common = {
+  envPrefix: ["VITE_", "XHR_INTERCEPTOR_RESOURCES"],
+
   define: {
-      "process.env.NODE_ENV": JSON.stringify("production"),
+    "process.env.NODE_ENV": JSON.stringify("production"),
   },
 
   plugins: [

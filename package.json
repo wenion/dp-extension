@@ -11,7 +11,8 @@
     "build:options": "vite build --config vite.options.config.ts",
     "build:background": "vite build --config vite.background.config.ts",
     "build:content": "vite build --config vite.content.config.ts",
-    "build": "tsc -b && npm run build:options && npm run build:background && npm run build:content",
+    "build:xhr-interceptor": "vite build --config vite.xhr-interceptor.config.ts",
+    "build": "tsc -b && npm run build:options && npm run build:background && npm run build:content && npm run build:xhr-interceptor",
     "lint": "eslint .",
     "preview": "vite preview"
   },
